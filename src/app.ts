@@ -1,34 +1,30 @@
 import express from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import path from "path";
 import session from "express-session";
-import passport from "./config/oauth";
-import router from "./routes";
 import { env } from "./config/env";
+import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
 
-const app = express();
+export const app = express();
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  session({
-    secret: env.jwtSecret,
-    resave: false,
-    saveUninitialized: false
-  })
-);
+app.use(session({
+  secret: env.sessionSecret,
+  resave: false,
+  saveUninitialized: false
+}));
 
-app.use(passport.initialize());
-app.use(passport.session());
+app.use("/api/auth", routes.auth);
 
-app.use("/uploads", express.static(path.join(process.cwd(), env.fileUploadDir)));
+app.use(routes.authMiddleware);
 
-app.use("/api", router);
+app.use("/api/costumes", routes.costumes);
+app.use("/api/reservations", routes.reservations);
+app.use("/api/payments", routes.payments);
+app.use("/api/notifications", routes.notifications);
+app.use("/api/wishlist", routes.wishlist);
+app.use("/api/reviews", routes.reviews);
+app.use("/api/admin", routes.admin);
 
 app.use(errorMiddleware);
-
-export { app };
