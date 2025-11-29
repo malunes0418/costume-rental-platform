@@ -1,0 +1,42 @@
+{
+  "name": "costume-rental-platform",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "1.4.5-lts.2",
+    "mysql2": "^3.0.0",
+    "nodemailer": "^6.9.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "sequelize": "^6.35.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.21",
+    "@types/express-session": "^1.18.2",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/multer": "^1.4.7",
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^7.0.4",
+    "@types/passport-google-oauth20": "^2.0.11",
+    "sequelize-cli": "^6.6.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.0"
+  }
+}
