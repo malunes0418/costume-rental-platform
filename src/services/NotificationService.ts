@@ -3,18 +3,25 @@ import { User } from "../models/User";
 import { mailer } from "../config/mailer";
 
 export class NotificationService {
+  private sanitizeEmailHeader(text: string): string {
+    // Remove newlines and carriage returns to prevent email header injection
+    return text.replace(/[\r\n]/g, '');
+  }
+
   async create(userId: number, type: string, title: string, message: string) {
+    const sanitizedTitle = this.sanitizeEmailHeader(title);
+    
     const notification = await Notification.create({
       user_id: userId,
       type,
-      title,
+      title: sanitizedTitle,
       message
     });
     const user = await User.findByPk(userId);
     if (user && user.email) {
       await mailer.sendMail({
-        to: user.email,
-        subject: title,
+        to: this.sanitizeEmailHeader(user.email),
+        subject: sanitizedTitle,
         text: message
       });
     }
@@ -22,20 +29,22 @@ export class NotificationService {
   }
 
   async createForAdmin(type: string, title: string, message: string) {
+    const sanitizedTitle = this.sanitizeEmailHeader(title);
+    
     const admins = await User.findAll({ where: { role: "ADMIN" } });
     const notifications = [];
     for (const admin of admins) {
       const n = await Notification.create({
         user_id: admin.id,
         type,
-        title,
+        title: sanitizedTitle,
         message
       });
       notifications.push(n);
       if (admin.email) {
         await mailer.sendMail({
-          to: admin.email,
-          subject: title,
+          to: this.sanitizeEmailHeader(admin.email),
+          subject: sanitizedTitle,
           text: message
         });
       }

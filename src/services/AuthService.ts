@@ -5,7 +5,29 @@ import { User } from "../models/User";
 import { OAuthAccount } from "../models/OAuthAccount";
 
 export class AuthService {
+  private validateEmail(email: string): void {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+  }
+
+  private validatePassword(password: string): void {
+    if (password.length < 8) {
+      throw new Error("Password must be at least 8 characters long");
+    }
+    
+    // Consolidated regex check for password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(password)) {
+      throw new Error("Password must contain at least one uppercase letter, one lowercase letter, and one number");
+    }
+  }
+
   async register(email: string, password: string, name?: string) {
+    this.validateEmail(email);
+    this.validatePassword(password);
+    
     const existing = await User.findOne({ where: { email } });
     if (existing) {
       throw new Error("Email already in use");
