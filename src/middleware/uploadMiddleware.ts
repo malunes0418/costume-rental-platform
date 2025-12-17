@@ -26,7 +26,7 @@ const storage = multer.diskStorage({
     // Validate extension
     const allowedExts = Object.values(ALLOWED_FILE_TYPES);
     if (!allowedExts.includes(ext)) {
-      return cb(new Error('Invalid file type'), '');
+      return cb(new Error(`Invalid file type. Allowed extensions: ${allowedExts.join(', ')}`), '');
     }
     
     cb(null, unique + ext);

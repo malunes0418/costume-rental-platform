@@ -23,8 +23,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     req.user = { id: decoded.sub, role: decoded.role };
     next();
   } catch (error) {
-    // Log error for monitoring (don't expose details to client)
-    console.error('Auth error:', error instanceof Error ? error.message : 'Unknown error');
+    // Log error for monitoring in non-production environments
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Auth error:', error instanceof Error ? error.message : 'Unknown error');
+    }
     res.status(401).json({ message: "Invalid token" });
   }
 }

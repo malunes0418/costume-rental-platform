@@ -16,14 +16,11 @@ export class AuthService {
     if (password.length < 8) {
       throw new Error("Password must be at least 8 characters long");
     }
-    if (!/[A-Z]/.test(password)) {
-      throw new Error("Password must contain at least one uppercase letter");
-    }
-    if (!/[a-z]/.test(password)) {
-      throw new Error("Password must contain at least one lowercase letter");
-    }
-    if (!/\d/.test(password)) {
-      throw new Error("Password must contain at least one number");
+    
+    // Consolidated regex check for password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(password)) {
+      throw new Error("Password must contain at least one uppercase letter, one lowercase letter, and one number");
     }
   }
 
