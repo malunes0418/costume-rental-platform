@@ -9,10 +9,21 @@ export const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const useSecureCookies = env.nodeEnv === "production";
+if (useSecureCookies) {
+  app.set("trust proxy", 1);
+}
+
 app.use(session({
   secret: env.sessionSecret,
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  proxy: useSecureCookies,
+  cookie: {
+    secure: useSecureCookies,
+    httpOnly: true,
+    sameSite: "lax"
+  }
 }));
 
 app.use("/api/auth", routes.auth);

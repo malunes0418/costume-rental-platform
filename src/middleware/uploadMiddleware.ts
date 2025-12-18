@@ -5,6 +5,8 @@ import { ensureUploadDir } from "../utils/fileStorage";
 
 ensureUploadDir();
 
+const allowedMime = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     cb(null, env.fileUploadDir);
@@ -16,4 +18,13 @@ const storage = multer.diskStorage({
   }
 });
 
-export const upload = multer({ storage });
+export const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (!allowedMime.includes(file.mimetype)) {
+      return cb(new Error("Unsupported file type"));
+    }
+    cb(null, true);
+  }
+});
