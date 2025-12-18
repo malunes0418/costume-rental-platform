@@ -12,11 +12,15 @@ export class PaymentController {
       const user = (req as any).user;
       const { reservationId, amount } = req.body;
       const file = (req as any).file as Express.Multer.File;
+      const id = Number(reservationId);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: "reservationId must be a positive integer" });
+      }
       if (!file) {
         res.status(400).json({ message: "Proof file is required" });
         return;
       }
-      const payment = await paymentService.uploadProof(user.id, Number(reservationId), `/uploads/${file.filename}`, Number(amount));
+      const payment = await paymentService.uploadProof(user.id, id, `/uploads/${file.filename}`, amount ? Number(amount) : undefined);
       res.json(payment);
     } catch (e: any) {
       res.status(400).json({ message: e.message });

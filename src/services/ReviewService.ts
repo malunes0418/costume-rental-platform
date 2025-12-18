@@ -4,6 +4,9 @@ import { User } from "../models/User";
 
 export class ReviewService {
   async createOrUpdateReview(userId: number, costumeId: number, rating: number, comment?: string) {
+    if (rating < 1 || rating > 5) {
+      throw new Error("Rating must be between 1 and 5");
+    }
     let review = await Review.findOne({ where: { user_id: userId, costume_id: costumeId } });
     if (!review) {
       review = await Review.create({ user_id: userId, costume_id: costumeId, rating, comment });
