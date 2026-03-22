@@ -10,5 +10,6 @@ router.post("/payments/review", authMiddleware, adminMiddleware, (req, res) => c
 router.get("/reservations", authMiddleware, adminMiddleware, (req, res) => controller.listReservations(req, res));
 router.get("/payments", authMiddleware, adminMiddleware, (req, res) => controller.listPayments(req, res));
 router.get("/inventory", authMiddleware, adminMiddleware, (req, res) => controller.listInventory(req, res));
+router.get("/users", authMiddleware, adminMiddleware, (req, res) => controller.listUsers(req, res));
 
 export default router;

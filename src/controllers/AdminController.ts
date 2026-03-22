@@ -44,4 +44,13 @@ export class AdminController {
       res.status(400).json({ message: e.message });
     }
   }
+
+  async listUsers(req: Request, res: Response) {
+    try {
+      const users = await adminService.listUsers();
+      res.json(users);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  }
 }

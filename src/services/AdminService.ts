@@ -19,4 +19,8 @@ export class AdminService {
   async listInventory() {
     return Costume.findAll();
   }
+
+  async listUsers() {
+    return User.findAll();
+  }
 }

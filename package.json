@@ -23,7 +23,8 @@
     "nodemailer": "^6.9.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "sequelize": "^6.35.0"
+    "sequelize": "^6.35.0",
+    "umzug": "^3.8.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",
