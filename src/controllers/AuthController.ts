@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { JwtHelper } from "../helpers/JwtHelper";
 import { AuthService } from "../services/AuthService";
 
 const authService = new AuthService();
@@ -30,7 +31,17 @@ export class AuthController {
 
   oauthCallback(req: Request, res: Response) {
     const user = (req as any).user;
-    const token = authService.generateToken(user);
+    const token = JwtHelper.generateToken(user);
     res.redirect(`${process.env.FRONTEND_BASE_URL || "http://localhost:5173"}/oauth/callback?token=${token}`);
+  }
+
+  async logout(req: Request, res: Response) {
+    try {
+      const { token } = req.body;
+      await authService.logout(token);
+      res.json({ message: "Logged out" });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
   }
 }

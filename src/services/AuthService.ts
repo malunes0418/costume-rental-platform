@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { env } from "../config/env";
+import { JwtHelper } from "../helpers/JwtHelper";
 import { User } from "../models/User";
 import { OAuthAccount } from "../models/OAuthAccount";
 
@@ -12,7 +11,7 @@ export class AuthService {
     }
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password_hash: hash, name });
-    const token = this.generateToken(user);
+    const token = JwtHelper.generateToken(user);
     return { user, token };
   }
 
@@ -25,7 +24,7 @@ export class AuthService {
     if (!match) {
       throw new Error("Invalid credentials");
     }
-    const token = this.generateToken(user);
+    const token = JwtHelper.generateToken(user);
     return { user, token };
   }
 
@@ -36,7 +35,7 @@ export class AuthService {
       if (!user) {
         throw new Error("User not found");
       }
-      const token = this.generateToken(user);
+      const token = JwtHelper.generateToken(user);
       return { user, token };
     }
     let user = null;
@@ -47,16 +46,9 @@ export class AuthService {
       user = await User.create({ email: email || "", name, avatar_url: avatarUrl });
     }
     oauthAccount = await OAuthAccount.create({ user_id: user.id, provider, provider_user_id: providerUserId });
-    const token = this.generateToken(user);
+    const token = JwtHelper.generateToken(user);
     return { user, token };
   }
 
-  generateToken(user: User) {
-    return jwt.sign({ sub: user.id, role: user.role }, env.jwtSecret, { expiresIn: "7d" });
-  }
-
-  verifyToken(token: string) {
-    const decoded = jwt.verify(token, env.jwtSecret) as any;
-    return { sub: Number(decoded.sub), role: decoded.role };
-  }
+  async logout(_token: string) {}
 }

@@ -1,0 +1,340 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-costume-rental-api",
+    "name": "Costume Rental API",
+    "description": "Backend API for costume-rental-platform.\n\n**Setup:** Import this collection and the **Costume Rental — Local** environment, select that environment, then run **Register** or **Login** — the response `token` is saved to the environment for Bearer auth on other requests.\n\nNote: `authMiddleware` is global (except `/api/auth/*`), so most routes require a valid JWT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "(function () {",
+                  "  if (![200, 201].includes(pm.response.code)) return;",
+                  "  var json;",
+                  "  try { json = pm.response.json(); } catch (e) { return; }",
+                  "  if (!json || typeof json !== 'object') return;",
+                  "  if (json.token) {",
+                  "    pm.environment.set('token', json.token);",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "  }",
+                  "  if (json.user && json.user.id != null) {",
+                  "    pm.environment.set('userId', String(json.user.id));",
+                  "  }",
+                  "})();"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"name\": \"{{testName}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Creates a user. On success, saves `token` and `userId` to the active environment."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "(function () {",
+                  "  if (![200, 201].includes(pm.response.code)) return;",
+                  "  var json;",
+                  "  try { json = pm.response.json(); } catch (e) { return; }",
+                  "  if (!json || typeof json !== 'object') return;",
+                  "  if (json.token) {",
+                  "    pm.environment.set('token', json.token);",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "  }",
+                  "  if (json.user && json.user.id != null) {",
+                  "    pm.environment.set('userId', String(json.user.id));",
+                  "  }",
+                  "})();"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "On success, saves `token` and `userId` to the active environment."
+          }
+        }
+      ]
+    },
+    {
+      "name": "API (requires token)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Auth / Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Costumes",
+          "item": [
+            {
+              "name": "List costumes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/costumes?q=&category=&size=&gender=&theme=&sort=&page=&pageSize="
+              }
+            },
+            {
+              "name": "Get costume by id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/costumes/{{costumeId}}"
+              }
+            },
+            {
+              "name": "Costume availability",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/costumes/{{costumeId}}/availability?startDate=2025-01-01&endDate=2025-01-07"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservations",
+          "item": [
+            {
+              "name": "Add to cart",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"costumeId\": {{costumeId}},\n  \"quantity\": 1,\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-06-03\"\n}"
+                },
+                "url": "{{baseUrl}}/api/reservations/cart"
+              }
+            },
+            {
+              "name": "Checkout",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reservationId\": {{reservationId}}\n}"
+                },
+                "url": "{{baseUrl}}/api/reservations/checkout"
+              }
+            },
+            {
+              "name": "My reservations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/reservations/my"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payments",
+          "item": [
+            {
+              "name": "Upload payment proof",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "reservationId", "value": "{{reservationId}}", "type": "text" },
+                    { "key": "amount", "value": "100", "type": "text" },
+                    { "key": "proof", "type": "file", "src": [] }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/payments/proof",
+                "description": "Choose a file for `proof` in the Body tab."
+              }
+            },
+            {
+              "name": "My payments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/payments/my"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "item": [
+            {
+              "name": "List notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/notifications"
+              }
+            },
+            {
+              "name": "Mark notification read",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wishlist",
+          "item": [
+            {
+              "name": "Add to wishlist",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"costumeId\": {{costumeId}}\n}"
+                },
+                "url": "{{baseUrl}}/api/wishlist"
+              }
+            },
+            {
+              "name": "List wishlist",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/wishlist"
+              }
+            },
+            {
+              "name": "Remove from wishlist",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/api/wishlist/{{costumeId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reviews",
+          "item": [
+            {
+              "name": "Create or update review",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"costumeId\": {{costumeId}},\n  \"rating\": 5,\n  \"comment\": \"Great costume\"\n}"
+                },
+                "url": "{{baseUrl}}/api/reviews"
+              }
+            },
+            {
+              "name": "List reviews for costume",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/reviews/costumes/{{costumeId}}"
+              }
+            },
+            {
+              "name": "Delete review",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/api/reviews/{{reviewId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Review payment",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentId\": {{paymentId}},\n  \"approve\": true,\n  \"notes\": \"OK\"\n}"
+                },
+                "url": "{{baseUrl}}/api/admin/payments/review"
+              }
+            },
+            {
+              "name": "List reservations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/reservations"
+              }
+            },
+            {
+              "name": "List payments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/payments"
+              }
+            },
+            {
+              "name": "List inventory",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/inventory"
+              }
+            },
+            {
+              "name": "List users",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/users"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
