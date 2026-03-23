@@ -1,11 +1,33 @@
+import type { Request } from "express";
 import { Op } from "sequelize";
+import type { CostumeListQuery } from "../dto";
 import { Costume } from "../models/Costume";
 import { CostumeImage } from "../models/CostumeImage";
 import { Review } from "../models/Review";
 import { getPagination } from "../utils/pagination";
 
 export class CostumeService {
-  async list(query: { q?: string; category?: string; size?: string; gender?: string; theme?: string; sort?: string; page?: number; pageSize?: number }) {
+  private costumeListQueryFromRequestQuery(q: Request["query"]): CostumeListQuery {
+    const { q: search, category, size, gender, theme, sort, page, pageSize } = q;
+    const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+    const num = (v: unknown) => (v !== undefined && v !== "" && v !== null ? Number(v) : undefined);
+    return {
+      q: str(search),
+      category: str(category),
+      size: str(size),
+      gender: str(gender),
+      theme: str(theme),
+      sort: str(sort),
+      page: num(page),
+      pageSize: num(pageSize)
+    };
+  }
+
+  async listFromRequestQuery(query: Request["query"]) {
+    return this.list(this.costumeListQueryFromRequestQuery(query));
+  }
+
+  async list(query: CostumeListQuery) {
     const where: any = { is_active: true };
     if (query.q) {
       where.name = { [Op.like]: `%${query.q}%` };
@@ -27,6 +49,10 @@ export class CostumeService {
       order
     });
     return { data: rows, page, pageSize, total: count };
+  }
+
+  async getByIdFromParams(params: Request["params"]) {
+    return this.getById(Number(params.id));
   }
 
   async getById(id: number) {

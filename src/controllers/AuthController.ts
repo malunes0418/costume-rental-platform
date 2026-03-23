@@ -1,32 +1,40 @@
 import { Request, Response } from "express";
 import { JwtHelper } from "../helpers/JwtHelper";
 import { AuthService } from "../services/AuthService";
+import { env } from "../config/env";
+import {
+  ApiResponse,
+  AuthTokenResponse,
+  LoginRequest,
+  LogoutRequest,
+  MeResponse,
+  MessageResponse,
+  RegisterRequest
+} from "../dto";
 
 const authService = new AuthService();
 
 export class AuthController {
   async register(req: Request, res: Response) {
     try {
-      const { email, password, name } = req.body;
-      const result = await authService.register(email, password, name);
-      res.json(result);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      const result = await authService.register(req.body as RegisterRequest);
+      ApiResponse.ok(res, result as AuthTokenResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 
   async login(req: Request, res: Response) {
     try {
-      const { email, password } = req.body;
-      const result = await authService.login(email, password);
-      res.json(result);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      const result = await authService.login(req.body as LoginRequest);
+      ApiResponse.ok(res, result as AuthTokenResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 
   async me(req: Request, res: Response) {
-    res.json((req as any).user);
+    ApiResponse.ok(res, req.user as MeResponse);
   }
 
   oauthCallback(req: Request, res: Response) {
@@ -37,11 +45,10 @@ export class AuthController {
 
   async logout(req: Request, res: Response) {
     try {
-      const { token } = req.body;
-      await authService.logout(token);
-      res.json({ message: "Logged out" });
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      await authService.logout(req.body as LogoutRequest);
+      ApiResponse.ok(res, { message: "Logged out" } as MessageResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 }

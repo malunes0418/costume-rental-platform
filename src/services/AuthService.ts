@@ -2,9 +2,10 @@ import bcrypt from "bcryptjs";
 import { JwtHelper } from "../helpers/JwtHelper";
 import { User } from "../models/User";
 import { OAuthAccount } from "../models/OAuthAccount";
+import type { LoginRequest, LogoutRequest, RegisterRequest } from "../dto";
 
 export class AuthService {
-  async register(email: string, password: string, name?: string) {
+  async register({ email, password, name }: RegisterRequest) {
     const existing = await User.findOne({ where: { email } });
     if (existing) {
       throw new Error("Email already in use");
@@ -12,10 +13,10 @@ export class AuthService {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password_hash: hash, name });
     const token = JwtHelper.generateToken(user);
-    return { user, token };
+    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url }, token };
   }
 
-  async login(email: string, password: string) {
+  async login({ email, password }: LoginRequest) {
     const user = await User.findOne({ where: { email } });
     if (!user || !user.password_hash) {
       throw new Error("Invalid credentials");
@@ -25,7 +26,7 @@ export class AuthService {
       throw new Error("Invalid credentials");
     }
     const token = JwtHelper.generateToken(user);
-    return { user, token };
+    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url }, token };
   }
 
   async findOrCreateOAuthUser(provider: string, providerUserId: string, email?: string, name?: string, avatarUrl?: string) {
@@ -50,5 +51,5 @@ export class AuthService {
     return { user, token };
   }
 
-  async logout(_token: string) {}
+  async logout(_body: LogoutRequest) {}
 }
