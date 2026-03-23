@@ -1,38 +1,40 @@
 import { Request, Response } from "express";
 import { ReviewService } from "../services/ReviewService";
+import {
+  ApiResponse,
+  CreateOrUpdateReviewRequest,
+  CreateOrUpdateReviewResponse,
+  DeleteReviewResponse,
+  ListCostumeReviewsResponse
+} from "../dto";
 
 const reviewService = new ReviewService();
 
 export class ReviewController {
   async createOrUpdate(req: Request, res: Response) {
     try {
-      const user = (req as any).user;
-      const { costumeId, rating, comment } = req.body;
-      const review = await reviewService.createOrUpdateReview(user.id, Number(costumeId), Number(rating), comment);
-      res.json(review);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      const review = await reviewService.createOrUpdateReview(req.user!.id, req.body as CreateOrUpdateReviewRequest);
+      ApiResponse.ok(res, review as CreateOrUpdateReviewResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 
   async listCostumeReviews(req: Request, res: Response) {
     try {
-      const costumeId = Number(req.params.costumeId);
-      const reviews = await reviewService.listCostumeReviews(costumeId);
-      res.json(reviews);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      const reviews = await reviewService.listCostumeReviews(req.params);
+      ApiResponse.ok(res, reviews as ListCostumeReviewsResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 
   async delete(req: Request, res: Response) {
     try {
-      const user = (req as any).user;
-      const id = Number(req.params.id);
-      await reviewService.deleteReview(user.id, id);
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      await reviewService.deleteReview(req.user!.id, req.params);
+      ApiResponse.ok(res, { success: true } as DeleteReviewResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 }

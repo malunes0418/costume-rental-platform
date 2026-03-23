@@ -1,3 +1,4 @@
+import type { Request } from "express";
 import { Notification } from "../models/Notification";
 import { User } from "../models/User";
 import { mailer } from "../config/mailer";
@@ -47,8 +48,8 @@ export class NotificationService {
     return Notification.findAll({ where: { user_id: userId }, order: [["created_at", "DESC"]] });
   }
 
-  async markAsRead(userId: number, notificationId: number) {
-    const notification = await Notification.findOne({ where: { id: notificationId, user_id: userId } });
+  async markAsRead(userId: number, params: Request["params"]) {
+    const notification = await Notification.findOne({ where: { id: Number(params.id), user_id: userId } });
     if (!notification) {
       throw new Error("Notification not found");
     }
