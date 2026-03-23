@@ -2,22 +2,42 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const required = (key: string): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`${key} is not set`);
+  }
+  return value;
+};
+
+const requiredNumber = (key: string): number => {
+  const value = Number(required(key));
+  if (Number.isNaN(value)) {
+    throw new Error(`${key} must be a valid number`);
+  }
+  return value;
+};
+
+const optional = (key: string): string | undefined => {
+  return process.env[key];
+};
+
 export const env = {
-  port: Number(process.env.PORT) || 3000,
-  dbHost: process.env.DB_HOST || "localhost",
-  dbPort: Number(process.env.DB_PORT) || 3306,
-  dbUser: process.env.DB_USER || "root",
-  dbPassword: process.env.DB_PASSWORD || "",
-  dbName: process.env.DB_NAME || "costume_rental",
-  jwtSecret: process.env.JWT_SECRET || "e8439b97eb9a893e0eef9cb933d055d3",
-  oauthGoogleClientId: process.env.OAUTH_GOOGLE_CLIENT_ID || "",
-  oauthGoogleClientSecret: process.env.OAUTH_GOOGLE_CLIENT_SECRET || "",
-  oauthGoogleCallbackUrl: process.env.OAUTH_GOOGLE_CALLBACK_URL || "http://localhost:3000/api/auth/google/callback",
-  emailHost: process.env.EMAIL_HOST || "",
-  emailPort: Number(process.env.EMAIL_PORT) || 587,
-  emailUser: process.env.EMAIL_USER || "",
-  emailPassword: process.env.EMAIL_PASSWORD || "",
-  frontendBaseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:5173",
-  fileUploadDir: process.env.FILE_UPLOAD_DIR || "uploads",
-  sessionSecret: process.env.SESSION_SECRET || "$%1:=p4BkPil%hn#nt.U"
+  port: requiredNumber("PORT"),
+  dbHost: required("DB_HOST"),
+  dbPort: requiredNumber("DB_PORT"),
+  dbUser: required("DB_USER"),
+  dbName: required("DB_NAME"),
+  dbPassword: optional("DB_PASSWORD"),
+  jwtSecret: required("JWT_SECRET"),
+  oauthGoogleClientId: required("OAUTH_GOOGLE_CLIENT_ID"),
+  oauthGoogleClientSecret: required("OAUTH_GOOGLE_CLIENT_SECRET"),
+  oauthGoogleCallbackUrl: required("OAUTH_GOOGLE_CALLBACK_URL"),
+  emailHost: required("EMAIL_HOST"),
+  emailPort: requiredNumber("EMAIL_PORT"),
+  emailUser: required("EMAIL_USER"),
+  emailPassword: required("EMAIL_PASSWORD"),
+  frontendBaseUrl: required("FRONTEND_BASE_URL"),
+  fileUploadDir: required("FILE_UPLOAD_DIR"),
+  sessionSecret: required("SESSION_SECRET")
 };
