@@ -2,12 +2,18 @@
   "info": {
     "_postman_id": "a1b2c3d4-costume-rental-api",
     "name": "Costume Rental API",
-    "description": "Backend API for costume-rental-platform.\n\n**Setup:** Import this collection and the **Costume Rental — Local** environment, select that environment, then run **Register** or **Login** — the response `token` is saved to the environment for Bearer auth on other requests.\n\nNote: `authMiddleware` is global (except `/api/auth/*`), so most routes require a valid JWT.",
+    "description": "Backend API for costume-rental-platform.\n\n**Setup:** Import this collection and the **Costume Rental \u2014 Local** environment, select that environment, then run **Register** or **Login** \u2014 the response `token` is saved to the environment for Bearer auth on other requests.\n\nNote: `authMiddleware` is global (except `/api/auth/*`), so most routes require a valid JWT.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "token", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -40,7 +46,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"name\": \"{{testName}}\"\n}"
@@ -76,7 +87,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
@@ -91,7 +107,13 @@
       "name": "API (requires token)",
       "auth": {
         "type": "bearer",
-        "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "string"
+          }
+        ]
       },
       "item": [
         {
@@ -138,7 +160,12 @@
               "name": "Add to cart",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"costumeId\": {{costumeId}},\n  \"quantity\": 1,\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-06-03\"\n}"
@@ -150,7 +177,12 @@
               "name": "Checkout",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"reservationId\": {{reservationId}}\n}"
@@ -179,9 +211,21 @@
                 "body": {
                   "mode": "formdata",
                   "formdata": [
-                    { "key": "reservationId", "value": "{{reservationId}}", "type": "text" },
-                    { "key": "amount", "value": "100", "type": "text" },
-                    { "key": "proof", "type": "file", "src": [] }
+                    {
+                      "key": "reservationId",
+                      "value": "{{reservationId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "amount",
+                      "value": "100",
+                      "type": "text"
+                    },
+                    {
+                      "key": "proof",
+                      "type": "file",
+                      "src": []
+                    }
                   ]
                 },
                 "url": "{{baseUrl}}/api/payments/proof",
@@ -226,7 +270,12 @@
               "name": "Add to wishlist",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"costumeId\": {{costumeId}}\n}"
@@ -259,7 +308,12 @@
               "name": "Create or update review",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"costumeId\": {{costumeId}},\n  \"rating\": 5,\n  \"comment\": \"Great costume\"\n}"
@@ -292,7 +346,12 @@
               "name": "Review payment",
               "request": {
                 "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"paymentId\": {{paymentId}},\n  \"approve\": true,\n  \"notes\": \"OK\"\n}"
@@ -330,6 +389,192 @@
                 "method": "GET",
                 "header": [],
                 "url": "{{baseUrl}}/api/admin/users"
+              }
+            },
+            {
+              "name": "List pending vendors",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/vendors/pending"
+              }
+            },
+            {
+              "name": "Approve vendor",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/vendors/{{userId}}/approve"
+              }
+            },
+            {
+              "name": "Reject vendor",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/admin/vendors/{{userId}}/reject"
+              }
+            },
+            {
+              "name": "Flag/hide costume",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"FLAGGED\"\n}"
+                },
+                "url": "{{baseUrl}}/api/admin/costumes/{{costumeId}}/status"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vendors",
+          "item": [
+            {
+              "name": "Apply (KYC)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "businessName",
+                      "value": "My Shop",
+                      "type": "text"
+                    },
+                    {
+                      "key": "bio",
+                      "value": "Best costumes",
+                      "type": "text"
+                    },
+                    {
+                      "key": "idDocument",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/vendors/apply"
+              }
+            },
+            {
+              "name": "My Vendor Profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/me"
+              }
+            },
+            {
+              "name": "List My Costumes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/costumes"
+              }
+            },
+            {
+              "name": "Create Costume",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"New Costume\",\n  \"description\": \"Desc\",\n  \"price\": 50\n}"
+                },
+                "url": "{{baseUrl}}/api/vendors/costumes"
+              }
+            },
+            {
+              "name": "Update Costume",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 55\n}"
+                },
+                "url": "{{baseUrl}}/api/vendors/costumes/{{costumeId}}"
+              }
+            },
+            {
+              "name": "Delete Costume",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/costumes/{{costumeId}}"
+              }
+            },
+            {
+              "name": "List Vendor Reservations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/reservations"
+              }
+            },
+            {
+              "name": "Approve Reservation",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/approve"
+              }
+            },
+            {
+              "name": "Reject Reservation",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/reject"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Messaging",
+          "item": [
+            {
+              "name": "Get Messages",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/messages"
+              }
+            },
+            {
+              "name": "Send Message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"content\": \"Hello!\"\n}"
+                },
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/messages"
               }
             }
           ]
