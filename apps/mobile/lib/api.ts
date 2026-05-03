@@ -1,5 +1,5 @@
 /**
- * API client for the CostumeStay backend.
+ * API client for the SnapCos backend.
  * Reads EXPO_PUBLIC_API_URL from environment.
  */
 

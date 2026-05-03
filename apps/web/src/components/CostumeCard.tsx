@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { resolveApiAsset } from "../lib/assets";
 import type { Costume } from "../lib/costumes";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 function primaryImage(costume: Costume) {
   const imgs = costume.CostumeImages || [];
@@ -10,14 +14,14 @@ function primaryImage(costume: Costume) {
 }
 
 const categoryEmoji: Record<string, string> = {
-  superhero: "🦸",
-  halloween: "🎃",
+  superhero:  "🦸",
+  halloween:  "🎃",
   historical: "👑",
-  fantasy: "🧙",
-  anime: "⛩️",
+  fantasy:    "🧙",
+  anime:      "⛩️",
   theatrical: "🎭",
-  vintage: "🎩",
-  sci_fi: "🚀",
+  vintage:    "🎩",
+  sci_fi:     "🚀",
 };
 
 function getCategoryEmoji(category?: string | null) {
@@ -26,169 +30,104 @@ function getCategoryEmoji(category?: string | null) {
 }
 
 export function CostumeCard({ costume }: { costume: Costume }) {
-  const img = primaryImage(costume);
+  const img   = primaryImage(costume);
   const emoji = getCategoryEmoji(costume.category);
   const price = Number(costume.base_price_per_day).toFixed(0);
-  const tags = [costume.category, costume.theme, costume.size].filter(Boolean);
+  const tags  = [costume.theme, costume.size].filter(Boolean);
 
   return (
     <Link
       href={`/costumes/${costume.id}`}
       id={`costume-card-${costume.id}`}
-      style={{ textDecoration: "none", display: "block" }}
+      className="block text-decoration-none group"
     >
-      <article
-        style={{
-          borderRadius: "var(--radius-lg)",
-          overflow: "hidden",
-          background: "var(--clr-surface)",
-          border: "1px solid var(--clr-border)",
-          transition: "border-color var(--dur-base) var(--ease-out-expo), transform var(--dur-base) var(--ease-out-expo), box-shadow var(--dur-base) var(--ease-out-expo)",
-          cursor: "pointer",
-        }}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget as HTMLElement;
-          el.style.borderColor = "rgba(200,155,60,0.3)";
-          el.style.transform = "translateY(-4px)";
-          el.style.boxShadow = "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(200,155,60,0.1)";
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget as HTMLElement;
-          el.style.borderColor = "var(--clr-border)";
-          el.style.transform = "translateY(0)";
-          el.style.boxShadow = "none";
-        }}
+      <Card
+        className={cn(
+          "overflow-hidden border transition-all duration-250",
+          "border-white/7 bg-[var(--clr-surface)]",
+          "hover:border-[rgba(200,155,60,0.3)] hover:-translate-y-1",
+          "hover:shadow-[0_16px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(200,155,60,0.1)]"
+        )}
+        style={{ borderRadius: "var(--radius-lg)" }}
       >
         {/* Image */}
         <div
-          style={{
-            aspectRatio: "4/3",
-            width: "100%",
-            overflow: "hidden",
-            background: "var(--clr-surface-2)",
-            position: "relative",
-          }}
+          className="relative w-full overflow-hidden"
+          style={{ aspectRatio: "4/3", background: "var(--clr-surface-2)" }}
         >
           {img ? (
             <img
               src={resolveApiAsset(img)}
               alt={costume.name}
               loading="lazy"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transition: "transform 500ms var(--ease-out-expo)",
-                display: "block",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLImageElement).style.transform = "scale(1.06)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLImageElement).style.transform = "scale(1)";
-              }}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+              style={{ display: "block" }}
             />
           ) : (
-            /* Placeholder when no image */
             <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: "0.5rem",
-                background: "linear-gradient(135deg, var(--clr-surface-2), var(--clr-surface-3))",
-              }}
+              className="flex h-full w-full items-center justify-center"
+              style={{ background: "linear-gradient(135deg, var(--clr-surface-2), var(--clr-surface-3))" }}
             >
-              <span style={{ fontSize: "3rem", lineHeight: 1 }}>{emoji}</span>
+              <span className="text-5xl leading-none">{emoji}</span>
             </div>
           )}
 
-          {/* Category badge overlaid on image */}
+          {/* Category badge */}
           {costume.category && (
-            <div
-              style={{
-                position: "absolute",
-                top: "0.75rem",
-                left: "0.75rem",
-              }}
-            >
-              <span className="badge-gold">{costume.category}</span>
+            <div className="absolute left-3 top-3">
+              <Badge
+                variant="secondary"
+                className="rounded-full border px-2.5 py-0.5 text-[0.7rem] font-semibold uppercase tracking-widest"
+                style={{
+                  background: "var(--clr-gold-dim)",
+                  color: "var(--clr-gold-light)",
+                  border: "1px solid rgba(200,155,60,0.3)",
+                }}
+              >
+                {costume.category}
+              </Badge>
             </div>
           )}
         </div>
 
         {/* Card body */}
-        <div style={{ padding: "1rem 1.1rem 1.1rem" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  color: "var(--clr-text)",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  lineHeight: 1.3,
-                }}
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p
+                className="truncate text-base font-bold leading-tight"
+                style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}
               >
                 {costume.name}
-              </div>
+              </p>
               {tags.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "0.35rem",
-                    fontSize: "0.78rem",
-                    color: "var(--clr-text-muted)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
+                <p
+                  className="mt-1 truncate text-[0.78rem]"
+                  style={{ color: "var(--clr-text-muted)" }}
                 >
                   {tags.join(" · ")}
-                </div>
+                </p>
               )}
             </div>
 
             {/* Price */}
-            <div style={{ flexShrink: 0, textAlign: "right" }}>
+            <div className="shrink-0 text-right">
               <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 900,
-                  fontSize: "1.15rem",
-                  color: "var(--clr-gold-light)",
-                  lineHeight: 1.1,
-                }}
+                className="text-[1.15rem] font-black leading-tight"
+                style={{ fontFamily: "var(--font-display)", color: "var(--clr-gold-light)" }}
               >
                 ₱{price}
               </div>
               <div
-                style={{
-                  fontSize: "0.65rem",
-                  color: "var(--clr-text-dim)",
-                  marginTop: "0.15rem",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}
+                className="mt-0.5 text-[0.65rem] uppercase tracking-widest"
+                style={{ color: "var(--clr-text-dim)" }}
               >
                 / day
               </div>
             </div>
           </div>
-        </div>
-      </article>
+        </CardContent>
+      </Card>
     </Link>
   );
 }
@@ -196,22 +135,15 @@ export function CostumeCard({ costume }: { costume: Costume }) {
 /* Skeleton loader for the costume card */
 export function CostumeCardSkeleton() {
   return (
-    <div
-      style={{
-        borderRadius: "var(--radius-lg)",
-        overflow: "hidden",
-        background: "var(--clr-surface)",
-        border: "1px solid var(--clr-border)",
-      }}
+    <Card
+      className="overflow-hidden border border-white/7"
+      style={{ borderRadius: "var(--radius-lg)", background: "var(--clr-surface)" }}
     >
-      <div
-        className="skeleton"
-        style={{ aspectRatio: "4/3", width: "100%" }}
-      />
-      <div style={{ padding: "1rem 1.1rem 1.1rem" }}>
-        <div className="skeleton" style={{ height: "1rem", width: "70%", marginBottom: "0.5rem" }} />
-        <div className="skeleton" style={{ height: "0.75rem", width: "45%" }} />
-      </div>
-    </div>
+      <Skeleton className="w-full" style={{ aspectRatio: "4/3", borderRadius: 0, background: "var(--clr-surface-2)" }} />
+      <CardContent className="p-4">
+        <Skeleton className="mb-2 h-4 w-3/4" style={{ background: "var(--clr-surface-2)" }} />
+        <Skeleton className="h-3 w-2/5" style={{ background: "var(--clr-surface-2)" }} />
+      </CardContent>
+    </Card>
   );
 }

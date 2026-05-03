@@ -26,13 +26,14 @@ export class AuthService {
       throw new Error("Invalid credentials");
     }
     const token = JwtHelper.generateToken(user);
-    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url, role: user.role }, token };
   }
 
   async findOrCreateOAuthUser(provider: string, providerUserId: string, email?: string, name?: string, avatarUrl?: string) {
     let oauthAccount = await OAuthAccount.findOne({ where: { provider, provider_user_id: providerUserId } });
     if (oauthAccount) {
       const user = await User.findByPk(oauthAccount.user_id);
+      
       if (!user) {
         throw new Error("User not found");
       }

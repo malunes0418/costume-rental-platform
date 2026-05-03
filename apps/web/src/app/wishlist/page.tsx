@@ -6,12 +6,18 @@ import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import { myWishlist, removeWishlist, type WishlistItem } from "../../lib/account";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle, Heart, Trash2, Eye } from "lucide-react";
 
 export default function WishlistPage() {
   const { token } = useAuth();
-  const [items, setItems] = useState<WishlistItem[]>([]);
+  const [items, setItems]     = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -23,113 +29,162 @@ export default function WishlistPage() {
     setIsLoading(true);
     setError(null);
     myWishlist(token)
-      .then((res) => {
-        if (cancelled) return;
-        setItems(res);
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return;
-        setError(e instanceof ApiError ? e.message : "Failed to load wishlist");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((res) => { if (!cancelled) setItems(res); })
+      .catch((e: unknown) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "Failed to load wishlist"); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, [token]);
 
   if (!token) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-12">
-        <div className="rounded-3xl border border-black/5 bg-white p-8 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-          <h1 className="text-2xl font-semibold tracking-tight">Wishlist</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Log in to save favorites.</p>
-          <Link
-            href="/login?next=/wishlist"
-            className="mt-6 inline-flex rounded-2xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-600"
-          >
-            Log in
-          </Link>
-        </div>
+      <div className="mx-auto w-full max-w-4xl px-6 py-12">
+        <Card
+          className="border shadow-sm"
+          style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-xl)" }}
+        >
+          <CardHeader>
+            <CardTitle style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}>
+              Wishlist
+            </CardTitle>
+            <CardDescription style={{ color: "var(--clr-text-muted)" }}>
+              Log in to save favorites.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="rounded-full text-white border-0" style={{ background: "var(--clr-crimson)" }}>
+              <Link href="/login?next=/wishlist">Log in</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-12">
-      <div className="flex items-end justify-between gap-4">
+    <div className="mx-auto w-full max-w-6xl px-6 py-12">
+      {/* Page header */}
+      <div className="mb-8 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Wishlist</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Your saved costumes, ready when you are.</p>
+          <div className="flex items-center gap-2.5">
+            <Heart className="size-6" style={{ color: "var(--clr-crimson)" }} />
+            <h1
+              className="text-2xl font-black tracking-tight"
+              style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}
+            >
+              Wishlist
+            </h1>
+            {!isLoading && items.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold"
+                style={{ background: "var(--clr-gold-dim)", color: "var(--clr-gold-light)", border: "1px solid rgba(200,155,60,0.3)" }}
+              >
+                {items.length}
+              </Badge>
+            )}
+          </div>
+          <p className="mt-1.5 text-sm" style={{ color: "var(--clr-text-muted)" }}>
+            Your saved costumes, ready when you are.
+          </p>
         </div>
       </div>
 
-      {error ? (
-        <div className="mt-6 rounded-3xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-700 dark:text-rose-200">
-          {error}
-        </div>
-      ) : null}
+      {error && (
+        <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-500/10">
+          <AlertCircle className="size-4" />
+          <AlertDescription style={{ color: "#f87171" }}>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div
+            <Card
               key={i}
-              className="h-[320px] animate-pulse rounded-3xl border border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950"
-            />
+              className="overflow-hidden border"
+              style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-lg)" }}
+            >
+              <Skeleton className="w-full" style={{ aspectRatio: "4/3", borderRadius: 0, background: "var(--clr-surface-2)" }} />
+              <CardContent className="p-4">
+                <Skeleton className="mb-2 h-4 w-3/4" style={{ background: "var(--clr-surface-2)" }} />
+                <Skeleton className="h-3 w-2/5" style={{ background: "var(--clr-surface-2)" }} />
+              </CardContent>
+            </Card>
           ))
         ) : items.length ? (
           items.map((it) => {
             const c = it.Costume;
             const img = c?.CostumeImages?.find((i) => i.is_primary)?.image_url || c?.CostumeImages?.[0]?.image_url || "";
+            const tags = [c?.category, c?.theme, c?.size].filter(Boolean);
+
             return (
-              <div
+              <Card
                 key={it.id}
-                className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-950"
+                className="group overflow-hidden border transition-all duration-250 hover:border-[rgba(200,155,60,0.3)] hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
+                style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-lg)" }}
               >
-                <div className="aspect-[4/3] bg-zinc-100 dark:bg-white/5">
-                  {img ? <img src={resolveApiAsset(img)} alt={c?.name || "Costume"} className="h-full w-full object-cover" /> : null}
+                <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/3", background: "var(--clr-surface-2)" }}>
+                  {img ? (
+                    <img
+                      src={resolveApiAsset(img)}
+                      alt={c?.name || "Costume"}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-4xl">🎭</div>
+                  )}
                 </div>
-                <div className="p-4">
+                <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate font-semibold tracking-tight">{c?.name || `Costume #${it.costume_id}`}</div>
-                      <div className="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-400">
-                        {[c?.category, c?.theme, c?.size].filter(Boolean).join(" · ") || "Costume"}
-                      </div>
+                      <p className="truncate font-semibold tracking-tight" style={{ color: "var(--clr-text)", fontFamily: "var(--font-display)" }}>
+                        {c?.name || `Costume #${it.costume_id}`}
+                      </p>
+                      <p className="mt-0.5 truncate text-sm" style={{ color: "var(--clr-text-muted)" }}>
+                        {tags.join(" · ") || "Costume"}
+                      </p>
                     </div>
-                    <Link
-                      href={`/costumes/${it.costume_id}`}
-                      className="shrink-0 rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"
-                    >
-                      View
-                    </Link>
+                    <Button variant="ghost" size="icon" asChild className="shrink-0 size-8 rounded-lg hover:bg-white/5">
+                      <Link href={`/costumes/${it.costume_id}`} aria-label="View costume">
+                        <Eye className="size-4" style={{ color: "var(--clr-text-muted)" }} />
+                      </Link>
+                    </Button>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={async () => {
                       try {
                         await removeWishlist(token, it.costume_id);
                         setItems((xs) => xs.filter((x) => x.id !== it.id));
-                      } catch {}
+                      } catch { /* silent */ }
                     }}
-                    className="mt-4 w-full rounded-2xl border border-black/10 px-4 py-2.5 text-sm font-semibold hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"
+                    className="mt-4 w-full rounded-xl border-white/10 bg-transparent text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 gap-2"
+                    style={{ color: "var(--clr-text-muted)" }}
                   >
+                    <Trash2 className="size-3.5" />
                     Remove
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </CardContent>
+              </Card>
             );
           })
         ) : (
-          <div className="col-span-full rounded-3xl border border-black/5 bg-white p-8 text-center text-sm text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400">
-            Your wishlist is empty.
+          <div
+            className="col-span-full rounded-2xl border p-16 text-center"
+            style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
+          >
+            <div className="mb-4 text-5xl">💔</div>
+            <p className="text-[1.05rem]" style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-display)" }}>
+              Your wishlist is empty.
+            </p>
+            <Button asChild className="mt-6 rounded-full text-white border-0" style={{ background: "var(--clr-crimson)" }}>
+              <Link href="/">Browse Costumes</Link>
+            </Button>
           </div>
         )}
       </div>
     </div>
   );
 }
-

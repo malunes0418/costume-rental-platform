@@ -4,6 +4,8 @@ import session from "express-session";
 import { env } from "./config/env";
 import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
+import swaggerUi from "swagger-ui-express";
+import { generateOpenApiDocument } from "./config/openapi";
 
 export const app = express();
 
@@ -23,6 +25,10 @@ app.use(session({
 
 app.use("/uploads", express.static(env.fileUploadDir));
 
+// Swagger UI configuration
+const openApiDocument = generateOpenApiDocument();
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
 app.use("/api/auth", routes.auth);
 
 // Public browse routes (Airbnb-like guest experience).
@@ -38,5 +44,6 @@ app.use("/api/notifications", routes.notifications);
 app.use("/api/wishlist", routes.wishlist);
 app.use("/api/vendors", routes.vendor);
 app.use("/api/admin", routes.admin);
+app.use("/api/subscriptions", routes.subscriptions);
 
 app.use(errorMiddleware);

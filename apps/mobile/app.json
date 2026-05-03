@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "CostumeStay",
-    "slug": "costumestay",
+    "name": "SnapCos",
+    "slug": "snapcos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "costumestay",
+    "scheme": "snapcos",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.costumestay.app"
+      "bundleIdentifier": "com.snapcos.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0708"
       },
-      "package": "com.costumestay.app"
+      "package": "com.snapcos.app"
     },
     "web": {
       "bundler": "metro",

@@ -12,11 +12,15 @@ import { WishlistItem } from "./WishlistItem";
 import { Review } from "./Review";
 import { VendorProfile } from "./VendorProfile";
 import { Message } from "./Message";
+import { Subscription } from "./Subscription";
 User.hasMany(OAuthAccount, { foreignKey: "user_id" });
 OAuthAccount.belongsTo(User, { foreignKey: "user_id" });
 
 User.hasOne(VendorProfile, { foreignKey: "user_id" });
 VendorProfile.belongsTo(User, { foreignKey: "user_id" });
+
+User.hasOne(Subscription, { foreignKey: "user_id" });
+Subscription.belongsTo(User, { foreignKey: "user_id" });
 
 User.hasMany(Costume, { foreignKey: "owner_id", as: "costumes" });
 Costume.belongsTo(User, { foreignKey: "owner_id", as: "owner" });
@@ -77,5 +81,6 @@ export const db = {
   WishlistItem,
   Review,
   VendorProfile,
-  Message
+  Message,
+  Subscription
 };

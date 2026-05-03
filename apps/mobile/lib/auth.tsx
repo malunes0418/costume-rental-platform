@@ -9,7 +9,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import { ApiError, AuthUser, loginApi, registerApi } from "./api";
 
-const TOKEN_KEY = "costumestay_token";
+const TOKEN_KEY = "snapcos_token";
 
 type AuthContextValue = {
   token: string | null;

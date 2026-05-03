@@ -1,32 +1,33 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Newsreader, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 import { Navbar } from "../components/Navbar";
+import { Toaster } from "@/components/ui/sonner";
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
-  weight: ["400", "700", "900"],
+  weight: ["200", "300", "400", "500", "600", "700", "800"],
   style: ["normal", "italic"],
 });
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "CostumeStay — Premium Costume Rentals",
-    template: "%s · CostumeStay",
+    default: "SnapCos — Premium Costume Rentals",
+    template: "%s · SnapCos",
   },
   description:
     "Discover extraordinary costumes for any occasion. Browse, book, and wear with confidence.",
   keywords: ["costume rental", "cosplay", "party costumes", "theatrical costumes"],
   openGraph: {
-    title: "CostumeStay — Premium Costume Rentals",
+    title: "SnapCos — Premium Costume Rentals",
     description: "Discover extraordinary costumes for any occasion.",
     type: "website",
   },
@@ -38,12 +39,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${dmSans.variable} h-full`}
+      className={`${newsreader.variable} ${dmSans.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <Navbar />
           <div className="flex flex-1 flex-col">{children}</div>
+          <Toaster position="top-right" />
           {/* Theatrical grain overlay */}
           <div
             aria-hidden="true"
@@ -64,3 +66,4 @@ export default function RootLayout({
     </html>
   );
 }
+

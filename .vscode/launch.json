@@ -35,6 +35,16 @@
       "skipFiles": ["<node_internals>/**", "${workspaceFolder}/node_modules/**"],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "sourceMaps": true
+    },
+    {
+      "name": "Debug Turbo (npm run dev)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true
     }
   ]
 }

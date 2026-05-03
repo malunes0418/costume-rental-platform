@@ -6,8 +6,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   if (!header) return res.status(401).json({ message: "Unauthorized" });
   const token = header.replace("Bearer ", "");
   try {
-    const { sub, role } = JwtHelper.verifyToken(token);
-    req.user = { id: sub, role };
+    const { sub, role, vendor_status } = JwtHelper.verifyToken(token);
+    req.user = { id: sub, role, vendor_status };
     next();
   } catch {
     res.status(401).json({ message: "Invalid token" });

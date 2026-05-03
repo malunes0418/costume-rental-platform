@@ -1,5 +1,5 @@
 /**
- * CostumeStay Design Tokens — Theatrical Luxury theme
+ * SnapCos Design Tokens — Theatrical Luxury theme
  * Mirrors the web design system for visual consistency.
  */
 

@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "a1b2c3d4-costume-rental-api",
-    "name": "Costume Rental API",
-    "description": "Backend API for costume-rental-platform.\n\n**Setup:** Import this collection and the **Costume Rental \u2014 Local** environment, select that environment, then run **Register** or **Login** \u2014 the response `token` is saved to the environment for Bearer auth on other requests.\n\nNote: `authMiddleware` is global (except `/api/auth/*`), so most routes require a valid JWT.",
+    "_postman_id": "a1b2c3d4-snapcos-api",
+    "name": "SnapCos API",
+    "description": "Backend API for costume-rental-platform.\n\n**Setup:** Import this collection and the **SnapCos \u2014 Local** environment, select that environment, then run **Register** or **Login** \u2014 the response `token` is saved to the environment for Bearer auth on other requests.\n\nNote: `authMiddleware` is global (except `/api/auth/*`), so most routes require a valid JWT.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

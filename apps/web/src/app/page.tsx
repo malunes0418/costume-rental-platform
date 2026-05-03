@@ -4,41 +4,55 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../lib/api";
 import { CostumeCard, CostumeCardSkeleton } from "../components/CostumeCard";
 import { listCostumes, type Costume, type CostumeListQuery } from "../lib/costumes";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const sortOptions = [
-  { value: "", label: "Newest" },
+  { value: "_newest",   label: "Newest" },
   { value: "price_asc", label: "Price: Low → High" },
-  { value: "price_desc", label: "Price: High → Low" },
+  { value: "price_desc",label: "Price: High → Low" },
 ] as const;
 
 const categoryFilters = [
-  { value: "", label: "All" },
+  { value: "",          label: "All" },
   { value: "superhero", label: "🦸 Superhero" },
   { value: "halloween", label: "🎃 Halloween" },
-  { value: "historical", label: "👑 Historical" },
-  { value: "fantasy", label: "🧙 Fantasy" },
-  { value: "anime", label: "⛩️ Anime" },
-  { value: "theatrical", label: "🎭 Theatrical" },
-  { value: "vintage", label: "🎩 Vintage" },
-  { value: "sci_fi", label: "🚀 Sci-Fi" },
+  { value: "historical",label: "👑 Historical" },
+  { value: "fantasy",   label: "🧙 Fantasy" },
+  { value: "anime",     label: "⛩️ Anime" },
+  { value: "theatrical",label: "🎭 Theatrical" },
+  { value: "vintage",   label: "🎩 Vintage" },
+  { value: "sci_fi",    label: "🚀 Sci-Fi" },
 ];
 
 // Animated spotlight words
 const spotlightWords = ["Extraordinary", "Theatrical", "Unforgettable", "Iconic"];
 
 export default function Home() {
-  const [query, setQuery] = useState<CostumeListQuery>({ page: 1, pageSize: 12 });
-  const [qText, setQText] = useState("");
-  const [items, setItems] = useState<Costume[]>([]);
-  const [total, setTotal] = useState<number>(0);
+  const [query, setQuery]         = useState<CostumeListQuery>({ page: 1, pageSize: 12 });
+  const [qText, setQText]         = useState("");
+  const [items, setItems]         = useState<Costume[]>([]);
+  const [total, setTotal]         = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [wordIdx, setWordIdx] = useState(0);
+  const [error, setError]         = useState<string | null>(null);
+  const [wordIdx, setWordIdx]     = useState(0);
   const [wordVisible, setWordVisible] = useState(true);
 
   const canPrev = (query.page || 1) > 1;
   const canNext = useMemo(() => {
-    const page = query.page || 1;
+    const page     = query.page || 1;
     const pageSize = query.pageSize || 12;
     return page * pageSize < total;
   }, [query.page, query.pageSize, total]);
@@ -77,64 +91,56 @@ export default function Home() {
   }, [query]);
 
   return (
-    <div style={{ flex: 1 }}>
+    <div className="flex flex-1 flex-col">
+
       {/* ─── Hero ─── */}
-      <section
-        style={{
-          position: "relative",
-          padding: "5rem 1.5rem 4rem",
-          overflow: "hidden",
-          textAlign: "center",
-        }}
-      >
+      <section className="relative overflow-hidden px-6 pb-16 pt-20 text-center">
         {/* Background radial glow */}
         <div
           aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 -translate-x-1/2"
           style={{
-            position: "absolute",
             top: "-20%",
-            left: "50%",
-            transform: "translateX(-50%)",
             width: "900px",
             height: "600px",
             background:
               "radial-gradient(ellipse at center, rgba(196,16,42,0.12) 0%, rgba(200,155,60,0.05) 40%, transparent 70%)",
-            pointerEvents: "none",
           }}
         />
 
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            maxWidth: "800px",
-            margin: "0 auto",
-          }}
-        >
-          {/* Eyebrow */}
+        <div className="relative z-10 mx-auto max-w-[800px]">
+          {/* Eyebrow badge */}
           <div className="animate-fade-up">
-            <span className="badge-gold">🎭 Premium Costume Rentals</span>
+            <Badge
+              variant="secondary"
+              className="rounded-full border px-4 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em]"
+              style={{
+                background: "var(--clr-gold-dim)",
+                color: "var(--clr-gold-light)",
+                border: "1px solid rgba(200,155,60,0.3)",
+              }}
+            >
+              🎭 Premium Costume Rentals
+            </Badge>
           </div>
 
           {/* Headline */}
           <h1
-            className="animate-fade-up-delay-1"
+            className="animate-fade-up-delay-1 mt-5"
             style={{
               fontFamily: "var(--font-display)",
               fontSize: "clamp(2.4rem, 6vw, 4.5rem)",
               fontWeight: 900,
               lineHeight: 1.08,
               color: "var(--clr-text)",
-              marginTop: "1.25rem",
               letterSpacing: "-0.02em",
             }}
           >
             Wear Something{" "}
             <span
+              className="inline-block italic"
               style={{
-                display: "inline-block",
                 color: "var(--clr-gold-light)",
-                fontStyle: "italic",
                 minWidth: "8ch",
                 transition: "opacity 300ms ease, transform 300ms ease",
                 opacity: wordVisible ? 1 : 0,
@@ -146,15 +152,8 @@ export default function Home() {
           </h1>
 
           <p
-            className="animate-fade-up-delay-2"
-            style={{
-              marginTop: "1.25rem",
-              fontSize: "1.05rem",
-              color: "var(--clr-text-muted)",
-              maxWidth: "520px",
-              margin: "1.25rem auto 0",
-              lineHeight: 1.7,
-            }}
+            className="animate-fade-up-delay-2 mx-auto mt-5 max-w-[520px] text-[1.05rem] leading-[1.7]"
+            style={{ color: "var(--clr-text-muted)" }}
           >
             Browse curated costumes for parties, shoots, events, and theatre.
             Book with clear pricing and instant availability.
@@ -163,134 +162,81 @@ export default function Home() {
           {/* Search bar */}
           <form
             id="costume-search-form"
-            className="animate-fade-up-delay-3"
+            className="animate-fade-up-delay-3 mx-auto mt-10 max-w-[680px]"
             onSubmit={(e) => {
               e.preventDefault();
               setQuery((q) => ({ ...q, q: qText.trim() || undefined, page: 1 }));
             }}
-            style={{ marginTop: "2.5rem" }}
           >
             <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-                background: "var(--clr-surface)",
-                border: "1px solid var(--clr-border)",
-                borderRadius: "var(--radius-xl)",
-                padding: "0.625rem",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
-                maxWidth: "680px",
-                margin: "0 auto",
-              }}
+              className="flex flex-col gap-3 rounded-2xl border p-2.5 shadow-[0_8px_40px_rgba(0,0,0,0.4)]"
+              style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <input
+              <div className="flex flex-wrap gap-2">
+                <Input
                   id="search-input"
                   value={qText}
                   onChange={(e) => setQText(e.target.value)}
                   placeholder="Search: pirate, vintage, superhero…"
                   aria-label="Search costumes"
-                  style={{
-                    flex: 1,
-                    minWidth: "160px",
-                    background: "var(--clr-surface-2)",
-                    border: "1px solid var(--clr-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: "0.75rem 1rem",
-                    color: "var(--clr-text)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "0.9rem",
-                    outline: "none",
-                    transition: "border-color 150ms, box-shadow 150ms",
-                  }}
-                  onFocus={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = "var(--clr-gold)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(200,155,60,0.12)";
-                  }}
-                  onBlur={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = "var(--clr-border)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                  }}
+                  className="flex-1 min-w-[160px] border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] placeholder:text-[var(--clr-text-dim)] focus-visible:ring-[var(--clr-gold)]/30 focus-visible:border-[var(--clr-gold)] rounded-xl text-[0.9rem]"
                 />
-                <select
-                  id="sort-select"
-                  value={query.sort || ""}
-                  onChange={(e) =>
+                <Select
+                  value={query.sort || "_newest"}
+                  onValueChange={(val: string) =>
                     setQuery((q) => ({
                       ...q,
-                      sort: (e.target.value || undefined) as CostumeListQuery["sort"],
+                      sort: (val === "_newest" ? undefined : val) as CostumeListQuery["sort"],
                       page: 1,
                     }))
                   }
-                  aria-label="Sort costumes"
-                  style={{
-                    background: "var(--clr-surface-2)",
-                    border: "1px solid var(--clr-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: "0.75rem 1rem",
-                    color: "var(--clr-text)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "0.875rem",
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
                 >
-                  {sortOptions.map((o) => (
-                    <option key={o.value} value={o.value} style={{ background: "#1c1618" }}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <button
+                  <SelectTrigger
+                    id="sort-select"
+                    aria-label="Sort costumes"
+                    className="w-auto min-w-[160px] border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] rounded-xl text-sm"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent style={{ background: "var(--clr-surface-2)", border: "1px solid var(--clr-border)" }}>
+                    {sortOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value} style={{ color: "var(--clr-text)" }}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
                   id="search-btn"
                   type="submit"
-                  className="btn-crimson"
-                  style={{ padding: "0.75rem 1.5rem", borderRadius: "var(--radius-lg)" }}
+                  className="rounded-xl px-6 text-white border-0"
+                  style={{ background: "var(--clr-crimson)" }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-                  </svg>
+                  <Search data-icon="inline-start" />
                   Search
-                </button>
+                </Button>
               </div>
             </div>
           </form>
 
           {/* Stats */}
-          <div
-            className="animate-fade-up-delay-3"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "2rem",
-              marginTop: "2rem",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="animate-fade-up-delay-3 mt-8 flex flex-wrap justify-center gap-8">
             {[
-              { label: "Costumes", value: total > 0 ? `${total}+` : "..." },
+              { label: "Costumes",   value: total > 0 ? `${total}+` : "..." },
               { label: "Categories", value: "12+" },
-              { label: "Avg. Rating", value: "4.9 ★" },
+              { label: "Avg. Rating",value: "4.9 ★" },
             ].map(({ label, value }) => (
-              <div key={label} style={{ textAlign: "center" }}>
+              <div key={label} className="text-center">
                 <div
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.4rem",
-                    fontWeight: 700,
-                    color: "var(--clr-gold-light)",
-                  }}
+                  className="text-[1.4rem] font-bold"
+                  style={{ fontFamily: "var(--font-display)", color: "var(--clr-gold-light)" }}
                 >
                   {value}
                 </div>
-                <div style={{ fontSize: "0.72rem", color: "var(--clr-text-dim)", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: "0.15rem" }}>
+                <div
+                  className="mt-0.5 text-[0.72rem] uppercase tracking-[0.06em]"
+                  style={{ color: "var(--clr-text-dim)" }}
+                >
                   {label}
                 </div>
               </div>
@@ -300,110 +246,63 @@ export default function Home() {
       </section>
 
       {/* ─── Category pills ─── */}
-      <section
-        style={{
-          padding: "0 1.5rem 1.5rem",
-          overflowX: "auto",
-        }}
-        aria-label="Filter by category"
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            maxWidth: "1200px",
-            margin: "0 auto",
-            flexWrap: "nowrap",
-          }}
-        >
+      <section className="overflow-x-auto px-6 pb-6" aria-label="Filter by category">
+        <div className="mx-auto flex max-w-[1200px] gap-2" style={{ flexWrap: "nowrap" }}>
           {categoryFilters.map(({ value, label }) => {
             const isActive = (query.category || "") === value;
             return (
-              <button
+              <Button
                 key={value}
                 type="button"
                 id={`category-${value || "all"}`}
+                size="sm"
+                variant={isActive ? "default" : "outline"}
                 onClick={() =>
                   setQuery((q) => ({ ...q, category: value || undefined, page: 1 }))
                 }
-                style={{
-                  flexShrink: 0,
-                  padding: "0.4rem 0.9rem",
-                  borderRadius: "var(--radius-full)",
-                  fontSize: "0.8rem",
-                  fontFamily: "var(--font-body)",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 150ms",
-                  background: isActive ? "var(--clr-crimson)" : "var(--clr-surface)",
-                  color: isActive ? "#fff" : "var(--clr-text-muted)",
-                  border: isActive
-                    ? "1px solid var(--clr-crimson)"
-                    : "1px solid var(--clr-border)",
-                  boxShadow: isActive ? "0 0 16px var(--clr-crimson-glow)" : "none",
-                }}
+                className={cn(
+                  "shrink-0 rounded-full text-[0.8rem] font-medium whitespace-nowrap px-4",
+                  isActive
+                    ? "border-0 text-white shadow-[0_0_16px_var(--clr-crimson-glow)]"
+                    : "border-white/10 bg-transparent text-[var(--clr-text-muted)] hover:text-[var(--clr-text)] hover:bg-white/5"
+                )}
+                style={isActive ? { background: "var(--clr-crimson)" } : {}}
               >
                 {label}
-              </button>
+              </Button>
             );
           })}
         </div>
       </section>
 
+      <Separator className="mx-auto max-w-[1200px] bg-white/5" />
+
       {/* ─── Listings ─── */}
       <section
-        style={{
-          padding: "0 1.5rem 5rem",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          width: "100%",
-        }}
+        className="mx-auto w-full max-w-[1200px] px-6 pb-20 pt-6"
         aria-label="Costume listings"
       >
         {/* Error */}
         {error && (
-          <div
-            role="alert"
-            style={{
-              marginBottom: "1.5rem",
-              padding: "1rem 1.25rem",
-              borderRadius: "var(--radius-md)",
-              background: "rgba(196,16,42,0.1)",
-              border: "1px solid rgba(196,16,42,0.3)",
-              color: "#f87171",
-              fontSize: "0.875rem",
-            }}
-          >
-            {error}
-          </div>
+          <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-500/10">
+            <AlertCircle className="size-4" />
+            <AlertDescription style={{ color: "#f87171" }}>{error}</AlertDescription>
+          </Alert>
         )}
 
         {/* Grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "1.25rem",
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => <CostumeCardSkeleton key={i} />)
             : items.length
               ? items.map((c) => <CostumeCard key={c.id} costume={c} />)
               : (
                 <div
-                  style={{
-                    gridColumn: "1 / -1",
-                    textAlign: "center",
-                    padding: "4rem 2rem",
-                    background: "var(--clr-surface)",
-                    border: "1px solid var(--clr-border)",
-                    borderRadius: "var(--radius-lg)",
-                  }}
+                  className="col-span-full rounded-2xl border p-16 text-center"
+                  style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
                 >
-                  <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🎭</div>
-                  <p style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-display)", fontSize: "1.1rem" }}>
+                  <div className="mb-4 text-5xl">🎭</div>
+                  <p className="text-[1.1rem]" style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-display)" }}>
                     No costumes found. Try a different search.
                   </p>
                 </div>
@@ -412,47 +311,42 @@ export default function Home() {
 
         {/* Pagination */}
         {(canPrev || canNext) && (
-          <div
-            style={{
-              marginTop: "3rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "1rem",
-            }}
-          >
-            <button
+          <div className="mt-12 flex items-center justify-center gap-4">
+            <Button
               id="prev-page-btn"
               type="button"
+              variant="outline"
+              size="sm"
               disabled={!canPrev || isLoading}
               onClick={() =>
                 setQuery((q) => ({ ...q, page: Math.max(1, (q.page || 1) - 1) }))
               }
-              className="btn-ghost"
+              className="rounded-full border-white/10 bg-transparent text-[var(--clr-text-muted)] hover:bg-white/5 hover:text-[var(--clr-text)] gap-1"
             >
-              ← Prev
-            </button>
+              <ChevronLeft data-icon="inline-start" />
+              Prev
+            </Button>
             <span
-              style={{
-                fontSize: "0.875rem",
-                color: "var(--clr-text-muted)",
-                fontVariantNumeric: "tabular-nums",
-              }}
+              className="text-sm tabular-nums"
+              style={{ color: "var(--clr-text-muted)" }}
             >
               Page {query.page || 1}
               {total > 0 && ` · ${total} total`}
             </span>
-            <button
+            <Button
               id="next-page-btn"
               type="button"
+              size="sm"
               disabled={!canNext || isLoading}
               onClick={() =>
                 setQuery((q) => ({ ...q, page: (q.page || 1) + 1 }))
               }
-              className="btn-crimson"
+              className="rounded-full text-white border-0 gap-1"
+              style={{ background: "var(--clr-crimson)" }}
             >
-              Next →
-            </button>
+              Next
+              <ChevronRight data-icon="inline-end" />
+            </Button>
           </div>
         )}
       </section>

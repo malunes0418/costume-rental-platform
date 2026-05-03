@@ -12,7 +12,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.iconLarge}>🎭</Text>
-        <Text style={styles.title}>Welcome to CostumeStay</Text>
+        <Text style={styles.title}>Welcome to SnapCos</Text>
         <Text style={styles.subtitle}>Log in to manage your account and bookings.</Text>
         <TouchableOpacity 
           style={styles.btnCrimson} 

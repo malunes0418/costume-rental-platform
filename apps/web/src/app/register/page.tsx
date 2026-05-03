@@ -5,15 +5,28 @@ import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [name, setName]           = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [error, setError]         = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -31,71 +44,146 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-12">
-      <div className="rounded-3xl border border-black/5 bg-white p-8 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">It only takes a minute.</p>
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-12">
+      {/* Background glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: "600px",
+          height: "400px",
+          background: "radial-gradient(ellipse, rgba(196,16,42,0.06) 0%, transparent 70%)",
+        }}
+      />
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium">Name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              type="text"
-              autoComplete="name"
-              className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-rose-400 dark:border-white/15 dark:bg-black"
-            />
-          </label>
+      <div className="animate-fade-up relative z-10 w-full max-w-[420px]">
+        <Card
+          className="border shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+          style={{
+            background: "var(--clr-surface)",
+            borderColor: "var(--clr-border)",
+            borderRadius: "var(--radius-xl)",
+          }}
+        >
+          <CardHeader className="pb-4 text-center">
+            <div className="mb-3 flex justify-center text-5xl leading-none">🎭</div>
+            <CardTitle
+              className="text-[1.75rem] font-black"
+              style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}
+            >
+              Create your account
+            </CardTitle>
+            <CardDescription style={{ color: "var(--clr-text-muted)" }}>
+              It only takes a minute.
+            </CardDescription>
+          </CardHeader>
 
-          <label className="block">
-            <span className="text-sm font-medium">Email</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              autoComplete="email"
-              required
-              className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-rose-400 dark:border-white/15 dark:bg-black"
-            />
-          </label>
+          <CardContent>
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="register-name"
+                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em]"
+                  style={{ color: "var(--clr-text-muted)" }}
+                >
+                  Name
+                </Label>
+                <Input
+                  id="register-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Your name"
+                  className="rounded-xl border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] placeholder:text-[var(--clr-text-dim)] focus-visible:ring-[var(--clr-gold)]/30 focus-visible:border-[var(--clr-gold)]"
+                />
+              </div>
 
-          <label className="block">
-            <span className="text-sm font-medium">Password</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete="new-password"
-              required
-              className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-rose-400 dark:border-white/15 dark:bg-black"
-            />
-          </label>
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="register-email"
+                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em]"
+                  style={{ color: "var(--clr-text-muted)" }}
+                >
+                  Email
+                </Label>
+                <Input
+                  id="register-email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com"
+                  className="rounded-xl border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] placeholder:text-[var(--clr-text-dim)] focus-visible:ring-[var(--clr-gold)]/30 focus-visible:border-[var(--clr-gold)]"
+                />
+              </div>
 
-          {error ? (
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
-              {error}
-            </div>
-          ) : null}
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="register-password"
+                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em]"
+                  style={{ color: "var(--clr-text-muted)" }}
+                >
+                  Password
+                </Label>
+                <Input
+                  id="register-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  placeholder="••••••••"
+                  className="rounded-xl border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] placeholder:text-[var(--clr-text-dim)] focus-visible:ring-[var(--clr-gold)]/30 focus-visible:border-[var(--clr-gold)]"
+                />
+              </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-2xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-60"
-          >
-            {isSubmitting ? "Creating account..." : "Create account"}
-          </button>
-        </form>
+              {error && (
+                <Alert
+                  variant="destructive"
+                  className="rounded-xl border-red-500/30 bg-red-500/10"
+                >
+                  <AlertCircle className="size-4" />
+                  <AlertDescription style={{ color: "#f87171", fontSize: "0.8rem" }}>
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-        <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-zinc-900 hover:underline dark:text-white">
-            Log in
-          </Link>
-          .
-        </p>
+              <Button
+                id="register-submit-btn"
+                type="submit"
+                disabled={isSubmitting}
+                className="mt-1 w-full rounded-xl py-5 text-[0.9rem] font-semibold text-white border-0 disabled:opacity-60"
+                style={{ background: "var(--clr-crimson)" }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Creating account…
+                  </>
+                ) : (
+                  "Create account"
+                )}
+              </Button>
+            </form>
+          </CardContent>
+
+          <CardFooter className="justify-center pt-0">
+            <p className="text-center text-[0.83rem]" style={{ color: "var(--clr-text-muted)" }}>
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-semibold hover:underline"
+                style={{ color: "var(--clr-gold-light)" }}
+              >
+                Log in
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
 }
-

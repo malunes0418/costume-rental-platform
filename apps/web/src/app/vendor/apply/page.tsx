@@ -1,4 +1,8 @@
 "use client";
+
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { applyForVendor } from "@/lib/vendor";
@@ -17,9 +21,10 @@ export default function VendorApply() {
     setLoading(true);
     try {
       await applyForVendor({ store_name: storeName, store_description: description }, token);
-      router.push("/vendor");
+      toast.success("Application submitted! We'll review your request shortly.");
+      setTimeout(() => router.push("/vendor"), 1500);
     } catch (err) {
-      alert("Failed to submit application");
+      toast.error("Failed to submit application");
     } finally {
       setLoading(false);
     }
@@ -54,9 +59,9 @@ export default function VendorApply() {
           />
         </div>
         <div className="pt-4 border-t border-white/10">
-          <button type="submit" className="btn-crimson w-full justify-center text-lg py-3" disabled={loading}>
+          <Button type="submit" className="btn-crimson w-full justify-center text-lg py-3" disabled={loading}>
             {loading ? "Submitting..." : "Submit Application"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

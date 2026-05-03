@@ -7,6 +7,7 @@ import wishlist from "./wishlistRoutes";
 import reviews from "./reviewRoutes";
 import vendor from "./vendorRoutes";
 import admin from "./adminRoutes";
+import subscriptions from "./subscriptionRoutes";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 export default {
@@ -19,5 +20,6 @@ export default {
   reviews,
   vendor,
   admin,
+  subscriptions,
   authMiddleware
 };

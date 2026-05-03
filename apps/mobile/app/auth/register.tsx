@@ -51,7 +51,7 @@ export default function RegisterScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.iconLarge}>✨</Text>
-          <Text style={styles.title}>Join CostumeStay</Text>
+          <Text style={styles.title}>Join SnapCos</Text>
           <Text style={styles.subtitle}>Create an account to start your theatrical journey.</Text>
         </View>
 

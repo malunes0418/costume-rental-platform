@@ -7,6 +7,7 @@ export interface UserAttributes {
   password_hash?: string | null;
   name?: string | null;
   avatar_url?: string | null;
+  push_token?: string | null;
   role: "USER" | "ADMIN";
   vendor_status: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   created_at?: Date;
@@ -21,6 +22,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public password_hash!: string | null;
   public name!: string | null;
   public avatar_url!: string | null;
+  public push_token!: string | null;
   public role!: "USER" | "ADMIN";
   public vendor_status!: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   public created_at!: Date;
@@ -34,6 +36,7 @@ User.init(
     password_hash: { type: DataTypes.STRING(255), allowNull: true },
     name: { type: DataTypes.STRING(255), allowNull: true },
     avatar_url: { type: DataTypes.STRING(500), allowNull: true },
+    push_token: { type: DataTypes.STRING(255), allowNull: true },
     role: { type: DataTypes.ENUM("USER", "ADMIN"), allowNull: false, defaultValue: "USER" },
     vendor_status: { type: DataTypes.ENUM("NONE", "PENDING", "APPROVED", "REJECTED"), allowNull: false, defaultValue: "NONE" },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },

@@ -4,4 +4,4 @@ import type { UserAttributes } from "../models/User";
 export type UserPublic = Omit<UserAttributes, "password_hash">;
 
 /** Compact user for nested JSON (e.g. reviews). */
-export type UserSummary = Pick<UserAttributes, "id" | "email" | "name" | "avatar_url">;
+export type UserSummary = Pick<UserAttributes, "id" | "email" | "name" | "avatar_url" | "role" | "vendor_status">;

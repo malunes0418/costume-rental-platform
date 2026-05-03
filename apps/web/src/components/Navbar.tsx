@@ -3,232 +3,230 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Menu, X, Heart, CalendarDays, Bell, ChevronDown, LogOut, Store } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const navLinks = [
+  { href: "/",             label: "Browse" },
+  { href: "/wishlist",     label: "Wishlist",       icon: Heart },
+  { href: "/trips",        label: "Reservations",   icon: CalendarDays },
+  { href: "/notifications",label: "Notifications",  icon: Bell },
+];
 
 export function Navbar() {
   const { user, token, logout } = useAuth();
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled]   = useState(false);
+  const [menuOpen, setMenuOpen]   = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const initials = user?.name
+    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
+
   return (
     <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        transition: "background 300ms ease, border-color 300ms ease, box-shadow 300ms ease",
-        background: scrolled
-          ? "rgba(10,7,8,0.88)"
-          : "transparent",
-        backdropFilter: scrolled ? "blur(16px) saturate(1.4)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(16px) saturate(1.4)" : "none",
-        borderBottom: `1px solid ${scrolled ? "rgba(255,255,255,0.06)" : "transparent"}`,
-        boxShadow: scrolled ? "0 4px 32px rgba(0,0,0,0.4)" : "none",
-      }}
+      className={cn(
+        "sticky top-0 z-50 transition-all duration-200",
+        scrolled
+          ? "bg-[var(--surface)]/95 backdrop-blur-md border-b border-[var(--border)]"
+          : "bg-[var(--bg)] border-b border-[var(--border)]"
+      )}
     >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "0 1.5rem",
-          height: "4rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between px-5 md:px-8">
+
         {/* Logo */}
-        <Link
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.625rem",
-            textDecoration: "none",
-          }}
-        >
+        <Link href="/" className="flex items-center gap-2 text-decoration-none shrink-0">
           <span
-            style={{
-              width: "2.25rem",
-              height: "2.25rem",
-              borderRadius: "0.625rem",
-              background: "linear-gradient(135deg, #c4102a 0%, #8b0a1c 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 12px rgba(196,16,42,0.4)",
-              fontSize: "1rem",
-              flexShrink: 0,
-            }}
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white"
+            style={{ background: "var(--accent)" }}
             aria-hidden="true"
           >
-            🎭
+            S
           </span>
           <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: "1.15rem",
-              color: "var(--clr-text)",
-              letterSpacing: "-0.01em",
-            }}
+            className="text-[1.05rem] font-semibold tracking-tight"
+            style={{ fontFamily: "var(--font-body)", color: "var(--text)" }}
           >
-            Costume<span style={{ color: "var(--clr-gold)" }}>Stay</span>
+            Snap<span style={{ color: "var(--accent)" }}>Cos</span>
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.25rem",
-          }}
-          className="hidden-mobile"
-          role="navigation"
-          aria-label="Main navigation"
-        >
-          {[
-            { href: "/", label: "Browse" },
-            { href: "/wishlist", label: "Wishlist" },
-            { href: "/trips", label: "My Trips" },
-            { href: "/notifications", label: "Notifications" },
-          ].map(({ href, label }) => (
+        <nav className="hidden items-center gap-0.5 md:flex" role="navigation" aria-label="Main navigation">
+          {navLinks.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
-              style={{
-                color: "var(--clr-text-muted)",
-                textDecoration: "none",
-                padding: "0.4rem 0.85rem",
-                borderRadius: "var(--radius-full)",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                transition: "color 150ms, background 150ms",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.color = "var(--clr-text)";
-                (e.currentTarget as HTMLElement).style.background = "var(--clr-surface-2)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.color = "var(--clr-text-muted)";
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
+              className="px-3.5 py-1.5 text-[0.85rem] font-medium rounded-md transition-colors duration-150"
+              style={{ color: "var(--text-2)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-2)")}
             >
               {label}
             </Link>
           ))}
 
-          <div style={{ width: "1px", height: "1.25rem", background: "var(--clr-border)", margin: "0 0.5rem" }} />
+          <span className="mx-3 h-4 w-px" style={{ background: "var(--border-2)" }} />
 
           {!token ? (
-            <Link href="/login" className="btn-crimson" style={{ textDecoration: "none" }}>
-              Log in
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="rounded-md text-[0.85rem] font-medium"
+                style={{ color: "var(--text-2)" }}
+              >
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                className="rounded-md text-[0.85rem] font-medium"
+                style={{ background: "var(--text)", color: "var(--bg)", border: "none" }}
+              >
+                <Link href="/register">Sign up</Link>
+              </Button>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={logout}
-              className="btn-ghost"
-              style={{ fontSize: "0.8rem" }}
-            >
-              {user?.name ? `${user.name.split(" ")[0]}` : "Account"}
-              <span style={{ opacity: 0.5 }}>· Log out</span>
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-2 rounded-md px-2 hover:bg-[var(--bg-subtle)]"
+                >
+                  <Avatar className="size-6">
+                    <AvatarFallback
+                      className="text-[0.6rem] font-semibold"
+                      style={{ background: "var(--surface-3)", color: "var(--text)" }}
+                    >
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-[0.85rem] font-medium" style={{ color: "var(--text)" }}>
+                    {user?.name?.split(" ")[0] || "Account"}
+                  </span>
+                  <ChevronDown className="size-3 opacity-40" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-52 rounded-lg border p-1 shadow-sm"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+              >
+                <DropdownMenuLabel className="text-[0.72rem] font-normal" style={{ color: "var(--text-3)" }}>
+                  {user?.email || "My Account"}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator style={{ background: "var(--border)" }} />
+                <DropdownMenuItem asChild>
+                  <Link href="/trips" className="cursor-pointer flex items-center gap-2 text-[0.875rem]" style={{ color: "var(--text)" }}>
+                    <CalendarDays className="size-4 opacity-50" /> Reservations
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/wishlist" className="cursor-pointer flex items-center gap-2 text-[0.875rem]" style={{ color: "var(--text)" }}>
+                    <Heart className="size-4 opacity-50" /> Wishlist
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/notifications" className="cursor-pointer flex items-center gap-2 text-[0.875rem]" style={{ color: "var(--text)" }}>
+                    <Bell className="size-4 opacity-50" /> Notifications
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/vendor" className="cursor-pointer flex items-center gap-2 text-[0.875rem]" style={{ color: "var(--text)" }}>
+                    <Store className="size-4 opacity-50" /> Vendor Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator style={{ background: "var(--border)" }} />
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="cursor-pointer flex items-center gap-2 text-[0.875rem] text-red-500 focus:text-red-500 focus:bg-red-50"
+                >
+                  <LogOut className="size-4" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </nav>
 
-        {/* Mobile menu toggle */}
+        {/* Mobile toggle */}
         <button
           type="button"
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((o) => !o)}
-          style={{
-            display: "none",
-            background: "none",
-            border: "1px solid var(--clr-border)",
-            borderRadius: "var(--radius-sm)",
-            padding: "0.45rem 0.6rem",
-            color: "var(--clr-text)",
-            cursor: "pointer",
-          }}
-          className="mobile-menu-btn"
+          onClick={() => setMenuOpen(o => !o)}
+          className="flex md:hidden size-8 items-center justify-center rounded-md transition-colors duration-150"
+          style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--text)" }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            {menuOpen ? (
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            ) : (
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-            )}
-          </svg>
+          {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
       </div>
 
       {/* Mobile menu */}
       {menuOpen && (
         <div
-          style={{
-            background: "var(--clr-surface)",
-            borderTop: "1px solid var(--clr-border)",
-            padding: "1rem 1.5rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.25rem",
-          }}
+          className="flex flex-col border-t px-4 py-3 gap-0.5 md:hidden animate-fade-in"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
-          {[
-            { href: "/", label: "Browse" },
-            { href: "/wishlist", label: "Wishlist" },
-            { href: "/trips", label: "My Trips" },
-            { href: "/notifications", label: "Notifications" },
-          ].map(({ href, label }) => (
+          {navLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
               onClick={() => setMenuOpen(false)}
-              style={{
-                color: "var(--clr-text-muted)",
-                textDecoration: "none",
-                padding: "0.65rem 0.75rem",
-                borderRadius: "var(--radius-sm)",
-                fontSize: "0.9rem",
-                display: "block",
-              }}
+              className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[0.875rem] font-medium transition-colors duration-150"
+              style={{ color: "var(--text-2)" }}
             >
+              {Icon && <Icon className="size-4 opacity-50" />}
               {label}
             </Link>
           ))}
-          <div style={{ height: "1px", background: "var(--clr-border)", margin: "0.5rem 0" }} />
+          <hr style={{ margin: "6px 0", borderColor: "var(--border)" }} />
           {!token ? (
-            <Link
-              href="/login"
-              className="btn-crimson"
-              onClick={() => setMenuOpen(false)}
-              style={{ textDecoration: "none", justifyContent: "center" }}
-            >
-              Log in
-            </Link>
+            <div className="flex flex-col gap-2 pt-1">
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-center rounded-md border px-4 py-2 text-[0.875rem] font-medium"
+                style={{ borderColor: "var(--border-2)", color: "var(--text)" }}
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-center rounded-md px-4 py-2 text-[0.875rem] font-medium"
+                style={{ background: "var(--text)", color: "var(--bg)" }}
+              >
+                Sign up
+              </Link>
+            </div>
           ) : (
-            <button type="button" onClick={() => { logout(); setMenuOpen(false); }} className="btn-ghost" style={{ justifyContent: "center" }}>
-              Log out
+            <button
+              onClick={() => { logout(); setMenuOpen(false); }}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-[0.875rem] font-medium text-red-500"
+            >
+              <LogOut className="size-4" /> Log out
             </button>
           )}
         </div>
       )}
-
-      {/* Responsive CSS */}
-      <style>{`
-        @media (max-width: 768px) {
-          .hidden-mobile { display: none !important; }
-          .mobile-menu-btn { display: block !important; }
-        }
-      `}</style>
     </header>
   );
 }
