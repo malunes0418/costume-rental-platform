@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { MagnifyingGlassIcon as Search, ChevronLeftIcon as ChevronLeft, ChevronRightIcon as ChevronRight, ExclamationTriangleIcon as AlertCircle } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 
 const sortOptions = [
@@ -27,14 +27,14 @@ const sortOptions = [
 
 const categoryFilters = [
   { value: "",          label: "All" },
-  { value: "superhero", label: "🦸 Superhero" },
-  { value: "halloween", label: "🎃 Halloween" },
-  { value: "historical",label: "👑 Historical" },
-  { value: "fantasy",   label: "🧙 Fantasy" },
-  { value: "anime",     label: "⛩️ Anime" },
-  { value: "theatrical",label: "🎭 Theatrical" },
-  { value: "vintage",   label: "🎩 Vintage" },
-  { value: "sci_fi",    label: "🚀 Sci-Fi" },
+  { value: "superhero", label: "Superhero" },
+  { value: "halloween", label: "Halloween" },
+  { value: "historical",label: "Historical" },
+  { value: "fantasy",   label: "Fantasy" },
+  { value: "anime",     label: "Anime" },
+  { value: "theatrical",label: "Theatrical" },
+  { value: "vintage",   label: "Vintage" },
+  { value: "sci_fi",    label: "Sci-Fi" },
 ];
 
 // Animated spotlight words
@@ -104,7 +104,7 @@ export default function Home() {
             width: "900px",
             height: "600px",
             background:
-              "radial-gradient(ellipse at center, rgba(196,16,42,0.12) 0%, rgba(200,155,60,0.05) 40%, transparent 70%)",
+              "radial-gradient(ellipse at center, rgba(200,155,60,0.12) 0%, transparent 70%)",
           }}
         />
 
@@ -113,34 +113,25 @@ export default function Home() {
           <div className="animate-fade-up">
             <Badge
               variant="secondary"
-              className="rounded-full border px-4 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em]"
-              style={{
-                background: "var(--clr-gold-dim)",
-                color: "var(--clr-gold-light)",
-                border: "1px solid rgba(200,155,60,0.3)",
-              }}
+              className="rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-primary"
             >
-              🎭 Premium Costume Rentals
+              Premium Costume Rentals
             </Badge>
           </div>
 
           {/* Headline */}
           <h1
-            className="animate-fade-up-delay-1 mt-5"
+            className="animate-fade-up-delay-1 mt-5 display font-black text-foreground"
             style={{
-              fontFamily: "var(--font-display)",
               fontSize: "clamp(2.4rem, 6vw, 4.5rem)",
-              fontWeight: 900,
               lineHeight: 1.08,
-              color: "var(--clr-text)",
               letterSpacing: "-0.02em",
             }}
           >
             Wear Something{" "}
             <span
-              className="inline-block italic"
+              className="inline-block italic text-primary"
               style={{
-                color: "var(--clr-gold-light)",
                 minWidth: "8ch",
                 transition: "opacity 300ms ease, transform 300ms ease",
                 opacity: wordVisible ? 1 : 0,
@@ -151,10 +142,7 @@ export default function Home() {
             </span>
           </h1>
 
-          <p
-            className="animate-fade-up-delay-2 mx-auto mt-5 max-w-[520px] text-[1.05rem] leading-[1.7]"
-            style={{ color: "var(--clr-text-muted)" }}
-          >
+          <p className="animate-fade-up-delay-2 mx-auto mt-5 max-w-[520px] text-[1.05rem] leading-[1.7] text-muted-foreground">
             Browse curated costumes for parties, shoots, events, and theatre.
             Book with clear pricing and instant availability.
           </p>
@@ -168,10 +156,7 @@ export default function Home() {
               setQuery((q) => ({ ...q, q: qText.trim() || undefined, page: 1 }));
             }}
           >
-            <div
-              className="flex flex-col gap-3 rounded-2xl border p-2.5 shadow-[0_8px_40px_rgba(0,0,0,0.4)]"
-              style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
-            >
+            <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-2.5 shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
               <div className="flex flex-wrap gap-2">
                 <Input
                   id="search-input"
@@ -179,7 +164,7 @@ export default function Home() {
                   onChange={(e) => setQText(e.target.value)}
                   placeholder="Search: pirate, vintage, superhero…"
                   aria-label="Search costumes"
-                  className="flex-1 min-w-[160px] border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] placeholder:text-[var(--clr-text-dim)] focus-visible:ring-[var(--clr-gold)]/30 focus-visible:border-[var(--clr-gold)] rounded-xl text-[0.9rem]"
+                  className="flex-1 min-w-[160px] border-border bg-muted text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary/30 focus-visible:border-primary rounded-xl text-[0.9rem]"
                 />
                 <Select
                   value={query.sort || "_newest"}
@@ -194,13 +179,13 @@ export default function Home() {
                   <SelectTrigger
                     id="sort-select"
                     aria-label="Sort costumes"
-                    className="w-auto min-w-[160px] border-white/10 bg-[var(--clr-surface-2)] text-[var(--clr-text)] rounded-xl text-sm"
+                    className="w-auto min-w-[160px] border-border bg-muted text-foreground rounded-xl text-sm"
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent style={{ background: "var(--clr-surface-2)", border: "1px solid var(--clr-border)" }}>
+                  <SelectContent className="bg-muted border border-border">
                     {sortOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value} style={{ color: "var(--clr-text)" }}>
+                      <SelectItem key={o.value} value={o.value} className="text-foreground">
                         {o.label}
                       </SelectItem>
                     ))}
@@ -209,10 +194,9 @@ export default function Home() {
                 <Button
                   id="search-btn"
                   type="submit"
-                  className="rounded-xl px-6 text-white border-0"
-                  style={{ background: "var(--clr-crimson)" }}
+                  className="rounded-xl px-6 text-primary-foreground border-0 bg-primary hover:bg-primary/90"
                 >
-                  <Search data-icon="inline-start" />
+                  <Search data-icon="inline-start" className="mr-2 size-4" />
                   Search
                 </Button>
               </div>
@@ -227,16 +211,10 @@ export default function Home() {
               { label: "Avg. Rating",value: "4.9 ★" },
             ].map(({ label, value }) => (
               <div key={label} className="text-center">
-                <div
-                  className="text-[1.4rem] font-bold"
-                  style={{ fontFamily: "var(--font-display)", color: "var(--clr-gold-light)" }}
-                >
+                <div className="text-[1.4rem] font-bold display text-primary">
                   {value}
                 </div>
-                <div
-                  className="mt-0.5 text-[0.72rem] uppercase tracking-[0.06em]"
-                  style={{ color: "var(--clr-text-dim)" }}
-                >
+                <div className="mt-0.5 text-[0.72rem] uppercase tracking-[0.06em] text-muted-foreground">
                   {label}
                 </div>
               </div>
@@ -261,12 +239,11 @@ export default function Home() {
                   setQuery((q) => ({ ...q, category: value || undefined, page: 1 }))
                 }
                 className={cn(
-                  "shrink-0 rounded-full text-[0.8rem] font-medium whitespace-nowrap px-4",
+                  "shrink-0 rounded-full text-[0.8rem] font-medium whitespace-nowrap px-4 border-0",
                   isActive
-                    ? "border-0 text-white shadow-[0_0_16px_var(--clr-crimson-glow)]"
-                    : "border-white/10 bg-transparent text-[var(--clr-text-muted)] hover:text-[var(--clr-text)] hover:bg-white/5"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
-                style={isActive ? { background: "var(--clr-crimson)" } : {}}
               >
                 {label}
               </Button>
@@ -275,7 +252,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Separator className="mx-auto max-w-[1200px] bg-white/5" />
+      <Separator className="mx-auto max-w-[1200px] bg-border" />
 
       {/* ─── Listings ─── */}
       <section
@@ -284,9 +261,9 @@ export default function Home() {
       >
         {/* Error */}
         {error && (
-          <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-500/10">
+          <Alert variant="destructive" className="mb-6 border-destructive/30 bg-destructive/10">
             <AlertCircle className="size-4" />
-            <AlertDescription style={{ color: "#f87171" }}>{error}</AlertDescription>
+            <AlertDescription className="text-destructive text-xs">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -297,12 +274,11 @@ export default function Home() {
             : items.length
               ? items.map((c) => <CostumeCard key={c.id} costume={c} />)
               : (
-                <div
-                  className="col-span-full rounded-2xl border p-16 text-center"
-                  style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
-                >
-                  <div className="mb-4 text-5xl">🎭</div>
-                  <p className="text-[1.1rem]" style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-display)" }}>
+                <div className="col-span-full rounded-3xl border border-border bg-card p-16 text-center">
+                  <div className="mb-4 flex justify-center text-muted-foreground/30">
+                    <Search className="size-16" />
+                  </div>
+                  <p className="text-[1.1rem] text-muted-foreground display">
                     No costumes found. Try a different search.
                   </p>
                 </div>
@@ -321,15 +297,12 @@ export default function Home() {
               onClick={() =>
                 setQuery((q) => ({ ...q, page: Math.max(1, (q.page || 1) - 1) }))
               }
-              className="rounded-full border-white/10 bg-transparent text-[var(--clr-text-muted)] hover:bg-white/5 hover:text-[var(--clr-text)] gap-1"
+              className="rounded-full border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground gap-1"
             >
-              <ChevronLeft data-icon="inline-start" />
+              <ChevronLeft className="size-4" data-icon="inline-start" />
               Prev
             </Button>
-            <span
-              className="text-sm tabular-nums"
-              style={{ color: "var(--clr-text-muted)" }}
-            >
+            <span className="text-sm tabular-nums text-muted-foreground">
               Page {query.page || 1}
               {total > 0 && ` · ${total} total`}
             </span>
@@ -341,11 +314,10 @@ export default function Home() {
               onClick={() =>
                 setQuery((q) => ({ ...q, page: (q.page || 1) + 1 }))
               }
-              className="rounded-full text-white border-0 gap-1"
-              style={{ background: "var(--clr-crimson)" }}
+              className="rounded-full text-primary-foreground border-0 gap-1 bg-primary hover:bg-primary/90"
             >
               Next
-              <ChevronRight data-icon="inline-end" />
+              <ChevronRight className="size-4" data-icon="inline-end" />
             </Button>
           </div>
         )}

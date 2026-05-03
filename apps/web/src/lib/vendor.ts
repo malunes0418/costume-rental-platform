@@ -122,3 +122,30 @@ export function createReservationMessage(id: number, content: string, token: str
     token,
   });
 }
+
+// ─── Subscription API calls ──────────────────────────────
+
+export type Subscription = {
+  id: number;
+  user_id: number;
+  plan_name: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export function getMySubscription(token: string) {
+  // Backend returns the Subscription directly, or null if empty.
+  return apiFetch<Subscription | null>("/api/subscriptions/me", { token });
+}
+
+export function subscribeToPlan(planName: string, token: string) {
+  return apiFetch<Subscription>("/api/subscriptions/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planName }),
+    token,
+  });
+}

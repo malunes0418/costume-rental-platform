@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 import { Navbar } from "../components/Navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "../components/theme-provider";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -40,29 +41,40 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${newsreader.variable} ${dmSans.variable} h-full`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <Navbar />
-          <div className="flex flex-1 flex-col">{children}</div>
-          <Toaster position="top-right" />
-          {/* Theatrical grain overlay */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              inset: 0,
-              pointerEvents: "none",
-              zIndex: 9999,
-              opacity: 0.025,
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
-              backgroundRepeat: "repeat",
-              backgroundSize: "128px",
-            }}
-          />
-        </AuthProvider>
-      </body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <Navbar />
+            <div className="flex flex-1 flex-col">{children}</div>
+            <Toaster position="top-right" />
+            {/* Theatrical grain overlay */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: 9999,
+                opacity: 0.025,
+                backgroundImage:
+                  "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+                backgroundRepeat: "repeat",
+                backgroundSize: "128px",
+              }}
+            />
+          </AuthProvider>
+        </ThemeProvider>
+      {/* impeccable-live-start */}
+<script src="http://localhost:8400/live.js"></script>
+{/* impeccable-live-end */}
+</body>
     </html>
   );
 }

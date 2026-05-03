@@ -22,4 +22,13 @@ export class NotificationController {
       ApiResponse.failFromError(res, e);
     }
   }
+
+  async markAllAsRead(req: Request, res: Response) {
+    try {
+      const result = await notificationService.markAllAsRead(req.user!.id);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
 }

@@ -26,7 +26,7 @@ export class AuthService {
       throw new Error("Invalid credentials");
     }
     const token = JwtHelper.generateToken(user);
-    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url, role: user.role }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url, role: user.role, vendor_status: user.vendor_status }, token };
   }
 
   async findOrCreateOAuthUser(provider: string, providerUserId: string, email?: string, name?: string, avatarUrl?: string) {

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Heart, Trash2, Eye } from "lucide-react";
+import { ExclamationTriangleIcon as AlertCircle, HeartIcon as Heart, Cross1Icon as Trash2, EyeOpenIcon as Eye } from "@radix-ui/react-icons";
 
 export default function WishlistPage() {
   const { token } = useAuth();
@@ -38,20 +38,17 @@ export default function WishlistPage() {
   if (!token) {
     return (
       <div className="mx-auto w-full max-w-4xl px-6 py-12">
-        <Card
-          className="border shadow-sm"
-          style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-xl)" }}
-        >
+        <Card className="border border-border bg-card shadow-sm rounded-3xl">
           <CardHeader>
-            <CardTitle style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}>
+            <CardTitle className="display text-foreground">
               Wishlist
             </CardTitle>
-            <CardDescription style={{ color: "var(--clr-text-muted)" }}>
+            <CardDescription className="text-muted-foreground">
               Log in to save favorites.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild className="rounded-full text-white border-0" style={{ background: "var(--clr-crimson)" }}>
+            <Button asChild className="rounded-full text-primary-foreground border-0 bg-primary hover:bg-primary/90">
               <Link href="/login?next=/wishlist">Log in</Link>
             </Button>
           </CardContent>
@@ -66,48 +63,40 @@ export default function WishlistPage() {
       <div className="mb-8 flex items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <Heart className="size-6" style={{ color: "var(--clr-crimson)" }} />
-            <h1
-              className="text-2xl font-black tracking-tight"
-              style={{ fontFamily: "var(--font-display)", color: "var(--clr-text)" }}
-            >
+            <Heart className="size-6 text-primary" />
+            <h1 className="text-2xl font-black tracking-tight display text-foreground">
               Wishlist
             </h1>
             {!isLoading && items.length > 0 && (
               <Badge
                 variant="secondary"
-                className="rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold"
-                style={{ background: "var(--clr-gold-dim)", color: "var(--clr-gold-light)", border: "1px solid rgba(200,155,60,0.3)" }}
+                className="rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold bg-primary/10 text-primary border-primary/30"
               >
                 {items.length}
               </Badge>
             )}
           </div>
-          <p className="mt-1.5 text-sm" style={{ color: "var(--clr-text-muted)" }}>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Your saved costumes, ready when you are.
           </p>
         </div>
       </div>
 
       {error && (
-        <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-500/10">
+        <Alert variant="destructive" className="mb-6 border-destructive/30 bg-destructive/10">
           <AlertCircle className="size-4" />
-          <AlertDescription style={{ color: "#f87171" }}>{error}</AlertDescription>
+          <AlertDescription className="text-destructive text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <Card
-              key={i}
-              className="overflow-hidden border"
-              style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-lg)" }}
-            >
-              <Skeleton className="w-full" style={{ aspectRatio: "4/3", borderRadius: 0, background: "var(--clr-surface-2)" }} />
+            <Card key={i} className="overflow-hidden border border-border bg-card rounded-2xl">
+              <Skeleton className="w-full rounded-none bg-muted aspect-4/3" />
               <CardContent className="p-4">
-                <Skeleton className="mb-2 h-4 w-3/4" style={{ background: "var(--clr-surface-2)" }} />
-                <Skeleton className="h-3 w-2/5" style={{ background: "var(--clr-surface-2)" }} />
+                <Skeleton className="mb-2 h-4 w-3/4 bg-muted" />
+                <Skeleton className="h-3 w-2/5 bg-muted" />
               </CardContent>
             </Card>
           ))
@@ -120,10 +109,9 @@ export default function WishlistPage() {
             return (
               <Card
                 key={it.id}
-                className="group overflow-hidden border transition-all duration-250 hover:border-[rgba(200,155,60,0.3)] hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
-                style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)", borderRadius: "var(--radius-lg)" }}
+                className="group overflow-hidden border border-border bg-card rounded-2xl transition-all duration-250 hover:border-primary/30 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
               >
-                <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/3", background: "var(--clr-surface-2)" }}>
+                <div className="relative w-full overflow-hidden bg-muted aspect-4/3">
                   {img ? (
                     <img
                       src={resolveApiAsset(img)}
@@ -131,22 +119,24 @@ export default function WishlistPage() {
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-4xl">🎭</div>
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/30">
+                      <Heart className="size-12" />
+                    </div>
                   )}
                 </div>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold tracking-tight" style={{ color: "var(--clr-text)", fontFamily: "var(--font-display)" }}>
+                      <p className="truncate font-semibold tracking-tight text-foreground display">
                         {c?.name || `Costume #${it.costume_id}`}
                       </p>
-                      <p className="mt-0.5 truncate text-sm" style={{ color: "var(--clr-text-muted)" }}>
+                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
                         {tags.join(" · ") || "Costume"}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" asChild className="shrink-0 size-8 rounded-lg hover:bg-white/5">
+                    <Button variant="ghost" size="icon" asChild className="shrink-0 size-8 rounded-lg hover:bg-muted text-muted-foreground">
                       <Link href={`/costumes/${it.costume_id}`} aria-label="View costume">
-                        <Eye className="size-4" style={{ color: "var(--clr-text-muted)" }} />
+                        <Eye className="size-4" />
                       </Link>
                     </Button>
                   </div>
@@ -160,8 +150,7 @@ export default function WishlistPage() {
                         setItems((xs) => xs.filter((x) => x.id !== it.id));
                       } catch { /* silent */ }
                     }}
-                    className="mt-4 w-full rounded-xl border-white/10 bg-transparent text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 gap-2"
-                    style={{ color: "var(--clr-text-muted)" }}
+                    className="mt-4 w-full rounded-xl border-border bg-transparent text-sm font-semibold hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 text-muted-foreground gap-2"
                   >
                     <Trash2 className="size-3.5" />
                     Remove
@@ -171,15 +160,14 @@ export default function WishlistPage() {
             );
           })
         ) : (
-          <div
-            className="col-span-full rounded-2xl border p-16 text-center"
-            style={{ background: "var(--clr-surface)", borderColor: "var(--clr-border)" }}
-          >
-            <div className="mb-4 text-5xl">💔</div>
-            <p className="text-[1.05rem]" style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-display)" }}>
+          <div className="col-span-full rounded-3xl border border-border bg-card p-16 text-center">
+            <div className="mb-4 flex justify-center text-muted-foreground/30">
+              <Heart className="size-16" />
+            </div>
+            <p className="text-[1.05rem] text-muted-foreground display">
               Your wishlist is empty.
             </p>
-            <Button asChild className="mt-6 rounded-full text-white border-0" style={{ background: "var(--clr-crimson)" }}>
+            <Button asChild className="mt-6 rounded-full text-primary-foreground border-0 bg-primary hover:bg-primary/90">
               <Link href="/">Browse Costumes</Link>
             </Button>
           </div>

@@ -43,17 +43,50 @@ export class VendorService {
 
   // --- Vendor Listings ---
   async listCostumes(vendorId: number) {
-    return Costume.findAll({ where: { owner_id: vendorId } });
+    const { CostumeImage } = require("../models/CostumeImage");
+    return Costume.findAll({ 
+      where: { owner_id: vendorId },
+      include: [{ model: CostumeImage }]
+    });
   }
 
   async createCostume(vendorId: number, data: any) {
-    return Costume.create({ ...data, owner_id: vendorId, status: "ACTIVE" });
+    const { images, ...costumeData } = data;
+    const costume = await Costume.create({ ...costumeData, owner_id: vendorId, status: "ACTIVE" });
+    
+    const { CostumeImage } = require("../models/CostumeImage");
+    
+    if (images && Array.isArray(images)) {
+      const imagesToCreate = images.slice(0, 15).map((url: string, index: number) => ({
+        costume_id: costume.id,
+        image_url: url,
+        is_primary: index === 0
+      }));
+      await CostumeImage.bulkCreate(imagesToCreate);
+    }
+    
+    return costume;
   }
 
   async updateCostume(vendorId: number, costumeId: number, data: any) {
+    const { images, ...updateData } = data;
     const costume = await Costume.findOne({ where: { id: costumeId, owner_id: vendorId } });
     if (!costume) throw new Error("Costume not found or unauthorized");
-    return costume.update(data);
+    
+    await costume.update(updateData);
+
+    if (images && Array.isArray(images)) {
+      const { CostumeImage } = require("../models/CostumeImage");
+      await CostumeImage.destroy({ where: { costume_id: costume.id } });
+      const imagesToCreate = images.slice(0, 15).map((url: string, index: number) => ({
+        costume_id: costume.id,
+        image_url: url,
+        is_primary: index === 0
+      }));
+      await CostumeImage.bulkCreate(imagesToCreate);
+    }
+
+    return costume;
   }
 
   async deleteCostume(vendorId: number, costumeId: number) {

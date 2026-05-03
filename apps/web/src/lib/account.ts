@@ -81,6 +81,10 @@ export function markNotificationRead(token: string, id: number) {
   return apiFetch<Notification>(`/api/notifications/${id}/read`, { method: "POST", token });
 }
 
+export function markAllNotificationsRead(token: string) {
+  return apiFetch<{ success: true }>("/api/notifications/read-all", { method: "POST", token });
+}
+
 export function myPayments(token: string) {
   return apiFetch<Payment[]>("/api/payments/my", { token });
 }

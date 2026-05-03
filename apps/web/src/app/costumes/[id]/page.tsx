@@ -14,6 +14,19 @@ import {
 } from "../../../lib/costumes";
 import { useAuth } from "../../../lib/auth";
 import { apiFetch } from "../../../lib/api";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { toast } from "sonner";
+import { Skeleton } from "../../../components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
+import { ExclamationTriangleIcon as AlertCircle, CalendarIcon } from "@radix-ui/react-icons";
+import { format } from "date-fns";
+import { cn } from "../../../lib/utils";
+import { Calendar } from "../../../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
 
 type CreateOrUpdateReviewRequest = { costumeId: number; rating: number; comment?: string };
 
@@ -21,10 +34,8 @@ function fmtMoney(n: number) {
   return `$${Number(n).toFixed(0)}`;
 }
 
-function daysBetween(start: string, end: string) {
-  const a = new Date(start);
-  const b = new Date(end);
-  const ms = b.getTime() - a.getTime();
+function daysBetween(start: Date, end: Date) {
+  const ms = end.getTime() - start.getTime();
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
@@ -39,17 +50,13 @@ export default function CostumeDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
   const [availability, setAvailability] = useState<Reservation[] | null>(null);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const [quantity, setQuantity] = useState(1);
-  const [cartStatus, setCartStatus] = useState<string | null>(null);
-
   const [myRating, setMyRating] = useState(5);
   const [myComment, setMyComment] = useState("");
-  const [reviewStatus, setReviewStatus] = useState<string | null>(null);
 
   const images = data?.costume.CostumeImages || [];
   const heroImage = images.find((i) => i.is_primary)?.image_url || images[0]?.image_url || "";
@@ -84,27 +91,30 @@ export default function CostumeDetailPage() {
 
   async function checkAvailability() {
     setAvailability(null);
-    setAvailabilityError(null);
     if (!startDate || !endDate) {
-      setAvailabilityError("Choose dates to check availability.");
+      toast.error("Choose dates to check availability.");
       return;
     }
     try {
-      const res = await getAvailability(id, startDate, endDate);
+      const res = await getAvailability(id, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
       setAvailability(res);
+      if (res.length === 0) {
+        toast.success("Available! No overlapping reservations.");
+      } else {
+        toast.error("These dates overlap an existing reservation.");
+      }
     } catch (e: unknown) {
-      setAvailabilityError(e instanceof ApiError ? e.message : "Availability check failed");
+      toast.error(e instanceof ApiError ? e.message : "Availability check failed");
     }
   }
 
   async function addToCart() {
-    setCartStatus(null);
     if (!token) {
-      setCartStatus("Please log in to reserve.");
+      toast.error("Please log in to reserve.");
       return;
     }
     if (!startDate || !endDate) {
-      setCartStatus("Please choose dates first.");
+      toast.error("Please choose dates first.");
       return;
     }
     try {
@@ -112,18 +122,22 @@ export default function CostumeDetailPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         token,
-        body: JSON.stringify({ costumeId: id, quantity, startDate, endDate }),
+        body: JSON.stringify({ 
+          costumeId: id, 
+          quantity, 
+          startDate: format(startDate, "yyyy-MM-dd"), 
+          endDate: format(endDate, "yyyy-MM-dd") 
+        }),
       });
-      setCartStatus("Added to cart.");
+      toast.success("Added to cart successfully.");
     } catch (e: unknown) {
-      setCartStatus(e instanceof ApiError ? e.message : "Failed to add to cart");
+      toast.error(e instanceof ApiError ? e.message : "Failed to add to cart");
     }
   }
 
   async function submitReview() {
-    setReviewStatus(null);
     if (!token) {
-      setReviewStatus("Please log in to leave a review.");
+      toast.error("Please log in to leave a review.");
       return;
     }
     try {
@@ -134,18 +148,19 @@ export default function CostumeDetailPage() {
         token,
         body: JSON.stringify(body),
       });
-      setReviewStatus("Saved.");
+      toast.success("Review saved successfully.");
       const updated = await listCostumeReviews(id);
       setReviews(updated);
+      setMyComment("");
     } catch (e: unknown) {
-      setReviewStatus(e instanceof ApiError ? e.message : "Failed to save review");
+      toast.error(e instanceof ApiError ? e.message : "Failed to save review");
     }
   }
 
   if (isLoading) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-10">
-        <div className="h-[420px] animate-pulse rounded-3xl border border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950" />
+        <Skeleton className="h-[420px] w-full" />
       </div>
     );
   }
@@ -153,28 +168,30 @@ export default function CostumeDetailPage() {
   if (error || !data) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-10">
-        <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-700 dark:text-rose-200">
-          {error ?? "Not found"}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error ?? "Not found"}</AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 bg-zinc-50 dark:bg-black">
+    <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{data.costume.name}</h1>
-            <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <h1 className="font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">{data.costume.name}</h1>
+            <div className="mt-3 text-sm font-medium text-muted-foreground">
               {data.avgRating ? `${data.avgRating.toFixed(1)} ★` : "New"} · {data.ratingCount} reviews
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <div className="lg:col-span-3">
-              <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <div className="aspect-[16/10] w-full bg-zinc-100 dark:bg-white/5">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+            <div className="lg:col-span-3 flex flex-col gap-8">
+              <Card className="overflow-hidden border-border bg-card shadow-none">
+                <div className="aspect-[16/10] w-full bg-muted">
                   {heroImage ? (
                     <img
                       src={resolveApiAsset(heroImage)}
@@ -183,161 +200,171 @@ export default function CostumeDetailPage() {
                     />
                   ) : null}
                 </div>
-                <div className="p-6">
-                  <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                <CardContent className="p-6">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {[data.costume.category, data.costume.theme, data.costume.size].filter(Boolean).join(" · ") || "Costume"}
                   </div>
                   {data.costume.description ? (
-                    <p className="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-300">
+                    <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-foreground">
                       {data.costume.description}
                     </p>
                   ) : null}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <div className="mt-8 rounded-3xl border border-black/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <h2 className="text-lg font-semibold tracking-tight">Reviews</h2>
-                <div className="mt-4 space-y-4">
+              <Card className="border-border bg-card shadow-none">
+                <CardHeader>
+                  <CardTitle className="font-playfair text-2xl">Reviews</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   {reviews.length ? (
                     reviews.map((r) => (
-                      <div key={r.id} className="rounded-2xl border border-black/5 p-4 dark:border-white/10">
+                      <div key={r.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{r.User?.name || "Guest"}</div>
-                          <div className="text-sm">{r.rating} ★</div>
+                          <div className="text-sm font-semibold text-foreground">{r.User?.name || "Guest"}</div>
+                          <div className="text-sm font-medium text-foreground">{r.rating} ★</div>
                         </div>
                         {r.comment ? (
-                          <div className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">{r.comment}</div>
+                          <div className="mt-2 text-sm text-muted-foreground">{r.comment}</div>
                         ) : null}
                       </div>
                     ))
                   ) : (
-                    <div className="text-sm text-zinc-600 dark:text-zinc-400">No reviews yet.</div>
+                    <div className="text-sm text-muted-foreground">No reviews yet.</div>
                   )}
-                </div>
-
-                <div className="mt-8 rounded-2xl border border-black/5 p-4 dark:border-white/10">
-                  <div className="text-sm font-semibold">Leave a review</div>
-                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <label className="block">
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">Rating</div>
-                      <select
-                        value={myRating}
-                        onChange={(e) => setMyRating(Number(e.target.value))}
-                        className="mt-1 h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none dark:border-white/15 dark:bg-black"
-                      >
-                        {[5, 4, 3, 2, 1].map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block sm:col-span-2">
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">Comment (optional)</div>
-                      <input
+                </CardContent>
+                <CardFooter className="flex-col items-start border-t border-border bg-muted/30 pt-6">
+                  <div className="text-sm font-semibold text-foreground">Leave a review</div>
+                  <div className="mt-4 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>Rating</Label>
+                      <Select value={myRating.toString()} onValueChange={(v: string) => setMyRating(Number(v))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[5, 4, 3, 2, 1].map((n) => (
+                            <SelectItem key={n} value={n.toString()}>{n} Stars</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Comment (optional)</Label>
+                      <Input
                         value={myComment}
                         onChange={(e) => setMyComment(e.target.value)}
-                        className="mt-1 h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none dark:border-white/15 dark:bg-black"
                         placeholder="What did you like?"
                       />
-                    </label>
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={submitReview}
-                      className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
-                    >
-                      Save review
-                    </button>
-                    {reviewStatus ? <div className="text-sm text-zinc-600 dark:text-zinc-400">{reviewStatus}</div> : null}
+                  <div className="mt-4">
+                    <Button onClick={submitReview}>Save review</Button>
                   </div>
-                </div>
-              </div>
+                </CardFooter>
+              </Card>
             </div>
 
             <div className="lg:col-span-2">
-              <div className="sticky top-24 rounded-3xl border border-black/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <div className="flex items-baseline justify-between">
-                  <div className="text-2xl font-semibold tracking-tight">{fmtMoney(Number(data.costume.base_price_per_day))}</div>
-                  <div className="text-sm text-zinc-600 dark:text-zinc-400">per day</div>
-                </div>
+              <Card className="sticky top-24 border-border bg-card shadow-none">
+                <CardHeader>
+                  <div className="flex items-baseline justify-between">
+                    <div className="font-playfair text-3xl font-semibold tracking-tight text-foreground">{fmtMoney(Number(data.costume.base_price_per_day))}</div>
+                    <div className="text-sm font-medium text-muted-foreground">per day</div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal px-3",
+                              !startDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {startDate ? format(startDate, "MMM d, yyyy") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={startDate}
+                            onSelect={setStartDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal px-3",
+                              !endDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {endDate ? format(endDate, "MMM d, yyyy") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={endDate}
+                            onSelect={setEndDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Start</div>
-                    <input
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      type="date"
-                      className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none dark:border-white/15 dark:bg-black"
-                    />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">End</div>
-                    <input
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      type="date"
-                      className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none dark:border-white/15 dark:bg-black"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3">
-                  <label className="block">
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">Quantity</div>
-                    <input
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
                       type="number"
                       min={1}
-                      className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none dark:border-white/15 dark:bg-black"
                     />
-                  </label>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={checkAvailability}
-                    className="flex-1 rounded-2xl border border-black/10 px-4 py-3 text-sm font-semibold hover:bg-zinc-50 dark:border-white/15 dark:hover:bg-white/5"
-                  >
-                    Check availability
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addToCart}
-                    className="flex-1 rounded-2xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-600"
-                  >
-                    Reserve
-                  </button>
-                </div>
-
-                {availabilityError ? (
-                  <div className="mt-3 text-sm text-rose-600 dark:text-rose-300">{availabilityError}</div>
-                ) : null}
-                {availability ? (
-                  <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-                    {availability.length === 0
-                      ? "No overlapping reservations."
-                      : "These dates overlap an existing reservation."}
                   </div>
-                ) : null}
 
-                {nights > 0 ? (
-                  <div className="mt-5 rounded-2xl bg-zinc-50 p-4 text-sm dark:bg-white/5">
-                    <div className="flex items-center justify-between">
-                      <span>
-                        {fmtMoney(Number(data.costume.base_price_per_day))} × {nights} days × {quantity}
-                      </span>
-                      <span className="font-semibold">{fmtMoney(price)}</span>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={checkAvailability}
+                    >
+                      Check availability
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={addToCart}
+                    >
+                      Reserve
+                    </Button>
+                  </div>
+
+                  {nights > 0 ? (
+                    <div className="mt-6 rounded-md bg-muted p-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {fmtMoney(Number(data.costume.base_price_per_day))} × {nights} days × {quantity}
+                        </span>
+                        <span className="font-semibold text-foreground">{fmtMoney(price)}</span>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-
-                {cartStatus ? <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{cartStatus}</div> : null}
-              </div>
+                  ) : null}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>

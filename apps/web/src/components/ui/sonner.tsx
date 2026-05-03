@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  CircleCheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from "lucide-react"
+  CheckCircledIcon as CircleCheckIcon,
+  InfoCircledIcon as InfoIcon,
+  UpdateIcon as Loader2Icon,
+  CrossCircledIcon as OctagonXIcon,
+  ExclamationTriangleIcon as TriangleAlertIcon,
+} from "@radix-ui/react-icons"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 

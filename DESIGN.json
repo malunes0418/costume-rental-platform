@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-03T07:58:00Z",
+  "title": "Design System: SnapCos",
+  "extensions": {
+    "colorMeta": {
+      "studio-black": { "role": "primary", "displayName": "Studio Black", "canonical": "oklch(0.14 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.35 0.01 30)", "oklch(0.45 0.01 30)", "oklch(0.55 0.01 30)", "oklch(0.70 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.96 0.01 30)"] },
+      "gallery-canvas": { "role": "neutral", "displayName": "Gallery Canvas", "canonical": "oklch(0.98 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.40 0.01 30)", "oklch(0.60 0.01 30)", "oklch(0.75 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.94 0.01 30)", "oklch(0.98 0.01 30)"] },
+      "soft-ash": { "role": "neutral", "displayName": "Soft Ash", "canonical": "oklch(0.94 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.30 0.01 30)", "oklch(0.50 0.01 30)", "oklch(0.70 0.01 30)", "oklch(0.80 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.90 0.01 30)", "oklch(0.94 0.01 30)"] },
+      "alert-rust": { "role": "secondary", "displayName": "Alert Rust", "canonical": "oklch(0.55 0.22 25)", "tonalRamp": ["oklch(0.25 0.22 25)", "oklch(0.35 0.22 25)", "oklch(0.45 0.22 25)", "oklch(0.55 0.22 25)", "oklch(0.65 0.22 25)", "oklch(0.75 0.15 25)", "oklch(0.85 0.10 25)", "oklch(0.95 0.05 25)"] },
+      "border-ash": { "role": "neutral", "displayName": "Border Ash", "canonical": "oklch(0.85 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.40 0.01 30)", "oklch(0.55 0.01 30)", "oklch(0.65 0.01 30)", "oklch(0.75 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.95 0.01 30)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Playfair Display", "purpose": "Reserved for hero sections and major page titles." },
+      "body": { "displayName": "DM Sans", "purpose": "Primary UI text, descriptions, and functional copy." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for state transitions." },
+      { "name": "dur-slow", "value": "400ms", "purpose": "Duration for smooth, deliberate UI transitions." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid Studio Black button for primary actions.",
+      "html": "<button class=\"ds-btn-primary\">CONTINUE</button>",
+      "css": ".ds-btn-primary { background: oklch(0.14 0.01 30); color: oklch(0.98 0.01 30); padding: 0 1rem; height: 2rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-btn-primary:hover { background: color-mix(in oklab, oklch(0.14 0.01 30) 80%, transparent); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Soft Ash button for secondary actions.",
+      "html": "<button class=\"ds-btn-secondary\">CANCEL</button>",
+      "css": ".ds-btn-secondary { background: oklch(0.94 0.01 30); color: oklch(0.14 0.01 30); padding: 0 1rem; height: 2rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-btn-secondary:hover { background: color-mix(in oklab, oklch(0.94 0.01 30) 80%, transparent); }"
+    },
+    {
+      "name": "Card Container",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard content container.",
+      "html": "<div class=\"ds-card\"><h3>Card Title</h3><p>Card content goes here.</p></div>",
+      "css": ".ds-card { background: oklch(0.98 0.01 30); border: 1px solid oklch(0.85 0.01 30); border-radius: 0.5rem; padding: 1.5rem; font-family: 'DM Sans', sans-serif; color: oklch(0.14 0.01 30); } .ds-card h3 { font-family: 'Playfair Display', serif; margin-top: 0; margin-bottom: 0.5rem; font-size: 1.25rem; font-weight: 700; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard form input.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Enter text...\" />",
+      "css": ".ds-input { background: oklch(0.98 0.01 30); border: 1px solid oklch(0.85 0.01 30); border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: oklch(0.14 0.01 30); outline: none; transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s; width: 100%; box-sizing: border-box; } .ds-input:focus { border-color: oklch(0.14 0.01 30); box-shadow: 0 0 0 2px color-mix(in oklab, oklch(0.14 0.01 30) 20%, transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Curator's Studio",
+    "overview": "SnapCos embodies refined utilitarianism. It balances the functional robustness of a modern SaaS tool with the visual elegance of a premium editorial marketplace. The aesthetic is clean, intentional, and content-forward, ensuring that the interface recedes to let costume photography take center stage.\n\nThe system explicitly rejects SaaS landing-page clichés, heavy decorative elements, neon accents, and generic glassmorphism.",
+    "keyCharacteristics": [
+      "Crisp 1px borders for structure",
+      "Generous whitespace for breathability",
+      "Zero heavy shadows",
+      "High-contrast typography"
+    ],
+    "rules": [
+      {
+        "name": "The Content-Forward Rule",
+        "body": "The UI must remain monochromatic to ensure that full-color costume photography provides the only true color pops on the screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Intentional Contrast Rule",
+        "body": "Hierarchy is established through extreme contrast in weight and scale, rather than subtle shifts in size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, elevation, focus) or for critical overlay context like modals, and even then must be extremely diffuse and low-opacity.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use 1px solid borders (oklch(0.85 0.01 30)) to separate content areas.",
+      "Do use Playfair Display exclusively for top-level hierarchy and editorial moments.",
+      "Do rely on generous whitespace rather than lines to group related items."
+    ],
+    "donts": [
+      "Don't use heavy drop shadows on cards or containers.",
+      "Don't use neon accents, purple gradients, or SaaS-cream aesthetics.",
+      "Don't use side-stripe borders (border-left or border-right greater than 1px as a colored accent).",
+      "Don't use glassmorphism as a default treatment.",
+      "Don't use identical card grids repeatedly without typographic breaks."
+    ]
+  }
+}

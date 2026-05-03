@@ -57,4 +57,9 @@ export class NotificationService {
     await notification.save();
     return notification;
   }
+
+  async markAllAsRead(userId: number) {
+    await Notification.update({ is_read: true }, { where: { user_id: userId, is_read: false } });
+    return { success: true };
+  }
 }

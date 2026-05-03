@@ -21,7 +21,7 @@ CostumeImage.init(
   {
     id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
     costume_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
-    image_url: { type: DataTypes.STRING(500), allowNull: false },
+    image_url: { type: DataTypes.TEXT("long"), allowNull: false },
     is_primary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
   },
   {

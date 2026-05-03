@@ -2,6 +2,8 @@
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -31,35 +33,38 @@ export default function VendorApply() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-8 mt-12 surface rounded-xl animate-fade-up">
-      <div className="mb-8">
-        <h1 className="text-3xl display text-gold mb-2">Vendor Application</h1>
-        <p className="text-muted">Join our curated marketplace of high-end theatrical wear.</p>
+    <div className="max-w-2xl mx-auto px-6 py-16 md:py-24 animate-fade-up">
+      <div className="mb-12">
+        <h1 className="text-4xl md:text-5xl display font-medium tracking-tight mb-4">Vendor Application</h1>
+        <p className="text-lg text-muted-foreground leading-relaxed">
+          Join our curated marketplace of high-end theatrical wear. Provide your details below, and our team will review your application.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div>
-          <label className="block text-sm text-muted mb-2 uppercase tracking-wide">Store Name</label>
-          <input 
+      <form onSubmit={handleSubmit} className="flex flex-col gap-10">
+        <div className="space-y-4">
+          <Label className="text-sm text-muted-foreground font-medium uppercase tracking-widest">Store Name</Label>
+          <Input 
             type="text" 
-            className="field-input text-lg" 
             value={storeName} 
             onChange={e => setStoreName(e.target.value)} 
             placeholder="e.g. Royal Garments"
+            className="h-14 text-lg rounded-md bg-transparent border-border"
             required 
           />
         </div>
-        <div>
-          <label className="block text-sm text-muted mb-2 uppercase tracking-wide">Store Description</label>
+        <div className="space-y-4">
+          <Label className="text-sm text-muted-foreground font-medium uppercase tracking-widest">Store Description</Label>
           <textarea 
-            className="field-input min-h-[120px] resize-y" 
+            className="flex min-h-[160px] w-full rounded-md border border-border bg-transparent px-4 py-4 text-lg shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y" 
             value={description} 
             onChange={e => setDescription(e.target.value)} 
             placeholder="Tell us about the quality and style of your collection..."
           />
         </div>
-        <div className="pt-4 border-t border-white/10">
-          <Button type="submit" className="btn-crimson w-full justify-center text-lg py-3" disabled={loading}>
+        
+        <div className="pt-6">
+          <Button type="submit" size="lg" className="w-full text-base font-medium h-14" disabled={loading}>
             {loading ? "Submitting..." : "Submit Application"}
           </Button>
         </div>
