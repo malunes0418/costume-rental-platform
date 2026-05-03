@@ -69,6 +69,15 @@ export function myWishlist(token: string) {
   return apiFetch<WishlistItem[]>("/api/wishlist", { token });
 }
 
+export function addWishlist(token: string, costumeId: number) {
+  return apiFetch<WishlistItem>("/api/wishlist", {
+    method: "POST",
+    token,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ costumeId }),
+  });
+}
+
 export function removeWishlist(token: string, costumeId: number) {
   return apiFetch<{ success: true }>(`/api/wishlist/${costumeId}`, { method: "DELETE", token });
 }

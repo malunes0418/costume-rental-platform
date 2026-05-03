@@ -21,6 +21,8 @@
   },
   "menuColor": "default",
   "menuAccent": "subtle",
-  "registries": {}
+  "registries": {
+    "@shadix-ui": "https://shadix-ui.vercel.app/r"
+  }
 }
 

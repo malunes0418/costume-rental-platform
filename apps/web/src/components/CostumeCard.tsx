@@ -3,106 +3,104 @@
 import Link from "next/link";
 import { resolveApiAsset } from "../lib/assets";
 import type { Costume } from "../lib/costumes";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageIcon } from "@radix-ui/react-icons";
+import { WishlistButton } from "./WishlistButton";
 import { cn } from "@/lib/utils";
+
+// Re-export for convenience in parent pages
+export type { Costume };
 
 function primaryImage(costume: Costume) {
   const imgs = costume.CostumeImages || [];
   return imgs.find((i) => i.is_primary)?.image_url || imgs[0]?.image_url || "";
 }
 
+interface CostumeCardProps {
+  costume: Costume;
+  /** Set of costume IDs already saved to the user's wishlist */
+  savedIds?: Set<number>;
+}
 
-
-import { ImageIcon } from "@radix-ui/react-icons";
-
-export function CostumeCard({ costume }: { costume: Costume }) {
+export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
   const img   = primaryImage(costume);
-  const price = Number(costume.base_price_per_day).toFixed(0);
+  const price = Number(costume.base_price_per_day).toLocaleString();
   const tags  = [costume.theme, costume.size].filter(Boolean);
+  const initialSaved = savedIds ? savedIds.has(costume.id) : false;
 
   return (
-    <Link
-      href={`/costumes/${costume.id}`}
-      id={`costume-card-${costume.id}`}
-      className="block text-decoration-none group"
-    >
-      <Card
-        className={cn(
-          "overflow-hidden border border-border transition-all duration-300",
-          "bg-card text-card-foreground",
-          "hover:border-primary/30 hover:-translate-y-1",
-          "hover:shadow-lg hover:shadow-primary/5"
-        )}
-      >
-        {/* Image */}
-        <div className="relative w-full overflow-hidden bg-muted aspect-[4/3]">
+    <article className="group flex flex-col gap-4">
+      {/* Image container */}
+      <div className="relative w-full overflow-hidden rounded-sm border border-border bg-muted aspect-[3/4]">
+        <Link
+          href={`/costumes/${costume.id}`}
+          id={`costume-card-${costume.id}`}
+          aria-label={costume.name}
+          className="block h-full w-full"
+        >
           {img ? (
             <img
               src={resolveApiAsset(img)}
               alt={costume.name}
               loading="lazy"
-              className="block h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-secondary/50 text-muted-foreground/30">
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
               <ImageIcon className="size-12" />
             </div>
           )}
+        </Link>
 
-          {/* Category badge */}
-          {costume.category && (
-            <div className="absolute left-3 top-3">
-              <Badge
-                variant="secondary"
-                className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[0.7rem] font-semibold uppercase tracking-widest text-primary"
-              >
-                {costume.category}
-              </Badge>
-            </div>
-          )}
+        {/* Category label */}
+        {costume.category && (
+          <span className="pointer-events-none absolute left-3 top-3 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
+            {costume.category}
+          </span>
+        )}
+
+        {/* Wishlist button — top right */}
+        <div className="absolute right-3 top-3">
+          <WishlistButton costumeId={costume.id} initialSaved={initialSaved} size="md" />
         </div>
+      </div>
 
-        {/* Card body */}
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-base font-bold leading-tight display">
-                {costume.name}
-              </p>
-              {tags.length > 0 && (
-                <p className="mt-1 truncate text-[0.78rem] text-muted-foreground">
-                  {tags.join(" · ")}
-                </p>
-              )}
-            </div>
+      {/* Info row */}
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          href={`/costumes/${costume.id}`}
+          className="min-w-0 flex-1"
+          tabIndex={-1}
+          aria-hidden="true"
+        >
+          <p className="truncate font-playfair text-lg font-semibold text-foreground group-hover:opacity-70 transition-opacity">
+            {costume.name}
+          </p>
+          {tags.length > 0 && (
+            <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {tags.join(" · ")}
+            </p>
+          )}
+        </Link>
 
-            {/* Price */}
-            <div className="shrink-0 text-right">
-              <div className="text-[1.15rem] font-black leading-tight text-primary display">
-                ₱{price}
-              </div>
-              <div className="mt-0.5 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                / day
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+        <div className="shrink-0 text-right">
+          <p className="font-playfair text-lg font-semibold text-foreground">
+            ₱{price}
+          </p>
+          <p className="text-[10px] text-muted-foreground">/ day</p>
+        </div>
+      </div>
+    </article>
   );
 }
 
-/* Skeleton loader for the costume card */
+/* ── Skeleton ── */
 export function CostumeCardSkeleton() {
   return (
-    <Card className="overflow-hidden border border-border bg-card">
-      <Skeleton className="w-full aspect-[4/3] rounded-none bg-muted" />
-      <CardContent className="p-4">
-        <Skeleton className="mb-2 h-4 w-3/4 bg-muted" />
-        <Skeleton className="h-3 w-2/5 bg-muted" />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Skeleton className="w-full aspect-[3/4] rounded-sm" />
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-3 w-1/2" />
+    </div>
   );
 }

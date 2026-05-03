@@ -6,173 +6,218 @@ import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import { myWishlist, removeWishlist, type WishlistItem } from "../../lib/account";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExclamationTriangleIcon as AlertCircle, HeartIcon as Heart, Cross1Icon as Trash2, EyeOpenIcon as Eye } from "@radix-ui/react-icons";
+import {
+  HeartIcon as Heart,
+  Cross1Icon as X,
+  ImageIcon,
+  ArrowRightIcon as ArrowRight,
+} from "@radix-ui/react-icons";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function WishlistPage() {
   const { token } = useAuth();
-  const [items, setItems]     = useState<WishlistItem[]>([]);
+  const [items, setItems]         = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [removing, setRemoving]   = useState<number | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      setItems([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!token) { setItems([]); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    setError(null);
     myWishlist(token)
       .then((res) => { if (!cancelled) setItems(res); })
-      .catch((e: unknown) => { if (!cancelled) setError(e instanceof ApiError ? e.message : "Failed to load wishlist"); })
+      .catch((e: unknown) => {
+        if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load wishlist");
+      })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
   }, [token]);
 
+  async function handleRemove(item: WishlistItem) {
+    if (!token) return;
+    setRemoving(item.id);
+    try {
+      await removeWishlist(token, item.costume_id);
+      setItems((xs) => xs.filter((x) => x.id !== item.id));
+      toast.success("Removed from wishlist.");
+    } catch (e: unknown) {
+      toast.error(e instanceof ApiError ? e.message : "Could not remove item.");
+    } finally {
+      setRemoving(null);
+    }
+  }
+
+  // ── unauthenticated ───────────────────────────────────────────────────────
+
   if (!token) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-6 py-12">
-        <Card className="border border-border bg-card shadow-sm rounded-3xl">
-          <CardHeader>
-            <CardTitle className="display text-foreground">
-              Wishlist
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Log in to save favorites.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="rounded-full text-primary-foreground border-0 bg-primary hover:bg-primary/90">
-              <Link href="/login?next=/wishlist">Log in</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
+        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+          <div className="text-muted-foreground/20">
+            <Heart className="mx-auto size-16" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="font-playfair text-4xl font-semibold text-foreground">Wishlist</h1>
+            <p className="text-muted-foreground">Sign in to save and revisit your favourite costumes.</p>
+          </div>
+          <Link
+            href="/login?next=/wishlist"
+            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+          >
+            Log in to continue
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // ── main ──────────────────────────────────────────────────────────────────
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-12">
-      {/* Page header */}
-      <div className="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <Heart className="size-6 text-primary" />
-            <h1 className="text-2xl font-black tracking-tight display text-foreground">
-              Wishlist
-            </h1>
-            {!isLoading && items.length > 0 && (
-              <Badge
-                variant="secondary"
-                className="rounded-full px-2.5 py-0.5 text-[0.7rem] font-semibold bg-primary/10 text-primary border-primary/30"
-              >
-                {items.length}
-              </Badge>
-            )}
-          </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Your saved costumes, ready when you are.
+    <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-16">
+
+      {/* ── Page header ── */}
+      <div className="mb-16 flex items-end justify-between gap-6">
+        <div className="max-w-xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
+            Your account
+          </p>
+          <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
+            Wishlist
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
+            Costumes you&apos;ve saved for later.
           </p>
         </div>
+
+        {!isLoading && items.length > 0 && (
+          <p className="shrink-0 text-sm text-muted-foreground animate-fade-up-delay-2">
+            {items.length} {items.length === 1 ? "piece" : "pieces"} saved
+          </p>
+        )}
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="mb-6 border-destructive/30 bg-destructive/10">
-          <AlertCircle className="size-4" />
-          <AlertDescription className="text-destructive text-xs">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden border border-border bg-card rounded-2xl">
-              <Skeleton className="w-full rounded-none bg-muted aspect-4/3" />
-              <CardContent className="p-4">
-                <Skeleton className="mb-2 h-4 w-3/4 bg-muted" />
-                <Skeleton className="h-3 w-2/5 bg-muted" />
-              </CardContent>
-            </Card>
-          ))
-        ) : items.length ? (
-          items.map((it) => {
-            const c = it.Costume;
-            const img = c?.CostumeImages?.find((i) => i.is_primary)?.image_url || c?.CostumeImages?.[0]?.image_url || "";
+      {/* ── Grid ── */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-4">
+              <Skeleton className="w-full aspect-[3/4] rounded-sm" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
+        </div>
+      ) : items.length ? (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((it) => {
+            const c    = it.Costume;
+            const imgs = c?.CostumeImages || [];
+            const img  = imgs.find((i) => i.is_primary)?.image_url || imgs[0]?.image_url || "";
             const tags = [c?.category, c?.theme, c?.size].filter(Boolean);
+            const isRemoving = removing === it.id;
 
             return (
-              <Card
+              <article
                 key={it.id}
-                className="group overflow-hidden border border-border bg-card rounded-2xl transition-all duration-250 hover:border-primary/30 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
+                className={cn(
+                  "group flex flex-col gap-4 transition-opacity duration-300",
+                  isRemoving && "opacity-30 pointer-events-none"
+                )}
               >
-                <div className="relative w-full overflow-hidden bg-muted aspect-4/3">
+                {/* Image */}
+                <Link
+                  href={`/costumes/${it.costume_id}`}
+                  className="block w-full overflow-hidden rounded-sm border border-border bg-muted aspect-[3/4] relative"
+                >
                   {img ? (
                     <img
                       src={resolveApiAsset(img)}
                       alt={c?.name || "Costume"}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/30">
-                      <Heart className="size-12" />
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
+                      <ImageIcon className="size-12" />
                     </div>
                   )}
-                </div>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold tracking-tight text-foreground display">
-                        {c?.name || `Costume #${it.costume_id}`}
+
+                  {/* Category label overlay */}
+                  {c?.category && (
+                    <span className="absolute left-4 top-4 rounded-sm border border-border bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
+                      {c.category}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Info row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-playfair text-lg font-semibold text-foreground">
+                      {c?.name || `Costume #${it.costume_id}`}
+                    </p>
+                    {tags.length > 0 && (
+                      <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {tags.join(" · ")}
                       </p>
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                        {tags.join(" · ") || "Costume"}
+                    )}
+                    {c?.base_price_per_day != null && (
+                      <p className="mt-1 text-sm text-foreground">
+                        ₱{Number(c.base_price_per_day).toLocaleString()}
+                        <span className="ml-1 text-xs text-muted-foreground">/ day</span>
                       </p>
-                    </div>
-                    <Button variant="ghost" size="icon" asChild className="shrink-0 size-8 rounded-lg hover:bg-muted text-muted-foreground">
-                      <Link href={`/costumes/${it.costume_id}`} aria-label="View costume">
-                        <Eye className="size-4" />
-                      </Link>
-                    </Button>
+                    )}
                   </div>
-                  <Button
+
+                  {/* Remove */}
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await removeWishlist(token, it.costume_id);
-                        setItems((xs) => xs.filter((x) => x.id !== it.id));
-                      } catch { /* silent */ }
-                    }}
-                    className="mt-4 w-full rounded-xl border-border bg-transparent text-sm font-semibold hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 text-muted-foreground gap-2"
+                    onClick={() => handleRemove(it)}
+                    disabled={isRemoving}
+                    aria-label={`Remove ${c?.name || "costume"} from wishlist`}
+                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                   >
-                    <Trash2 className="size-3.5" />
-                    Remove
-                  </Button>
-                </CardContent>
-              </Card>
+                    <X className="size-3" />
+                  </button>
+                </div>
+
+                {/* View CTA */}
+                <Link
+                  href={`/costumes/${it.costume_id}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  View costume <ArrowRight className="size-3" />
+                </Link>
+              </article>
             );
-          })
-        ) : (
-          <div className="col-span-full rounded-3xl border border-border bg-card p-16 text-center">
-            <div className="mb-4 flex justify-center text-muted-foreground/30">
-              <Heart className="size-16" />
-            </div>
-            <p className="text-[1.05rem] text-muted-foreground display">
-              Your wishlist is empty.
-            </p>
-            <Button asChild className="mt-6 rounded-full text-primary-foreground border-0 bg-primary hover:bg-primary/90">
-              <Link href="/">Browse Costumes</Link>
-            </Button>
+          })}
+        </div>
+      ) : (
+        /* ── Empty state ── */
+        <div className="flex flex-col items-center gap-8 border border-border rounded-sm py-32 px-12 text-center">
+          <div className="text-muted-foreground/20">
+            <Heart className="size-12" />
           </div>
-        )}
-      </div>
+          <div className="space-y-2">
+            <p className="font-playfair text-3xl font-semibold text-foreground">
+              Nothing saved yet.
+            </p>
+            <p className="text-muted-foreground">
+              Tap the heart on any costume to add it here.
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex h-12 items-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+          >
+            Browse costumes
+          </Link>
+        </div>
+      )}
+
     </div>
   );
 }

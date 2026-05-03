@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -18,33 +15,35 @@ import {
   Cross1Icon as X,
   HeartIcon as Heart,
   CalendarIcon as CalendarDays,
-  BellIcon as Bell,
-  ChevronDownIcon as ChevronDown,
   ExitIcon as LogOut,
   DashboardIcon as Store,
-  MagnifyingGlassIcon,
+  ChevronDownIcon as ChevronDown,
+  LockClosedIcon as Shield,
 } from "@radix-ui/react-icons";
 import { CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./NotificationBell";
 
-const mobileLinks = [
-  { href: "/wishlist",     label: "Wishlist",       icon: Heart },
-  { href: "/trips",        label: "Reservations",   icon: CalendarDays },
-  { href: "/vendor",       label: "Vendor Dashboard", icon: Store },
-];
-
 export function Navbar() {
   const { user, token, logout } = useAuth();
-  const [scrolled, setScrolled]   = useState(false);
-  const [menuOpen, setMenuOpen]   = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
 
   const initials = user?.name
     ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -53,183 +52,264 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-200 border-b",
+        "sticky top-0 z-50 transition-all duration-300 border-b",
         scrolled
-          ? "bg-background/90 backdrop-blur-md border-border shadow-sm"
+          ? "bg-background/95 backdrop-blur-md border-border"
           : "bg-background border-transparent"
       )}
     >
       <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-6 md:px-8">
 
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-          <span
-            className="flex size-8 shrink-0 items-center justify-center rounded bg-primary text-primary-foreground font-bold text-sm transition-transform group-hover:scale-105"
-            aria-hidden="true"
-          >
-            S
-          </span>
-          <span className="text-lg font-semibold tracking-tight text-foreground">
-            Snap<span className="text-primary">Cos</span>
+        {/* ── Logo ── */}
+        <Link href="/" className="shrink-0 group flex items-center gap-2">
+          {/* Minimal wordmark */}
+          <span className="font-playfair text-xl font-semibold tracking-tight text-foreground group-hover:opacity-70 transition-opacity">
+            Snap<em>Cos</em>
           </span>
         </Link>
 
-        {/* Global Search (Desktop) */}
-        <div className="hidden flex-1 items-center justify-center px-8 md:flex">
-          <Button 
-            variant="outline" 
-            className="relative w-full max-w-sm justify-start text-muted-foreground bg-muted/20 hover:bg-muted/50 border-border/50 h-9 px-3 font-normal shadow-none"
+        {/* ── Desktop Nav ── */}
+        <nav className="hidden items-center gap-8 md:flex" role="navigation" aria-label="Main navigation">
+          <Link
+            href="/"
+            className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
           >
-            <MagnifyingGlassIcon className="mr-2 size-4" />
-            <span className="text-sm">Search costumes...</span>
-            <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </Button>
-        </div>
+            Browse
+          </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-2 md:flex" role="navigation" aria-label="Main navigation">
-          
           {token && (
-            <NotificationBell />
+            <>
+              <Link
+                href="/trips"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Reservations
+              </Link>
+              <Link
+                href="/wishlist"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Wishlist
+              </Link>
+            </>
           )}
+        </nav>
 
+        {/* ── Desktop Actions ── */}
+        <div className="hidden items-center gap-4 md:flex">
+          {token && <NotificationBell />}
           <ThemeToggle />
 
           {!token ? (
-            <div className="flex items-center gap-3 ml-2">
-              <Button
-                asChild
-                variant="ghost"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            <div className="flex items-center gap-4">
+              <Link
+                href="/login"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button
-                asChild
-                className="text-sm font-medium"
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex h-9 items-center rounded-md border border-foreground bg-foreground px-5 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
               >
-                <Link href="/register">Sign up</Link>
-              </Button>
+                Sign up
+              </Link>
             </div>
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2.5 rounded-full pl-2 pr-4 hover:bg-muted/50 h-9"
+                <button
+                  type="button"
+                  className="group flex items-center gap-2.5 rounded-sm px-3 py-1.5 transition-colors hover:bg-muted focus:outline-none"
                 >
-                  <Avatar className="size-6">
-                    <AvatarFallback className="text-[10px] font-semibold bg-muted text-foreground">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium text-foreground">
+                  {/* Avatar monogram */}
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase tracking-wider text-foreground group-hover:border-foreground/30 transition-colors">
+                    {initials}
+                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-foreground">
                     {user?.name?.split(" ")[0] || "Account"}
                   </span>
-                  <ChevronDown className="size-3.5 text-muted-foreground" />
-                </Button>
+                  <ChevronDown className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mt-1">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.name || "Account"}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/trips" className="cursor-pointer flex items-center gap-2">
-                    <CalendarDays className="size-4 text-muted-foreground" /> Reservations
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/wishlist" className="cursor-pointer flex items-center gap-2">
-                    <Heart className="size-4 text-muted-foreground" /> Wishlist
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/vendor" className="cursor-pointer flex items-center gap-2">
-                    <Store className="size-4 text-muted-foreground" /> Vendor Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/vendor/subscription" className="cursor-pointer flex items-center gap-2">
-                    <CreditCard className="size-4 text-muted-foreground" /> Manage Subscription
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                  <LogOut className="size-4" /> Log out
-                </DropdownMenuItem>
+
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-64 rounded-md border border-border bg-background p-0 shadow-none"
+              >
+                {/* User identity block */}
+                <div className="border-b border-border px-5 py-4">
+                  <p className="font-playfair text-base font-semibold text-foreground leading-tight">
+                    {user?.name || "Account"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                    {user?.email}
+                  </p>
+                </div>
+
+                {/* Navigation group */}
+                <div className="py-1.5">
+                  <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                    <Link href="/trips">
+                      <CalendarDays className="size-3.5 shrink-0" />
+                      Reservations
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                    <Link href="/wishlist">
+                      <Heart className="size-3.5 shrink-0" />
+                      Wishlist
+                    </Link>
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator className="my-0 bg-border" />
+
+                {/* Admin group — only for ADMIN role */}
+                {user?.role === "ADMIN" && (
+                  <>
+                    <div className="py-1.5">
+                      <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                        <Link href="/admin">
+                          <Shield className="size-3.5 shrink-0" />
+                          Admin Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                    </div>
+                    <DropdownMenuSeparator className="my-0 bg-border" />
+                  </>
+                )}
+
+                {/* Vendor group — hidden for admins */}
+                {user?.role !== "ADMIN" && (
+                  <>
+                    <div className="py-1.5">
+                      <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                        <Link href="/vendor">
+                          <Store className="size-3.5 shrink-0" />
+                          Vendor Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                        <Link href="/vendor/subscription">
+                          <CreditCard className="size-3.5 shrink-0" />
+                          Subscription
+                        </Link>
+                      </DropdownMenuItem>
+                    </div>
+                    <DropdownMenuSeparator className="my-0 bg-border" />
+                  </>
+                )}
+
+                {/* Sign out */}
+                <div className="py-1.5">
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-3"
+                  >
+                    <LogOut className="size-3.5 shrink-0" />
+                    Log out
+                  </DropdownMenuItem>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </nav>
+        </div>
 
-        {/* Mobile actions */}
-        <div className="flex items-center gap-2 md:hidden">
-          {token && (
-            <NotificationBell />
-          )}
+        {/* ── Mobile Trigger ── */}
+        <div className="flex items-center gap-3 md:hidden">
+          {token && <NotificationBell />}
           <button
             type="button"
-            aria-label="Toggle menu"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(o => !o)}
-            className="flex size-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-muted"
+            className="flex size-9 items-center justify-center rounded-sm border border-border text-foreground transition-colors hover:bg-muted"
           >
             {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* ── Mobile Drawer ── */}
       {menuOpen && (
-        <div className="flex flex-col border-t border-border bg-background px-6 py-4 gap-1 md:hidden animate-fade-up">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
-          
-          {!token ? (
-            <div className="flex flex-col gap-3 pt-2">
-              <Button asChild variant="outline" className="w-full justify-center h-12">
-                <Link href="/login" onClick={() => setMenuOpen(false)}>Log in</Link>
-              </Button>
-              <Button asChild className="w-full justify-center h-12">
-                <Link href="/register" onClick={() => setMenuOpen(false)}>Sign up</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {mobileLinks.map(({ href, label, icon: Icon }) => (
+        <div className="fixed inset-0 top-16 z-40 bg-background md:hidden">
+          <div className="flex h-full flex-col overflow-y-auto px-6 pb-12 pt-8">
+
+            {/* User identity (if logged in) */}
+            {token && user && (
+              <div className="mb-8 border-b border-border pb-6">
+                <p className="font-playfair text-2xl font-semibold text-foreground">
+                  {user.name || "Account"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
+              </div>
+            )}
+
+            {/* Navigation links */}
+            <nav className="flex flex-col gap-1" aria-label="Mobile navigation">
+              {[
+                { href: "/", label: "Browse" },
+                ...(token ? [
+                  { href: "/trips", label: "Reservations" },
+                  { href: "/wishlist", label: "Wishlist" },
+                  ...(user?.role === "ADMIN"
+                    ? [{ href: "/admin", label: "Admin Dashboard" }]
+                    : [
+                        { href: "/vendor", label: "Vendor Dashboard" },
+                        { href: "/vendor/subscription", label: "Subscription" },
+                      ]
+                  ),
+                ] : []),
+              ].map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-md px-4 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
+                  className="flex items-center py-4 text-sm font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground border-b border-border/50 last:border-0"
                 >
-                  <Icon className="size-4 text-muted-foreground" />
                   {label}
                 </Link>
               ))}
-              <div className="my-3 h-px bg-border" />
-              <button
-                onClick={() => { logout(); setMenuOpen(false); }}
-                className="flex items-center gap-3 rounded-md px-4 py-3.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 w-full text-left"
-              >
-                <LogOut className="size-4" /> Log out
-              </button>
+            </nav>
+
+            {/* Auth actions */}
+            <div className="mt-auto pt-8 flex flex-col gap-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
+
+              {!token ? (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex h-12 w-full items-center justify-center rounded-md border border-border text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex h-12 w-full items-center justify-center rounded-md bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { logout(); setMenuOpen(false); }}
+                  className="flex h-12 w-full items-center justify-center rounded-md border border-border text-xs font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <LogOut className="mr-2.5 size-3.5" />
+                  Log out
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
     </header>

@@ -2,6 +2,7 @@ import type { Request } from "express";
 import type { AddWishlistRequest } from "../dto";
 import { WishlistItem } from "../models/WishlistItem";
 import { Costume } from "../models/Costume";
+import { CostumeImage } from "../models/CostumeImage";
 
 export class WishlistService {
   async addToWishlist(userId: number, body: AddWishlistRequest) {
@@ -18,6 +19,14 @@ export class WishlistService {
   }
 
   async listUserWishlist(userId: number) {
-    return WishlistItem.findAll({ where: { user_id: userId }, include: [Costume] });
+    return WishlistItem.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Costume,
+          include: [{ model: CostumeImage }],
+        },
+      ],
+    });
   }
 }

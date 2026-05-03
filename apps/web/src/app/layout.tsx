@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
-import { Navbar } from "../components/Navbar";
+import { ConditionalNavbar } from "../components/ConditionalNavbar";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "../components/theme-provider";
 
@@ -51,7 +51,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <Navbar />
+            <ConditionalNavbar />
             <div className="flex flex-1 flex-col">{children}</div>
             <Toaster position="top-right" />
             {/* Theatrical grain overlay */}
@@ -78,4 +78,3 @@ export default function RootLayout({
     </html>
   );
 }
-

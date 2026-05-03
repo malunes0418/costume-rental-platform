@@ -5,171 +5,222 @@ import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ExclamationTriangleIcon as AlertCircle, UpdateIcon as Loader2 } from "@radix-ui/react-icons";
 import { toast } from "sonner";
+import {
+  EyeOpenIcon as Eye,
+  EyeClosedIcon as EyeOff,
+  UpdateIcon as Loader,
+  CheckIcon,
+} from "@radix-ui/react-icons";
+
+// ── trust signals ─────────────────────────────────────────────────────────────
+
+const TRUST_POINTS = [
+  "No credit card required to browse",
+  "Save and wishlist any costume",
+  "Book in minutes, cancel anytime",
+];
+
+// ── component ─────────────────────────────────────────────────────────────────
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
 
-  const [name, setName]           = useState("");
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [error, setError]         = useState<string | null>(null);
+  const [name, setName]               = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setIsSubmitting(true);
     try {
       await register(email.trim(), password, name.trim() || undefined);
-      toast.success("Account created successfully!");
+      toast.success("Account created — welcome to SnapCos.");
       router.push("/");
     } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.message : "Registration failed");
-      toast.error("Failed to create account");
-    } finally {
+      toast.error(e instanceof ApiError ? e.message : "Registration failed");
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-12">
-      {/* Background glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2"
-        style={{
-          width: "600px",
-          height: "400px",
-          background: "radial-gradient(ellipse, rgba(200,155,60,0.06) 0%, transparent 70%)",
-        }}
-      />
+    <div className="flex flex-1 flex-col lg:flex-row">
 
-      <div className="animate-fade-up relative z-10 w-full max-w-[420px]">
-        <Card className="border shadow-[0_24px_80px_rgba(0,0,0,0.5)] bg-card border-border rounded-3xl">
-          <CardHeader className="pb-4 text-center">
-            <CardTitle className="text-[1.75rem] font-black display text-foreground">
-              Create your account
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              It only takes a minute.
-            </CardDescription>
-          </CardHeader>
+      {/* ── Right form first on mobile; Left on desktop ── */}
+      {/* ── Left: form ── */}
+      <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
+        <div className="w-full max-w-[400px] animate-fade-up">
 
-          <CardContent>
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="register-name"
-                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em] text-muted-foreground"
-                >
-                  Name
-                </Label>
-                <Input
-                  id="register-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Your name"
-                  className="rounded-xl border-border bg-muted text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary/30 focus-visible:border-primary"
-                />
-              </div>
+          {/* Mobile wordmark */}
+          <Link
+            href="/"
+            className="mb-10 block font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity lg:hidden"
+          >
+            Snap<em>Cos</em>
+          </Link>
 
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="register-email"
-                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em] text-muted-foreground"
-                >
-                  Email
-                </Label>
-                <Input
-                  id="register-email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="you@example.com"
-                  className="rounded-xl border-border bg-muted text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary/30 focus-visible:border-primary"
-                />
-              </div>
+          {/* Header */}
+          <div className="mb-10 space-y-2">
+            <h1 className="font-playfair text-4xl font-semibold text-foreground">
+              Create account
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Join SnapCos and start renting extraordinary costumes.
+            </p>
+          </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="register-password"
-                  className="text-[0.8rem] font-medium uppercase tracking-[0.03em] text-muted-foreground"
-                >
-                  Password
-                </Label>
+          {/* Form */}
+          <form onSubmit={onSubmit} className="flex flex-col gap-6">
+            <div className="space-y-2">
+              <Label
+                htmlFor="register-name"
+                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+              >
+                Full name
+              </Label>
+              <Input
+                id="register-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                type="text"
+                autoComplete="name"
+                placeholder="Your name"
+                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="register-email"
+                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+              >
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="register-email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="you@example.com"
+                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="register-password"
+                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+              >
+                Password <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
                 <Input
                   id="register-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
                   placeholder="••••••••"
-                  className="rounded-xl border-border bg-muted text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary/30 focus-visible:border-primary"
+                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
                 />
-              </div>
-
-              {error && (
-                <Alert
-                  variant="destructive"
-                  className="rounded-xl border-destructive/30 bg-destructive/10"
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <AlertCircle className="size-4" />
-                  <AlertDescription className="text-destructive text-xs">
-                    {error}
-                  </AlertDescription>
-                </Alert>
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Use at least 8 characters.
+              </p>
+            </div>
+
+            <button
+              id="register-submit-btn"
+              type="submit"
+              disabled={isSubmitting || !email.trim() || !password.trim()}
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader className="size-3.5 animate-spin" />
+                  Creating account…
+                </>
+              ) : (
+                "Create account"
               )}
+            </button>
 
-              <Button
-                id="register-submit-btn"
-                type="submit"
-                disabled={isSubmitting}
-                className="mt-1 w-full rounded-xl py-5 text-[0.9rem] font-semibold text-primary-foreground border-0 disabled:opacity-60 bg-primary hover:bg-primary/90"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Creating account…
-                  </>
-                ) : (
-                  "Create account"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-
-          <CardFooter className="justify-center pt-0">
-            <p className="text-center text-[0.83rem] text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="font-semibold text-primary hover:underline"
-              >
-                Log in
+            <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
+              By creating an account, you agree to our{" "}
+              <Link href="#" className="underline underline-offset-4 hover:text-foreground">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="#" className="underline underline-offset-4 hover:text-foreground">
+                Privacy Policy
               </Link>
+              .
             </p>
-          </CardFooter>
-        </Card>
+          </form>
+
+          {/* Footer link */}
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
+            >
+              Log in
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* ── Right: editorial panel (desktop only) ── */}
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-l border-border bg-muted/30 px-12 py-16">
+        <Link
+          href="/"
+          className="font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity"
+        >
+          Snap<em>Cos</em>
+        </Link>
+
+        <div className="space-y-10">
+          <div className="space-y-4">
+            <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+              Wear something<br />extraordinary.
+            </p>
+            <p className="text-base leading-relaxed text-muted-foreground max-w-xs">
+              Thousands of premium costumes available for rent — from theatrical period pieces to fantasy ensembles.
+            </p>
+          </div>
+
+          <ul className="space-y-4">
+            {TRUST_POINTS.map((pt) => (
+              <li key={pt} className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
+                  <CheckIcon className="size-3" />
+                </span>
+                <span className="text-sm text-muted-foreground">{pt}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          SnapCos © {new Date().getFullYear()}
+        </p>
       </div>
     </div>
   );

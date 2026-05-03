@@ -17,18 +17,18 @@ import { apiFetch } from "../../../lib/api";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+
 import { toast } from "sonner";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
-import { ExclamationTriangleIcon as AlertCircle, CalendarIcon } from "@radix-ui/react-icons";
+import { ExclamationTriangleIcon as AlertCircle, CalendarIcon, ImageIcon } from "@radix-ui/react-icons";
 import { format } from "date-fns";
 import { cn } from "../../../lib/utils";
 import { Calendar } from "../../../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
+import { ImageGallery } from "../../../components/shadix-ui/image-gallery";
 
-type CreateOrUpdateReviewRequest = { costumeId: number; rating: number; comment?: string };
+
 
 function fmtMoney(n: number) {
   return `$${Number(n).toFixed(0)}`;
@@ -55,11 +55,9 @@ export default function CostumeDetailPage() {
   const [availability, setAvailability] = useState<Reservation[] | null>(null);
 
   const [quantity, setQuantity] = useState(1);
-  const [myRating, setMyRating] = useState(5);
-  const [myComment, setMyComment] = useState("");
+
 
   const images = data?.costume.CostumeImages || [];
-  const heroImage = images.find((i) => i.is_primary)?.image_url || images[0]?.image_url || "";
 
   const nights = useMemo(() => (startDate && endDate ? daysBetween(startDate, endDate) : 0), [startDate, endDate]);
   const price = useMemo(() => (data ? nights * Number(data.costume.base_price_per_day) * quantity : 0), [data, nights, quantity]);
@@ -135,27 +133,7 @@ export default function CostumeDetailPage() {
     }
   }
 
-  async function submitReview() {
-    if (!token) {
-      toast.error("Please log in to leave a review.");
-      return;
-    }
-    try {
-      const body: CreateOrUpdateReviewRequest = { costumeId: id, rating: myRating, comment: myComment.trim() || undefined };
-      await apiFetch("/api/reviews", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        token,
-        body: JSON.stringify(body),
-      });
-      toast.success("Review saved successfully.");
-      const updated = await listCostumeReviews(id);
-      setReviews(updated);
-      setMyComment("");
-    } catch (e: unknown) {
-      toast.error(e instanceof ApiError ? e.message : "Failed to save review");
-    }
-  }
+
 
   if (isLoading) {
     return (
@@ -179,104 +157,97 @@ export default function CostumeDetailPage() {
 
   return (
     <div className="flex-1 bg-background">
-      <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8">
-        <div className="flex flex-col gap-8">
-          <div>
-            <h1 className="font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">{data.costume.name}</h1>
-            <div className="mt-3 text-sm font-medium text-muted-foreground">
-              {data.avgRating ? `${data.avgRating.toFixed(1)} ★` : "New"} · {data.ratingCount} reviews
+      <div className="mx-auto w-full max-w-7xl px-4 md:px-8 pb-24 pt-12">
+        <div className="flex flex-col gap-12">
+          
+          {/* Header */}
+          <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-4">
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
+              {[data.costume.category, data.costume.theme, data.costume.size].filter(Boolean).join(" · ") || "Costume"}
+            </div>
+            <h1 className="font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-7xl animate-fade-up-delay-1">
+              {data.costume.name}
+            </h1>
+            <div className="text-sm font-medium text-muted-foreground animate-fade-up-delay-2 flex items-center justify-center gap-2">
+              <span>{data.avgRating ? `${data.avgRating.toFixed(1)} ★` : "New"}</span>
+              <span>·</span>
+              <span className="underline decoration-border underline-offset-4">{data.ratingCount} reviews</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
-            <div className="lg:col-span-3 flex flex-col gap-8">
-              <Card className="overflow-hidden border-border bg-card shadow-none">
-                <div className="aspect-[16/10] w-full bg-muted">
-                  {heroImage ? (
-                    <img
-                      src={resolveApiAsset(heroImage)}
-                      alt={data.costume.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
-                </div>
-                <CardContent className="p-6">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {[data.costume.category, data.costume.theme, data.costume.size].filter(Boolean).join(" · ") || "Costume"}
-                  </div>
-                  {data.costume.description ? (
-                    <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-foreground">
-                      {data.costume.description}
-                    </p>
-                  ) : null}
-                </CardContent>
-              </Card>
+          {/* Shadix UI Photo Grid */}
+          <div className="w-full animate-fade-up-delay-3">
+            {images.length === 0 ? (
+              <div className="flex h-[600px] w-full items-center justify-center rounded-md bg-muted text-muted-foreground border border-border">
+                <ImageIcon className="h-12 w-12 opacity-20" />
+              </div>
+            ) : (
+              <ImageGallery 
+                images={images.map(img => ({
+                  src: resolveApiAsset(img.image_url),
+                  alt: data.costume.name
+                }))} 
+                lazyLoading={true}
+              />
+            )}
+          </div>
 
-              <Card className="border-border bg-card shadow-none">
-                <CardHeader>
-                  <CardTitle className="font-playfair text-2xl">Reviews</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 gap-16 lg:grid-cols-12 mt-8 animate-fade-up-delay-3">
+            {/* Left Col: Description & Reviews */}
+            <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-16">
+              <section className="space-y-6">
+                <h2 className="font-playfair text-3xl font-semibold text-foreground">About this piece</h2>
+                {data.costume.description ? (
+                  <div className="prose prose-neutral text-muted-foreground leading-relaxed text-lg max-w-none">
+                    <p className="whitespace-pre-line">{data.costume.description}</p>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground italic">No description provided.</p>
+                )}
+              </section>
+
+              <hr className="border-border" />
+
+              <section className="space-y-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-playfair text-3xl font-semibold text-foreground">Reviews</h2>
+                  <div className="text-xl font-medium text-foreground">{data.avgRating ? `${data.avgRating.toFixed(1)} ★` : ""}</div>
+                </div>
+                
+                <div className="space-y-8">
                   {reviews.length ? (
                     reviews.map((r) => (
-                      <div key={r.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                      <div key={r.id} className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-semibold text-foreground">{r.User?.name || "Guest"}</div>
-                          <div className="text-sm font-medium text-foreground">{r.rating} ★</div>
+                          <div className="font-medium text-foreground">{r.User?.name || "Guest"}</div>
+                          <div className="text-sm font-medium text-muted-foreground">{r.rating} ★</div>
                         </div>
                         {r.comment ? (
-                          <div className="mt-2 text-sm text-muted-foreground">{r.comment}</div>
+                          <p className="text-base text-muted-foreground leading-relaxed">{r.comment}</p>
                         ) : null}
                       </div>
                     ))
                   ) : (
-                    <div className="text-sm text-muted-foreground">No reviews yet.</div>
+                    <p className="text-muted-foreground italic">This costume doesn't have any reviews yet.</p>
                   )}
-                </CardContent>
-                <CardFooter className="flex-col items-start border-t border-border bg-muted/30 pt-6">
-                  <div className="text-sm font-semibold text-foreground">Leave a review</div>
-                  <div className="mt-4 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Rating</Label>
-                      <Select value={myRating.toString()} onValueChange={(v: string) => setMyRating(Number(v))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Rating" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[5, 4, 3, 2, 1].map((n) => (
-                            <SelectItem key={n} value={n.toString()}>{n} Stars</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label>Comment (optional)</Label>
-                      <Input
-                        value={myComment}
-                        onChange={(e) => setMyComment(e.target.value)}
-                        placeholder="What did you like?"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button onClick={submitReview}>Save review</Button>
-                  </div>
-                </CardFooter>
-              </Card>
+                </div>
+              </section>
             </div>
 
-            <div className="lg:col-span-2">
-              <Card className="sticky top-24 border-border bg-card shadow-none">
-                <CardHeader>
-                  <div className="flex items-baseline justify-between">
-                    <div className="font-playfair text-3xl font-semibold tracking-tight text-foreground">{fmtMoney(Number(data.costume.base_price_per_day))}</div>
-                    <div className="text-sm font-medium text-muted-foreground">per day</div>
+            {/* Right Col: Reservation */}
+            <div className="lg:col-span-5 xl:col-span-4">
+              <div className="sticky top-24 border border-border bg-card shadow-none rounded-md p-8 flex flex-col gap-8">
+                <div className="flex items-baseline justify-between border-b border-border pb-6">
+                  <div className="font-playfair text-4xl font-semibold tracking-tight text-foreground">
+                    {fmtMoney(Number(data.costume.base_price_per_day))}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">per day</div>
+                </div>
+                
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Start Date</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -301,7 +272,7 @@ export default function CostumeDetailPage() {
                       </Popover>
                     </div>
                     <div className="space-y-2">
-                      <Label>End Date</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">End Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -328,7 +299,7 @@ export default function CostumeDetailPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Quantity</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Quantity</Label>
                     <Input
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
@@ -337,24 +308,24 @@ export default function CostumeDetailPage() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-3 pt-2">
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold"
                       onClick={checkAvailability}
                     >
-                      Check availability
+                      Check Availability
                     </Button>
                     <Button
-                      className="flex-1"
+                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                       onClick={addToCart}
                     >
-                      Reserve
+                      Reserve Now
                     </Button>
                   </div>
 
                   {nights > 0 ? (
-                    <div className="mt-6 rounded-md bg-muted p-4">
+                    <div className="mt-6 rounded-md bg-muted/50 border border-border p-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">
                           {fmtMoney(Number(data.costume.base_price_per_day))} × {nights} days × {quantity}
@@ -363,10 +334,11 @@ export default function CostumeDetailPage() {
                       </div>
                     </div>
                   ) : null}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>
