@@ -46,7 +46,7 @@ export function NotificationBell() {
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Close on outside click
-  useClickOutside({
+  useClickOutside<any>({
     ref: [panelRef, triggerRef],
     callback: () => setOpen(false),
   });
