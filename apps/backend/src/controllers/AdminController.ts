@@ -82,8 +82,20 @@ export class AdminController {
 
   async listPendingVendors(req: Request, res: Response) {
     try {
-      const vendors = await adminService.listPendingVendors();
-      ApiResponse.ok(res, vendors);
+      const users = await adminService.listPendingVendors();
+      const mapped = users.map((u: any) => ({
+        id: u.VendorProfile?.id || u.id,
+        user_id: u.id,
+        business_name: u.VendorProfile?.business_name,
+        store_name: u.VendorProfile?.business_name, // fallback for UI
+        status: u.vendor_status,
+        created_at: u.VendorProfile?.created_at || u.created_at,
+        User: {
+          name: u.name,
+          email: u.email
+        }
+      }));
+      ApiResponse.ok(res, mapped);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }
@@ -91,8 +103,20 @@ export class AdminController {
 
   async listAllVendors(req: Request, res: Response) {
     try {
-      const vendors = await adminService.listAllVendors();
-      ApiResponse.ok(res, vendors);
+      const profiles = await adminService.listAllVendors();
+      const mapped = profiles.map((p: any) => ({
+        id: p.id,
+        user_id: p.user_id,
+        business_name: p.business_name,
+        store_name: p.business_name, // fallback for UI
+        status: p.User?.vendor_status || "NONE",
+        created_at: p.created_at,
+        User: {
+          name: p.User?.name,
+          email: p.User?.email
+        }
+      }));
+      ApiResponse.ok(res, mapped);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }

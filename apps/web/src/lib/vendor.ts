@@ -41,6 +41,8 @@ export type Reservation = {
 export function applyForVendor(payload: VendorApplicationPayload, token: string) {
   const bodyPayload = {
     ...payload,
+    business_name: payload.store_name,
+    bio: payload.store_description,
     id_document_url: payload.id_document_url || "https://example.com/dummy-id.png"
   };
   return apiFetch<{ success: boolean; data: VendorProfile }>("/api/vendors/apply", {
@@ -54,6 +56,11 @@ export function applyForVendor(payload: VendorApplicationPayload, token: string)
 export function getVendorProfile(token: string) {
   return apiFetch<{ success: boolean; data: VendorProfile | null }>("/api/vendors/me", {
     token,
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    }
   });
 }
 

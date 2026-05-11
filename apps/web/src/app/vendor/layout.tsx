@@ -20,11 +20,11 @@ import {
 } from "@radix-ui/react-icons";
 
 const NAV = [
-  { href: "/vendor",             label: "Overview",     icon: StackIcon },
-  { href: "/vendor/inventory",   label: "Inventory",    icon: ArchiveIcon },
-  { href: "/vendor/reservations",label: "Reservations", icon: CalendarIcon },
-  { href: "/vendor/earnings",    label: "Earnings",     icon: CardStackIcon },
-  { href: "/vendor/subscription",label: "Subscription", icon: StarIcon },
+  { href: "/vendor", label: "Overview", icon: StackIcon },
+  { href: "/vendor/inventory", label: "Inventory", icon: ArchiveIcon },
+  { href: "/vendor/reservations", label: "Reservations", icon: CalendarIcon },
+  { href: "/vendor/earnings", label: "Earnings", icon: CardStackIcon },
+  { href: "/vendor/subscription", label: "Subscription", icon: StarIcon },
 ];
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
@@ -62,8 +62,14 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         setLoading(false);
       }
     }
+
+    // Only show full-screen loader on initial mount if we don't have profile data yet
+    if (!profile && loading === false) {
+      // we won't set loading to true here to avoid flashes, just refetch
+    }
+
     fetchData();
-  }, [token, router]);
+  }, [token, router, pathname]);
 
   if (loading) {
     return (
@@ -75,6 +81,10 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   // ── not a vendor yet ───────────────────────────────────────────────────────
   if (!profile) {
+    if (pathname === "/vendor/apply" || pathname === "/vendor/subscription") {
+      return <div className="min-h-screen bg-background">{children}</div>;
+    }
+
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 bg-background min-h-screen">
         <div className="mx-auto max-w-2xl flex flex-col gap-16">
@@ -119,6 +129,10 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   // ── pending / non-approved ─────────────────────────────────────────────────
   if (profile.status !== "APPROVED") {
+    if (pathname === "/vendor/subscription") {
+      return <div className="min-h-screen bg-background">{children}</div>;
+    }
+
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 bg-background min-h-screen">
         <div className="mx-auto max-w-2xl flex flex-col gap-12 animate-fade-up">
