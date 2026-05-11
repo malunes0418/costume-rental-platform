@@ -193,7 +193,7 @@ export default function AdminReservationsPage() {
       )}
 
       {/* Details & Dispute Modal */}
-      <Dialog open={!!selectedRes} onOpenChange={(open) => !open && setSelectedRes(null)}>
+      <Dialog open={!!selectedRes} onOpenChange={(open: boolean) => !open && setSelectedRes(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-playfair text-2xl">Reservation #{selectedRes?.id}</DialogTitle>

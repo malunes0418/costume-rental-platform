@@ -112,7 +112,7 @@ export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
+    <Dialog open={open} onOpenChange={(val: boolean) => {
       setOpen(val);
       if (!val) resetForm();
     }}>

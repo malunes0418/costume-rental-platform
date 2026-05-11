@@ -265,7 +265,7 @@ export default function VendorInventoryPage() {
       />
 
       {/* Delete confirmation dialog */}
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog open={deleteTarget !== null} onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md rounded-sm border border-border bg-background shadow-none">
           <DialogHeader>
             <DialogTitle className="font-playfair text-2xl font-semibold text-foreground">

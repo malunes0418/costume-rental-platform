@@ -135,7 +135,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
   if (!costume) return null;
 
   return (
-    <Dialog open={!!costume} onOpenChange={(val) => {
+    <Dialog open={!!costume} onOpenChange={(val: boolean) => {
       if (!val) onClose();
     }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">

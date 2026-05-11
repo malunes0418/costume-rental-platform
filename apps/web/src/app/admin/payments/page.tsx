@@ -158,7 +158,7 @@ export default function AdminPaymentsPage() {
       )}
 
       {/* Receipt Modal */}
-      <Dialog open={!!viewReceiptUrl} onOpenChange={(open) => !open && setViewReceiptUrl(null)}>
+      <Dialog open={!!viewReceiptUrl} onOpenChange={(open: boolean) => !open && setViewReceiptUrl(null)}>
         <DialogContent className="sm:max-w-md rounded-sm border border-border bg-background shadow-none">
           <DialogHeader>
             <DialogTitle className="font-playfair text-2xl font-semibold text-foreground">
