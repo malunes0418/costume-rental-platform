@@ -17,7 +17,7 @@ export default function VendorEarningsPage() {
     if (!token) return;
     async function fetchEarnings() {
       try {
-        const res = await listVendorReservations(token) as any;
+        const res = await listVendorReservations(token as string) as any;
         setReservations(Array.isArray(res) ? res : (res.data || []));
       } catch {
         // silent
