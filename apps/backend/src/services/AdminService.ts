@@ -13,6 +13,14 @@ export class AdminService {
     });
   }
 
+  async updateReservationStatus(reservationId: number, status: string) {
+    const reservation = await Reservation.findByPk(reservationId);
+    if (!reservation) throw new Error("Reservation not found");
+    reservation.status = status as any;
+    await reservation.save();
+    return reservation;
+  }
+
   async listPayments() {
     return Payment.findAll({ include: [Reservation, User], order: [["created_at", "DESC"]] });
   }
@@ -25,11 +33,25 @@ export class AdminService {
     return User.findAll();
   }
 
+  async updateUserRole(userId: number, role: string) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error("User not found");
+    user.role = role as any;
+    await user.save();
+    return user;
+  }
+
   // --- Vendor Moderation ---
   async listPendingVendors() {
     return User.findAll({
       where: { vendor_status: "PENDING" },
       include: [VendorProfile]
+    });
+  }
+
+  async listAllVendors() {
+    return VendorProfile.findAll({
+      include: [User]
     });
   }
 

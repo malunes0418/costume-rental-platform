@@ -19,6 +19,8 @@ export type AdminReservation = {
   total_price: number;
   currency?: string;
   created_at?: string;
+  items?: any[];
+  User?: { name?: string; email?: string };
 };
 
 export type AdminPayment = {
@@ -73,6 +75,10 @@ export function adminListPendingVendors(token: string) {
   return apiFetch<PendingVendor[]>("/api/admin/vendors/pending", { token });
 }
 
+export function adminListAllVendors(token: string) {
+  return apiFetch<PendingVendor[]>("/api/admin/vendors", { token });
+}
+
 export function adminApproveVendor(userId: number, token: string) {
   return apiFetch<{ success: boolean }>(`/api/admin/vendors/${userId}/approve`, {
     method: "POST",
@@ -97,6 +103,33 @@ export function adminReviewPayment(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ paymentId, status, notes }),
+    token,
+  });
+}
+
+export function adminUpdateCostumeStatus(costumeId: number, status: "ACTIVE" | "HIDDEN" | "FLAGGED", token: string) {
+  return apiFetch<{ success: boolean }>(`/api/admin/costumes/${costumeId}/status`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status }),
+    token,
+  });
+}
+
+export function adminUpdateReservationStatus(reservationId: number, status: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/admin/reservations/${reservationId}/status`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status }),
+    token,
+  });
+}
+
+export function adminUpdateUserRole(userId: number, role: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/admin/users/${userId}/role`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ role }),
     token,
   });
 }

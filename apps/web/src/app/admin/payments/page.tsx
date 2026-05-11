@@ -5,8 +5,16 @@ import { useAuth } from "@/lib/auth";
 import { adminListPayments, adminReviewPayment, type AdminPayment } from "@/lib/admin";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { CheckIcon, Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
+import { resolveApiAsset } from "@/lib/assets";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 function fmt(d?: string) {
   if (!d) return "—";
@@ -29,6 +37,7 @@ export default function AdminPaymentsPage() {
   const [filter, setFilter]     = useState("");
   const [loading, setLoading]   = useState(true);
   const [actioning, setActioning] = useState<number | null>(null);
+  const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token || user?.role !== "ADMIN") return;
@@ -93,15 +102,26 @@ export default function AdminPaymentsPage() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-sm" />)}
         </div>
       ) : (
-        <div className="rounded-sm border border-border divide-y divide-border">
+        <div className="rounded-sm border border-border divide-y divide-border bg-card">
           {items.length === 0 && (
             <p className="px-6 py-16 text-center text-sm text-muted-foreground">No payments match this filter.</p>
           )}
           {items.map((p) => (
-            <div key={p.id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div key={p.id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-muted/30">
               <div>
-                <p className="font-playfair text-base font-semibold text-foreground">Payment #{p.id}</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <p className="font-playfair text-base font-semibold text-foreground">Payment #{p.id}</p>
+                  {p.proof_url && (
+                    <button
+                      type="button"
+                      onClick={() => setViewReceiptUrl(resolveApiAsset(p.proof_url!))}
+                      className="inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <ImageIcon className="size-3" /> Receipt
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
                   Reservation #{p.reservation_id} · User #{p.user_id} · {fmt(p.created_at)}
                 </p>
                 {p.notes && <p className="mt-1 text-xs text-muted-foreground italic">{p.notes}</p>}
@@ -136,6 +156,30 @@ export default function AdminPaymentsPage() {
           ))}
         </div>
       )}
+
+      {/* Receipt Modal */}
+      <Dialog open={!!viewReceiptUrl} onOpenChange={(open) => !open && setViewReceiptUrl(null)}>
+        <DialogContent className="sm:max-w-md rounded-sm border border-border bg-background shadow-none">
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl font-semibold text-foreground">
+              Proof of Payment
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Review the uploaded receipt before taking action.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 overflow-hidden rounded-sm border border-border bg-muted">
+            {viewReceiptUrl && (
+              <img
+                src={viewReceiptUrl}
+                alt="Payment Receipt"
+                className="w-full h-auto object-contain max-h-[60vh]"
+                loading="lazy"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

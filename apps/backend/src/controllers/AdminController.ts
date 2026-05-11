@@ -35,6 +35,15 @@ export class AdminController {
     }
   }
 
+  async updateReservationStatus(req: Request, res: Response) {
+    try {
+      const result = await adminService.updateReservationStatus(Number(req.params.id), req.body.status);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
   async listPayments(req: Request, res: Response) {
     try {
       const payments = await adminService.listPayments();
@@ -62,9 +71,27 @@ export class AdminController {
     }
   }
 
+  async updateUserRole(req: Request, res: Response) {
+    try {
+      const result = await adminService.updateUserRole(Number(req.params.id), req.body.role);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
   async listPendingVendors(req: Request, res: Response) {
     try {
       const vendors = await adminService.listPendingVendors();
+      ApiResponse.ok(res, vendors);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async listAllVendors(req: Request, res: Response) {
+    try {
+      const vendors = await adminService.listAllVendors();
       ApiResponse.ok(res, vendors);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

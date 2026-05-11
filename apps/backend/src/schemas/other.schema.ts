@@ -396,3 +396,31 @@ registry.registerPath({
   },
   responses: { 200: { description: 'Costume status updated' } },
 });
+
+// --- SUBSCRIPTIONS ---
+registry.registerPath({
+  method: 'get',
+  path: '/subscriptions/me',
+  tags: ['Subscriptions'],
+  summary: 'Get my subscription',
+  security: [{ bearerAuth: [] }],
+  responses: { 200: { description: 'Subscription details' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/subscriptions/subscribe',
+  tags: ['Subscriptions'],
+  summary: 'Subscribe to a plan',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ planId: z.number() }),
+        },
+      },
+    },
+  },
+  responses: { 200: { description: 'Subscribed successfully' } },
+});
