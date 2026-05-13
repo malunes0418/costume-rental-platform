@@ -90,7 +90,7 @@ module.exports = {
       user_id: { type: Sequelize.BIGINT.UNSIGNED, allowNull: false },
       status: { type: Sequelize.ENUM("CART", "PENDING_PAYMENT", "PAID", "CANCELLED"), allowNull: false, defaultValue: "CART" },
       total_price: { type: Sequelize.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-      currency: { type: Sequelize.STRING(10), allowNull: false, defaultValue: "USD" },
+      currency: { type: Sequelize.STRING(10), allowNull: false, defaultValue: "PHP" },
       start_date: { type: Sequelize.DATEONLY, allowNull: false },
       end_date: { type: Sequelize.DATEONLY, allowNull: false },
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal("CURRENT_TIMESTAMP") },

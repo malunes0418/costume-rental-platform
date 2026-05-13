@@ -39,7 +39,7 @@ Reservation.init(
     status: { type: DataTypes.ENUM("CART", "PENDING_PAYMENT", "PAID", "CANCELLED"), allowNull: false, defaultValue: "CART" },
     vendor_status: { type: DataTypes.ENUM("PENDING_VENDOR", "CONFIRMED", "REJECTED_BY_VENDOR"), allowNull: false, defaultValue: "CONFIRMED" },
     total_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-    currency: { type: DataTypes.STRING(10), allowNull: false, defaultValue: "USD" },
+    currency: { type: DataTypes.STRING(10), allowNull: false, defaultValue: "PHP" },
     start_date: { type: DataTypes.DATEONLY, allowNull: false },
     end_date: { type: DataTypes.DATEONLY, allowNull: false },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },

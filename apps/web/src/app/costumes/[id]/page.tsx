@@ -31,7 +31,7 @@ import { ImageGallery } from "../../../components/shadix-ui/image-gallery";
 
 
 function fmtMoney(n: number) {
-  return `$${Number(n).toFixed(0)}`;
+  return `₱${Number(n).toFixed(0)}`;
 }
 
 function daysBetween(start: Date, end: Date) {

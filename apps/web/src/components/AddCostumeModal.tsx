@@ -154,7 +154,7 @@ export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="price">Price per day ($) <span className="text-destructive">*</span></Label>
+              <Label htmlFor="price">Price per day (₱) <span className="text-destructive">*</span></Label>
               <Input 
                 id="price" 
                 type="number" 
@@ -168,7 +168,7 @@ export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="deposit">Security Deposit ($)</Label>
+              <Label htmlFor="deposit">Security Deposit (₱)</Label>
               <Input 
                 id="deposit" 
                 type="number" 

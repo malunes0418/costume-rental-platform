@@ -256,7 +256,7 @@ export default function ReservationsPage() {
                             {days > 0 && ` · ${days} day${days !== 1 ? "s" : ""}`}
                           </p>
                           <p className="mt-0.5 text-sm text-muted-foreground">
-                            {r.currency} {Number(r.total_price).toLocaleString()}
+                            ₱{Number(r.total_price).toLocaleString()}
                           </p>
                         </div>
 

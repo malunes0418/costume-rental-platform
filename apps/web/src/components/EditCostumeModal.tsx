@@ -170,7 +170,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-price">Price per day ($) <span className="text-destructive">*</span></Label>
+              <Label htmlFor="edit-price">Price per day (₱) <span className="text-destructive">*</span></Label>
               <Input 
                 id="edit-price" 
                 type="number" 
@@ -184,7 +184,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-deposit">Security Deposit ($)</Label>
+              <Label htmlFor="edit-deposit">Security Deposit (₱)</Label>
               <Input 
                 id="edit-deposit" 
                 type="number" 

@@ -75,7 +75,7 @@ export class ReservationService {
         start_date: start.toISOString().slice(0, 10),
         end_date: end.toISOString().slice(0, 10),
         total_price: 0,
-        currency: "USD"
+        currency: "PHP"
       });
     } else {
       reservation.start_date = start.toISOString().slice(0, 10);
