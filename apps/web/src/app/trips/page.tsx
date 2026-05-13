@@ -81,7 +81,7 @@ const STATUS_CLASS: Record<string, string> = {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function ReservationsPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [isLoading, setIsLoading]       = useState(true);
@@ -107,31 +107,31 @@ export default function ReservationsPage() {
   );
 
   useEffect(() => {
-    if (!token) { setReservations([]); setPayments([]); setIsLoading(false); return; }
+    if (!user) { setReservations([]); setPayments([]); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    Promise.all([myReservations(token), myPayments(token)])
+    Promise.all([myReservations(), myPayments()])
       .then(([r, p]) => { if (!cancelled) { setReservations(r); setPayments(p); } })
       .catch((e: unknown) => {
         if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load reservations");
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [user]);
 
   async function doCheckout(reservationId: number) {
-    if (!token) return;
+    if (!user) return;
     try {
-      await checkoutReservation(token, reservationId);
+      await checkoutReservation(reservationId);
       toast.success("Reservation checked out.");
-      setReservations(await myReservations(token));
+      setReservations(await myReservations());
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Checkout failed");
     }
   }
 
   async function doUploadProof() {
-    if (!token) { toast.error("Please log in."); return; }
+    if (!user) { toast.error("Please log in."); return; }
     if (!uploadReservationId) { toast.error("Select a reservation."); return; }
     if (!amount.trim()) { toast.error("Enter an amount."); return; }
     if (!file) { toast.error("Choose a file."); return; }
@@ -141,9 +141,9 @@ export default function ReservationsPage() {
       form.set("reservationId", String(uploadReservationId));
       form.set("amount", amount);
       form.set("proof", file);
-      await apiFetch("/api/payments/proof", { method: "POST", token, body: form });
+      await apiFetch("/api/payments/proof", { method: "POST", body: form });
       toast.success("Proof uploaded successfully.");
-      const p = await myPayments(token);
+      const p = await myPayments();
       setPayments(p);
       setUploadReservationId(null);
       setAmount("");
@@ -157,7 +157,7 @@ export default function ReservationsPage() {
 
   // ── unauthenticated state ──────────────────────────────────────────────────
 
-  if (!token) {
+  if (!user) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
         <div className="mx-auto max-w-sm flex flex-col items-center gap-8">

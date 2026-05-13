@@ -28,7 +28,7 @@ const NAV = [
 ];
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,14 +37,14 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       router.push("/login?next=/vendor");
       return;
     }
 
     async function fetchData() {
       try {
-        const resData = await getVendorProfile(token!) as any;
+        const resData = await getVendorProfile() as any;
         if (resData && (resData.profile || (resData.status && resData.status !== "NONE"))) {
           const profileData = resData.profile || {};
           setProfile({
@@ -69,7 +69,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     }
 
     fetchData();
-  }, [token, router, pathname]);
+  }, [user, router, pathname]);
 
   if (loading) {
     return (

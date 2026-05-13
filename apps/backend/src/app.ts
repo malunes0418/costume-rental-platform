@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import session from "express-session";
+import cookieParser from "cookie-parser";
 import { env } from "./config/env";
 import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
@@ -17,11 +17,7 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-app.use(session({
-  secret: env.sessionSecret,
-  resave: false,
-  saveUninitialized: false
-}));
+app.use(cookieParser());
 
 app.use("/uploads", express.static(env.fileUploadDir));
 

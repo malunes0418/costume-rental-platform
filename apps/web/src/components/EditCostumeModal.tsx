@@ -24,7 +24,7 @@ interface EditCostumeModalProps {
 }
 
 export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeModalProps) {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   
   // Form State
@@ -86,7 +86,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !costume) return;
+    if (!user || !costume) return;
 
     if (images.length === 0) {
       toast.error("Please add at least one image.");
@@ -103,7 +103,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
         size,
         category,
         images
-      }, token);
+      });
       
       toast.success("Costume updated successfully!");
       onSuccess();
@@ -116,12 +116,12 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
   };
 
   const handleDelete = async () => {
-    if (!token || !costume) return;
+    if (!user || !costume) return;
     if (!confirm("Are you sure you want to delete this costume? This action cannot be undone.")) return;
 
     setSubmitting(true);
     try {
-      await deleteVendorCostume(costume.id, token);
+      await deleteVendorCostume(costume.id);
       toast.success("Costume deleted successfully!");
       onSuccess();
       onClose();

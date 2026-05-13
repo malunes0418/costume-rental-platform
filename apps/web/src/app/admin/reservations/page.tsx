@@ -33,7 +33,7 @@ function StatusChip({ status }: { status: string }) {
 const STATUSES = ["", "PENDING", "APPROVED", "COMPLETED", "CANCELLED", "REJECTED", "DISPUTED"];
 
 export default function AdminReservationsPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [all, setAll]           = useState<AdminReservation[]>([]);
   const [filter, setFilter]     = useState("");
   const [loading, setLoading]   = useState(true);
@@ -43,22 +43,22 @@ export default function AdminReservationsPage() {
   const [actioning, setActioning] = useState(false);
 
   useEffect(() => {
-    if (!token || user?.role !== "ADMIN") return;
-    adminListReservations(token)
+    if (!user || user.role !== "ADMIN") return;
+    adminListReservations()
       .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
       .catch(() => toast.error("Failed to load reservations."))
       .finally(() => setLoading(false));
-  }, [token, user]);
+  }, [user]);
 
   const items = filter ? all.filter((r) => r.status?.toUpperCase() === filter) : all;
   const totalRevenue = all.filter(r => r.status === "COMPLETED" || r.status === "APPROVED")
     .reduce((s, r) => s + Number(r.total_price), 0);
 
   async function handleUpdateStatus(id: number, newStatus: string) {
-    if (!token) return;
+    if (!user) return;
     setActioning(true);
     try {
-      await adminUpdateReservationStatus(id, newStatus, token);
+      await adminUpdateReservationStatus(id, newStatus);
       setAll((curr) => curr.map(r => r.id === id ? { ...r, status: newStatus } : r));
       if (selectedRes?.id === id) {
         setSelectedRes({ ...selectedRes, status: newStatus });

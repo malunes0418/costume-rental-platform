@@ -10,14 +10,14 @@ import { CheckIcon, Cross2Icon, CalendarIcon } from "@radix-ui/react-icons";
 import { format } from "date-fns";
 
 export default function VendorReservationsPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchReservations() {
-    if (!token) return;
+    if (!user) return;
     try {
-      const res = await listVendorReservations(token) as any;
+      const res = await listVendorReservations() as any;
       setReservations(Array.isArray(res) ? res : (res.data || []));
     } catch {
       // silent
@@ -28,12 +28,12 @@ export default function VendorReservationsPage() {
 
   useEffect(() => {
     fetchReservations();
-  }, [token]);
+  }, [user]);
 
   async function handleApprove(id: number) {
-    if (!token) return;
+    if (!user) return;
     try {
-      await approveReservation(id, token);
+      await approveReservation(id);
       toast.success("Reservation approved.");
       fetchReservations();
     } catch (err: any) {
@@ -42,9 +42,9 @@ export default function VendorReservationsPage() {
   }
 
   async function handleReject(id: number) {
-    if (!token) return;
+    if (!user) return;
     try {
-      await rejectReservation(id, token);
+      await rejectReservation(id);
       toast.success("Reservation rejected.");
       fetchReservations();
     } catch (err: any) {

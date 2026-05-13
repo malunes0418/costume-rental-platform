@@ -9,15 +9,15 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function VendorEarningsPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
     async function fetchEarnings() {
       try {
-        const res = await listVendorReservations(token as string) as any;
+        const res = await listVendorReservations() as any;
         setReservations(Array.isArray(res) ? res : (res.data || []));
       } catch {
         // silent
@@ -26,7 +26,7 @@ export default function VendorEarningsPage() {
       }
     }
     fetchEarnings();
-  }, [token]);
+  }, [user]);
 
   if (loading) {
     return (

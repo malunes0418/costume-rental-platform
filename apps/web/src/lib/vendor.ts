@@ -38,7 +38,7 @@ export type Reservation = {
 
 // ─── API calls ───────────────────────────────────────────
 
-export function applyForVendor(payload: VendorApplicationPayload, token: string) {
+export function applyForVendor(payload: VendorApplicationPayload) {
   const bodyPayload = {
     ...payload,
     business_name: payload.store_name,
@@ -49,13 +49,11 @@ export function applyForVendor(payload: VendorApplicationPayload, token: string)
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(bodyPayload),
-    token,
   });
 }
 
-export function getVendorProfile(token: string) {
+export function getVendorProfile() {
   return apiFetch<{ success: boolean; data: VendorProfile | null }>("/api/vendors/me", {
-    token,
     cache: "no-store",
     headers: {
       "Cache-Control": "no-cache",
@@ -64,69 +62,57 @@ export function getVendorProfile(token: string) {
   });
 }
 
-export function listVendorCostumes(token: string) {
-  return apiFetch<{ success: boolean; data: any[] }>("/api/vendors/costumes", {
-    token,
-  });
+export function listVendorCostumes() {
+  return apiFetch<{ success: boolean; data: any[] }>("/api/vendors/costumes");
 }
 
-export function createVendorCostume(payload: any, token: string) {
+export function createVendorCostume(payload: any) {
   return apiFetch<{ success: boolean; data: any }>("/api/vendors/costumes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    token,
   });
 }
 
-export function updateVendorCostume(id: number, payload: any, token: string) {
+export function updateVendorCostume(id: number, payload: any) {
   return apiFetch<{ success: boolean; data: any }>(`/api/vendors/costumes/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    token,
   });
 }
 
-export function deleteVendorCostume(id: number, token: string) {
+export function deleteVendorCostume(id: number) {
   return apiFetch<{ success: boolean }>(`/api/vendors/costumes/${id}`, {
     method: "DELETE",
-    token,
   });
 }
 
-export function listVendorReservations(token: string) {
-  return apiFetch<{ success: boolean; data: Reservation[] }>("/api/vendors/reservations", {
-    token,
-  });
+export function listVendorReservations() {
+  return apiFetch<{ success: boolean; data: Reservation[] }>("/api/vendors/reservations");
 }
 
-export function approveReservation(id: number, token: string) {
+export function approveReservation(id: number) {
   return apiFetch<{ success: boolean; data: Reservation }>(`/api/vendors/reservations/${id}/approve`, {
     method: "POST",
-    token,
   });
 }
 
-export function rejectReservation(id: number, token: string) {
+export function rejectReservation(id: number) {
   return apiFetch<{ success: boolean; data: Reservation }>(`/api/vendors/reservations/${id}/reject`, {
     method: "POST",
-    token,
   });
 }
 
-export function listReservationMessages(id: number, token: string) {
-  return apiFetch<{ success: boolean; data: Message[] }>(`/api/vendors/reservations/${id}/messages`, {
-    token,
-  });
+export function listReservationMessages(id: number) {
+  return apiFetch<{ success: boolean; data: Message[] }>(`/api/vendors/reservations/${id}/messages`);
 }
 
-export function createReservationMessage(id: number, content: string, token: string) {
+export function createReservationMessage(id: number, content: string) {
   return apiFetch<{ success: boolean; data: Message }>(`/api/vendors/reservations/${id}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
-    token,
   });
 }
 
@@ -143,16 +129,15 @@ export type Subscription = {
   updated_at: string;
 };
 
-export function getMySubscription(token: string) {
-  // Backend returns the Subscription directly, or null if empty.
-  return apiFetch<Subscription | null>("/api/subscriptions/me", { token });
+export function getMySubscription() {
+  return apiFetch<Subscription | null>("/api/subscriptions/me");
 }
 
-export function subscribeToPlan(planName: string, token: string) {
+export function subscribeToPlan(planName: string) {
   return apiFetch<Subscription>("/api/subscriptions/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ planName }),
-    token,
   });
 }
+

@@ -1,13 +1,10 @@
-const TOKEN_KEY = "crp.token";
+// Token storage is no longer used — auth is handled via HttpOnly cookie.
+// These stubs are kept for compatibility during transition; safe to delete.
 
 export function readToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+  return null;
 }
 
-export function writeToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (!token) window.localStorage.removeItem(TOKEN_KEY);
-  else window.localStorage.setItem(TOKEN_KEY, token);
+export function writeToken(_token: string | null) {
+  // no-op
 }
-

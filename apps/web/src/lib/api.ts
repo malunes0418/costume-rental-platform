@@ -28,15 +28,15 @@ function isErrorBodyWithMessage(body: unknown): body is { message: string } {
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { token?: string } = {}
+  options: RequestInit = {}
 ): Promise<T> {
-  const { token, headers, ...rest } = options;
+  const { headers, ...rest } = options;
   const url = `${getBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 
   const res = await fetch(url, {
     ...rest,
+    credentials: "include", // always send the HttpOnly cookie
     headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : null),
       ...(headers || {}),
     },
   });
@@ -52,4 +52,5 @@ export async function apiFetch<T>(
 
   return body as T;
 }
+
 

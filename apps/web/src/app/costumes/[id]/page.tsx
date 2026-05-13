@@ -43,7 +43,7 @@ export default function CostumeDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
 
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   const [data, setData] = useState<CostumeDetailResponse | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -107,7 +107,7 @@ export default function CostumeDetailPage() {
   }
 
   async function addToCart() {
-    if (!token) {
+    if (!user) {
       toast.error("Please log in to reserve.");
       return;
     }
@@ -119,7 +119,6 @@ export default function CostumeDetailPage() {
       await apiFetch("/api/reservations/cart", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        token,
         body: JSON.stringify({ 
           costumeId: id, 
           quantity, 

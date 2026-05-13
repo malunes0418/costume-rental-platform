@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "../lib/auth";
 import {
   DropdownMenu,
@@ -26,9 +27,15 @@ import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./NotificationBell";
 
 export function Navbar() {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -38,6 +45,7 @@ export function Navbar() {
 
   useEffect(() => {
     if (menuOpen) {
+      window.scrollTo({ top: 0 });
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -50,6 +58,7 @@ export function Navbar() {
     : "U";
 
   return (
+    <>
     <header
       className={cn(
         "sticky top-0 z-50 transition-all duration-300 border-b",
@@ -77,7 +86,7 @@ export function Navbar() {
             Browse
           </Link>
 
-          {token && (
+          {user && (
             <>
               <Link
                 href="/trips"
@@ -97,10 +106,10 @@ export function Navbar() {
 
         {/* ── Desktop Actions ── */}
         <div className="hidden items-center gap-4 md:flex">
-          {token && <NotificationBell />}
+          {user && <NotificationBell />}
           <ThemeToggle />
 
-          {!token ? (
+          {!user ? (
             <div className="flex items-center gap-4">
               <Link
                 href="/login"
@@ -219,7 +228,7 @@ export function Navbar() {
 
         {/* ── Mobile Trigger ── */}
         <div className="flex items-center gap-3 md:hidden">
-          {token && <NotificationBell />}
+          {user && <NotificationBell />}
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -231,14 +240,15 @@ export function Navbar() {
           </button>
         </div>
       </div>
+    </header>
 
-      {/* ── Mobile Drawer ── */}
-      {menuOpen && (
-        <div className="fixed inset-0 top-16 z-40 bg-background md:hidden">
+      {/* ── Mobile Drawer (portaled to body) ── */}
+      {menuOpen && mounted && createPortal(
+        <div className="fixed inset-0 top-16 z-50 bg-background md:hidden">
           <div className="flex h-full flex-col overflow-y-auto px-6 pb-12 pt-8">
 
             {/* User identity (if logged in) */}
-            {token && user && (
+            {user && (
               <div className="mb-8 border-b border-border pb-6">
                 <p className="font-playfair text-2xl font-semibold text-foreground">
                   {user.name || "Account"}
@@ -251,7 +261,7 @@ export function Navbar() {
             <nav className="flex flex-col gap-1" aria-label="Mobile navigation">
               {[
                 { href: "/", label: "Browse" },
-                ...(token ? [
+                ...(user ? [
                   { href: "/trips", label: "Reservations" },
                   { href: "/wishlist", label: "Wishlist" },
                   ...(user?.role === "ADMIN"
@@ -281,7 +291,7 @@ export function Navbar() {
                 <ThemeToggle />
               </div>
 
-              {!token ? (
+              {!user ? (
                 <>
                   <Link
                     href="/login"
@@ -310,8 +320,9 @@ export function Navbar() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </header>
+    </>
   );
 }

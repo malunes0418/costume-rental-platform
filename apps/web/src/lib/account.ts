@@ -52,49 +52,48 @@ export type Payment = {
   created_at?: string;
 };
 
-export function myReservations(token: string) {
-  return apiFetch<ReservationWithItems[]>("/api/reservations/my", { token });
+export function myReservations() {
+  return apiFetch<ReservationWithItems[]>("/api/reservations/my");
 }
 
-export function checkoutReservation(token: string, reservationId: number) {
+export function checkoutReservation(reservationId: number) {
   return apiFetch<ReservationWithItems>("/api/reservations/checkout", {
     method: "POST",
-    token,
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ reservationId }),
   });
 }
 
-export function myWishlist(token: string) {
-  return apiFetch<WishlistItem[]>("/api/wishlist", { token });
+export function myWishlist() {
+  return apiFetch<WishlistItem[]>("/api/wishlist");
 }
 
-export function addWishlist(token: string, costumeId: number) {
+export function addWishlist(costumeId: number) {
   return apiFetch<WishlistItem>("/api/wishlist", {
     method: "POST",
-    token,
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ costumeId }),
   });
 }
 
-export function removeWishlist(token: string, costumeId: number) {
-  return apiFetch<{ success: true }>(`/api/wishlist/${costumeId}`, { method: "DELETE", token });
+export function removeWishlist(costumeId: number) {
+  return apiFetch<{ success: true }>(`/api/wishlist/${costumeId}`, { method: "DELETE" });
 }
 
-export function myNotifications(token: string) {
-  return apiFetch<Notification[]>("/api/notifications", { token });
+export function myNotifications() {
+  return apiFetch<Notification[]>("/api/notifications");
 }
 
-export function markNotificationRead(token: string, id: number) {
-  return apiFetch<Notification>(`/api/notifications/${id}/read`, { method: "POST", token });
+export function markNotificationRead(id: number) {
+  return apiFetch<Notification>(`/api/notifications/${id}/read`, { method: "POST" });
 }
 
-export function markAllNotificationsRead(token: string) {
-  return apiFetch<{ success: true }>("/api/notifications/read-all", { method: "POST", token });
+export function markAllNotificationsRead() {
+  return apiFetch<{ success: true }>("/api/notifications/read-all", { method: "POST" });
 }
 
-export function myPayments(token: string) {
-  return apiFetch<Payment[]>("/api/payments/my", { token });
+export function myPayments() {
+  return apiFetch<Payment[]>("/api/payments/my");
 }
+
 

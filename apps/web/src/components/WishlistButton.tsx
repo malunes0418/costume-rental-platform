@@ -21,7 +21,7 @@ export function WishlistButton({
   size = "md",
   className,
 }: WishlistButtonProps) {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [saved, setSaved]       = useState(initialSaved);
   const [loading, setLoading]   = useState(false);
 
@@ -30,7 +30,7 @@ export function WishlistButton({
     e.preventDefault();
     e.stopPropagation();
 
-    if (!token) {
+    if (!user) {
       toast.message("Save to wishlist", {
         description: "Log in to save costumes to your wishlist.",
         action: { label: "Log in", onClick: () => window.location.assign("/login") },
@@ -47,10 +47,10 @@ export function WishlistButton({
 
     try {
       if (wassaved) {
-        await removeWishlist(token, costumeId);
+        await removeWishlist(costumeId);
         toast.success("Removed from wishlist.");
       } else {
-        await addWishlist(token, costumeId);
+        await addWishlist(costumeId);
         toast.success("Saved to wishlist.");
       }
     } catch {

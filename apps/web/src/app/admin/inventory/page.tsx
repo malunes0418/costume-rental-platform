@@ -9,26 +9,26 @@ import { EyeClosedIcon, EyeOpenIcon, ExclamationTriangleIcon } from "@radix-ui/r
 import { cn } from "@/lib/utils";
 
 export default function AdminInventoryPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [items, setItems] = useState<AdminInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!token || user?.role !== "ADMIN") return;
-    adminListInventory(token)
+    if (!user || user.role !== "ADMIN") return;
+    adminListInventory()
       .then((res) => {
         setItems(Array.isArray(res) ? res : (res as any)?.data || []);
       })
       .catch(() => toast.error("Failed to load global inventory."))
       .finally(() => setLoading(false));
-  }, [token, user]);
+  }, [user]);
 
   async function updateStatus(id: number, status: "ACTIVE" | "HIDDEN" | "FLAGGED") {
-    if (!token) return;
+    if (!user) return;
     setActioning(id);
     try {
-      await adminUpdateCostumeStatus(id, status, token);
+      await adminUpdateCostumeStatus(id, status);
       setItems((curr) => curr.map(item => item.id === id ? { ...item, status } : item));
       toast.success(`Item marked as ${status.toLowerCase()}`);
     } catch (e: any) {

@@ -25,18 +25,18 @@ function RoleChip({ role }: { role: string }) {
 }
 
 export default function AdminUsersPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [all, setAll]       = useState<AdminUser[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token || user?.role !== "ADMIN") return;
-    adminListUsers(token)
+    if (!user || user.role !== "ADMIN") return;
+    adminListUsers()
       .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
       .catch(() => toast.error("Failed to load users."))
       .finally(() => setLoading(false));
-  }, [token, user]);
+  }, [user]);
 
   const q = search.trim().toLowerCase();
   const items = q
@@ -49,9 +49,9 @@ export default function AdminUsersPage() {
   const regular = all.filter(u => u.role !== "ADMIN" && u.role !== "VENDOR" && u.role !== "SUSPENDED").length;
 
   async function handleRoleChange(userId: number, newRole: string) {
-    if (!token) return;
+    if (!user) return;
     try {
-      await adminUpdateUserRole(userId, newRole, token);
+      await adminUpdateUserRole(userId, newRole);
       setAll((curr) => curr.map(u => u.id === userId ? { ...u, role: newRole } : u));
       toast.success(`User role updated to ${newRole}`);
     } catch (e: any) {

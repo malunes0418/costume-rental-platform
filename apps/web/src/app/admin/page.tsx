@@ -120,7 +120,7 @@ function MiniBarChart({ data, label }: { data: number[]; label: string }) {
 // ── page ───────────────────────────────────────────────────────────────────────
 
 export default function AdminOverviewPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
 
   const [users, setUsers]                   = useState<AdminUser[]>([]);
   const [reservations, setReservations]     = useState<AdminReservation[]>([]);
@@ -129,12 +129,12 @@ export default function AdminOverviewPage() {
   const [loading, setLoading]               = useState(true);
 
   useEffect(() => {
-    if (!token || !user || user.role !== "ADMIN") return;
+    if (!user || user.role !== "ADMIN") return;
     Promise.allSettled([
-      adminListUsers(token),
-      adminListReservations(token),
-      adminListPayments(token),
-      adminListPendingVendors(token),
+      adminListUsers(),
+      adminListReservations(),
+      adminListPayments(),
+      adminListPendingVendors(),
     ]).then(([u, r, p, v]) => {
       const safe = <T,>(res: PromiseSettledResult<T>, fallback: T): T =>
         res.status === "fulfilled" ? res.value : fallback;
@@ -147,7 +147,7 @@ export default function AdminOverviewPage() {
       setPayments(arr(safe(p, [])));
       setPendingVendors(arr(safe(v, [])));
     }).finally(() => setLoading(false));
-  }, [token, user]);
+  }, [user]);
 
   // ── derived analytics ──────────────────────────────────────────────────────
 

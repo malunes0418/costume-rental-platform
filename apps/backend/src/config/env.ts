@@ -40,5 +40,4 @@ export const env = {
   emailPassword: required("EMAIL_PASSWORD"),
   frontendBaseUrl: required("FRONTEND_BASE_URL"),
   fileUploadDir: required("FILE_UPLOAD_DIR"),
-  sessionSecret: required("SESSION_SECRET")
 };

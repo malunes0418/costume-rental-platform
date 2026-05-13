@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { ArrowLeftIcon as ArrowLeft } from "@radix-ui/react-icons";
 
 export default function VendorApply() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   const [storeName, setStoreName]     = useState("");
@@ -20,10 +20,10 @@ export default function VendorApply() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) { toast.error("Please log in first."); return; }
+    if (!user) { toast.error("Please log in first."); return; }
     setLoading(true);
     try {
-      await applyForVendor({ store_name: storeName, store_description: description }, token);
+      await applyForVendor({ store_name: storeName, store_description: description });
       toast.success("Application submitted! We'll review your request shortly.");
       setTimeout(() => router.push("/vendor"), 1400);
     } catch {

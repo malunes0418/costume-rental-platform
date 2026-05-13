@@ -17,29 +17,29 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function WishlistPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [items, setItems]         = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [removing, setRemoving]   = useState<number | null>(null);
 
   useEffect(() => {
-    if (!token) { setItems([]); setIsLoading(false); return; }
+    if (!user) { setItems([]); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    myWishlist(token)
+    myWishlist()
       .then((res) => { if (!cancelled) setItems(res); })
       .catch((e: unknown) => {
         if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load wishlist");
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [user]);
 
   async function handleRemove(item: WishlistItem) {
-    if (!token) return;
+    if (!user) return;
     setRemoving(item.id);
     try {
-      await removeWishlist(token, item.costume_id);
+      await removeWishlist(item.costume_id);
       setItems((xs) => xs.filter((x) => x.id !== item.id));
       toast.success("Removed from wishlist.");
     } catch (e: unknown) {
@@ -51,7 +51,7 @@ export default function WishlistPage() {
 
   // ── unauthenticated ───────────────────────────────────────────────────────
 
-  if (!token) {
+  if (!user) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
         <div className="mx-auto max-w-sm flex flex-col items-center gap-8">

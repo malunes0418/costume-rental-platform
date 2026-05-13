@@ -35,7 +35,7 @@ const PLAN_FEATURES = [
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const router    = useRouter();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -43,18 +43,18 @@ export default function SubscriptionPage() {
   const [submitting, setSubmitting]     = useState(false);
 
   useEffect(() => {
-    if (!token) { router.push("/login?next=/vendor/subscription"); return; }
-    getMySubscription(token)
+    if (!user) { router.push("/login?next=/vendor/subscription"); return; }
+    getMySubscription()
       .then((sub) => setSubscription(sub || null))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token, router]);
+  }, [user, router]);
 
   async function handleSubscribe() {
-    if (!token) return;
+    if (!user) return;
     setSubmitting(true);
     try {
-      const res = await subscribeToPlan("Pro Vendor", token);
+      const res = await subscribeToPlan("Pro Vendor");
       setSubscription(res);
       toast.success("Subscribed to Pro Vendor — welcome aboard.");
     } catch (err: any) {

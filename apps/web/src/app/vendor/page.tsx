@@ -8,20 +8,20 @@ import { ArchiveIcon } from "@radix-ui/react-icons";
 import Link from "next/link";
 
 export default function VendorOverviewPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [costumes, setCostumes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
     async function fetchData() {
       try {
-        const resData = await getVendorProfile(token!) as any;
+        const resData = await getVendorProfile() as any;
         if (resData && resData.profile) {
           setProfile(resData.profile);
         }
-        const costumesRes = await listVendorCostumes(token!) as any;
+        const costumesRes = await listVendorCostumes() as any;
         setCostumes(Array.isArray(costumesRes) ? costumesRes : (costumesRes.data || []));
       } catch {
         // silent
@@ -30,7 +30,7 @@ export default function VendorOverviewPage() {
       }
     }
     fetchData();
-  }, [token]);
+  }, [user]);
 
   if (loading) {
     return (

@@ -53,15 +53,6 @@ export default function LoginPage() {
       await login(email.trim(), password);
       toast.success("Welcome back.");
       await new Promise((r) => setTimeout(r, 400));
-      // Decode JWT to read role (JWT payload is public, not secret)
-      try {
-        const raw = localStorage.getItem("crp.token") || "";
-        const payload = raw ? JSON.parse(atob(raw.split(".")[1])) : {};
-        if (payload?.role === "ADMIN") {
-          router.push("/admin");
-          return;
-        }
-      } catch { /* fall through */ }
       router.push(next);
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Login failed");

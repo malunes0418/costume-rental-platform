@@ -36,7 +36,7 @@ function typeLabel(type: string): string {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [items, setItems]     = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen]       = useState(false);
@@ -63,32 +63,32 @@ export function NotificationBell() {
 
   // Fetch notifications
   useEffect(() => {
-    if (!token) { setItems([]); setIsLoading(false); return; }
+    if (!user) { setItems([]); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    myNotifications(token)
+    myNotifications()
       .then((res) => { if (!cancelled) setItems(res); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [user]);
 
   // Mark all read when panel opens
   useEffect(() => {
-    if (!open || !token) return;
+    if (!open || !user) return;
     const hasUnread = items.some((n) => !n.is_read);
     if (!hasUnread) return;
-    markAllNotificationsRead(token)
+    markAllNotificationsRead()
       .then(() => setItems((xs) => xs.map((n) => ({ ...n, is_read: true }))))
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function handleMarkAll() {
-    if (!token || markingAll) return;
+    if (!user || markingAll) return;
     setMarkingAll(true);
     try {
-      await markAllNotificationsRead(token);
+      await markAllNotificationsRead();
       setItems((xs) => xs.map((n) => ({ ...n, is_read: true })));
     } catch {
       // silent
@@ -98,9 +98,9 @@ export function NotificationBell() {
   }
 
   async function handleMarkOne(n: Notification) {
-    if (!token || n.is_read) return;
+    if (!user || n.is_read) return;
     try {
-      const updated = await markNotificationRead(token, n.id);
+      const updated = await markNotificationRead(n.id);
       setItems((xs) => xs.map((x) => (x.id === n.id ? updated : x)));
     } catch {
       // silent
@@ -109,7 +109,7 @@ export function NotificationBell() {
 
   const unreadCount = items.filter((n) => !n.is_read).length;
 
-  if (!token) return null;
+  if (!user) return null;
 
   return (
     <div className="relative">

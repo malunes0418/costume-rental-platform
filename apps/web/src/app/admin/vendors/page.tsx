@@ -14,7 +14,7 @@ function fmt(d?: string) {
 }
 
 export default function AdminVendorsPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"PENDING" | "ALL">("PENDING");
   
   const [pendingVendors, setPendingVendors]     = useState<PendingVendor[]>([]);
@@ -24,29 +24,29 @@ export default function AdminVendorsPage() {
   const [actioning, setActioning] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!token || user?.role !== "ADMIN") return;
+    if (!user || user.role !== "ADMIN") return;
     
     setLoading(true);
     
     if (activeTab === "PENDING") {
-      adminListPendingVendors(token)
+      adminListPendingVendors()
         .then((v) => setPendingVendors(Array.isArray(v) ? v : (v as any)?.data || []))
         .catch(() => toast.error("Failed to load pending vendors."))
         .finally(() => setLoading(false));
     } else {
-      adminListAllVendors(token)
+      adminListAllVendors()
         .then((v) => setAllVendors(Array.isArray(v) ? v : (v as any)?.data || []))
         .catch(() => toast.error("Failed to load active vendors."))
         .finally(() => setLoading(false));
     }
-  }, [token, user, activeTab]);
+  }, [user, activeTab]);
 
   async function handle(userId: number, action: "approve" | "reject") {
-    if (!token) return;
+    if (!user) return;
     setActioning(userId);
     try {
-      if (action === "approve") { await adminApproveVendor(userId, token); toast.success("Vendor approved."); }
-      else { await adminRejectVendor(userId, token); toast.success("Vendor rejected."); }
+      if (action === "approve") { await adminApproveVendor(userId); toast.success("Vendor approved."); }
+      else { await adminRejectVendor(userId); toast.success("Vendor rejected."); }
       setPendingVendors((vs) => vs.filter((v) => v.user_id !== userId));
     } catch (e: any) {
       toast.error(e?.message || "Action failed.");

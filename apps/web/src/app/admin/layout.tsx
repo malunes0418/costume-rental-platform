@@ -27,18 +27,18 @@ const NAV = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
   const router  = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── access guard ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!token) { router.push("/login?next=/admin"); return; }
-    if (user && user.role !== "ADMIN") { router.push("/"); }
-  }, [token, user, router]);
+    if (!user) { router.push("/login?next=/admin"); return; }
+    if (user.role !== "ADMIN") { router.push("/"); }
+  }, [user, router]);
 
-  if (!token || !user || user.role !== "ADMIN") return null;
+  if (!user || user.role !== "ADMIN") return null;
 
   const initials = user.name
     ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()

@@ -24,7 +24,7 @@ interface AddCostumeModalProps {
 }
 
 export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -71,7 +71,7 @@ export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
+    if (!user) return;
 
     if (images.length === 0) {
       toast.error("Please add at least one image.");
@@ -88,7 +88,7 @@ export function AddCostumeModal({ onSuccess, disabled }: AddCostumeModalProps) {
         size,
         category,
         images
-      }, token);
+      });
       
       toast.success("Costume added successfully!");
       setOpen(false);

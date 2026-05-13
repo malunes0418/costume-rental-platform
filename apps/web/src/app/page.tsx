@@ -41,7 +41,7 @@ const categoryFilters = [
 const spotlightWords = ["Extraordinary", "Theatrical", "Unforgettable", "Iconic"];
 
 export default function Home() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [query, setQuery]         = useState<CostumeListQuery>({ page: 1, pageSize: 12 });
   const [qText, setQText]         = useState("");
   const [items, setItems]         = useState<Costume[]>([]);
@@ -73,11 +73,11 @@ export default function Home() {
 
   // Fetch wishlist IDs so hearts show correct state
   useEffect(() => {
-    if (!token) { setSavedIds(new Set()); return; }
-    myWishlist(token)
+    if (!user) { setSavedIds(new Set()); return; }
+    myWishlist()
       .then((items) => setSavedIds(new Set(items.map((i) => i.costume_id))))
       .catch(() => {});
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;

@@ -37,7 +37,7 @@ function resolveImage(costume: any): string {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function VendorInventoryPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   const [costumes, setCostumes]                 = useState<any[]>([]);
   const [loading, setLoading]                   = useState(true);
@@ -47,18 +47,18 @@ export default function VendorInventoryPage() {
   const [isDeleting, setIsDeleting]             = useState(false);
 
   async function refreshCostumes() {
-    if (!token) return;
+    if (!user) return;
     try {
-      const res = await listVendorCostumes(token) as any;
+      const res = await listVendorCostumes() as any;
       setCostumes(Array.isArray(res) ? res : (res.data || []));
     } catch { /* silent */ }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget || !token) return;
+    if (!deleteTarget || !user) return;
     setIsDeleting(true);
     try {
-      await deleteVendorCostume(deleteTarget, token);
+      await deleteVendorCostume(deleteTarget);
       toast.success("Listing removed.");
       await refreshCostumes();
       setDeleteTarget(null);
@@ -70,10 +70,10 @@ export default function VendorInventoryPage() {
   }
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
     async function fetchData() {
       try {
-        const costumesRes = await listVendorCostumes(token!) as any;
+        const costumesRes = await listVendorCostumes() as any;
         setCostumes(Array.isArray(costumesRes) ? costumesRes : (costumesRes.data || []));
       } catch (err: any) {
         if (err?.body?.code === "SUBSCRIPTION_REQUIRED" || err?.status === 402 || err?.status === 403) {
@@ -84,7 +84,7 @@ export default function VendorInventoryPage() {
       }
     }
     fetchData();
-  }, [token]);
+  }, [user]);
 
   // ── loading ────────────────────────────────────────────────────────────────
 

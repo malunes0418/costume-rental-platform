@@ -32,7 +32,7 @@ function StatusChip({ status }: { status: string }) {
 }
 
 export default function AdminPaymentsPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [all, setAll]           = useState<AdminPayment[]>([]);
   const [filter, setFilter]     = useState("");
   const [loading, setLoading]   = useState(true);
@@ -40,18 +40,18 @@ export default function AdminPaymentsPage() {
   const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token || user?.role !== "ADMIN") return;
-    adminListPayments(token)
+    if (!user || user.role !== "ADMIN") return;
+    adminListPayments()
       .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
       .catch(() => toast.error("Failed to load payments."))
       .finally(() => setLoading(false));
-  }, [token, user]);
+  }, [user]);
 
   async function handle(paymentId: number, status: "APPROVED" | "REJECTED") {
-    if (!token) return;
+    if (!user) return;
     setActioning(paymentId);
     try {
-      await adminReviewPayment(paymentId, status, "", token);
+      await adminReviewPayment(paymentId, status, "");
       toast.success(`Payment ${status.toLowerCase()}.`);
       setAll((ps) => ps.map((p) => p.id === paymentId ? { ...p, status } : p));
     } catch (e: any) {
