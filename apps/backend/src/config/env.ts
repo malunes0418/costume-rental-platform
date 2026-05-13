@@ -29,6 +29,7 @@ export const env = {
   dbUser: required("DB_USER"),
   dbName: required("DB_NAME"),
   dbPassword: optional("DB_PASSWORD"),
+  dbCaCertPath: optional("DB_CA_CERT_PATH"),
   jwtSecret: required("JWT_SECRET"),
   oauthGoogleClientId: required("OAUTH_GOOGLE_CLIENT_ID"),
   oauthGoogleClientSecret: required("OAUTH_GOOGLE_CLIENT_SECRET"),
