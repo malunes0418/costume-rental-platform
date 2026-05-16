@@ -3,26 +3,28 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { ApiError } from "../../lib/api";
-import { useAuth } from "../../lib/auth";
-import { getDefaultPostLoginPath } from "../../lib/authRedirects";
+import { toast } from "sonner";
+import {
+  CheckIcon,
+  ExclamationTriangleIcon,
+  EyeClosedIcon as EyeOff,
+  EyeOpenIcon as Eye,
+  UpdateIcon as Loader,
+} from "@radix-ui/react-icons";
+
+import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
-import { toast } from "sonner";
-import {
-  EyeOpenIcon as Eye,
-  EyeClosedIcon as EyeOff,
-  ExclamationTriangleIcon,
-  UpdateIcon as Loader,
-  CheckIcon
-} from "@radix-ui/react-icons";
+import { getDefaultPostLoginPath } from "../../lib/authRedirects";
+import { ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 
 const TRUST_POINTS = [
   "No credit card required to browse",
   "Save and wishlist any costume",
-  "Book in minutes, cancel anytime"
+  "Book in minutes, cancel anytime",
 ];
 
 export default function RegisterPage() {
@@ -65,13 +67,6 @@ export default function RegisterPage() {
     <div className="flex flex-1 flex-col lg:flex-row">
       <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
         <div className="w-full max-w-[400px] animate-fade-up">
-          <Link
-            href="/"
-            className="mb-10 block font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity lg:hidden"
-          >
-            Snap<em>Cos</em>
-          </Link>
-
           <div className="mb-10 space-y-2">
             <h1 className="font-playfair text-4xl font-semibold text-foreground">Create account</h1>
             <p className="text-sm text-muted-foreground">
@@ -96,7 +91,9 @@ export default function RegisterPage() {
 
           <div className="relative mb-8 flex items-center gap-4">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">or</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              or
+            </span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -115,7 +112,7 @@ export default function RegisterPage() {
                 type="text"
                 autoComplete="name"
                 placeholder="Your name"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
               />
             </div>
 
@@ -134,7 +131,7 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
               />
             </div>
 
@@ -153,8 +150,8 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  placeholder="••••••••"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+                  placeholder="........"
+                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
                 />
                 <button
                   type="button"
@@ -172,7 +169,7 @@ export default function RegisterPage() {
               id="register-submit-btn"
               type="submit"
               disabled={isSubmitting || !email.trim() || !password.trim()}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isSubmitting ? (
                 <>
@@ -201,7 +198,7 @@ export default function RegisterPage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
+              className="font-semibold text-foreground underline underline-offset-4 transition-opacity hover:opacity-70"
             >
               Log in
             </Link>
@@ -210,40 +207,36 @@ export default function RegisterPage() {
       </div>
 
       <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-l border-border bg-muted/30 px-12 py-16">
-        <Link
-          href="/"
-          className="font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity"
-        >
-          Snap<em>Cos</em>
-        </Link>
+        <div className="flex flex-1 items-center">
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+                Wear something
+                <br />
+                extraordinary.
+              </p>
+              <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
+                Thousands of premium costumes available for rent - from theatrical period pieces to fantasy ensembles.
+              </p>
+            </div>
 
-        <div className="space-y-10">
-          <div className="space-y-4">
-            <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
-              Wear something
-              <br />
-              extraordinary.
-            </p>
-            <p className="text-base leading-relaxed text-muted-foreground max-w-xs">
-              Thousands of premium costumes available for rent - from theatrical period pieces to fantasy ensembles.
-            </p>
+            <ul className="space-y-4">
+              {TRUST_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
+                    <CheckIcon className="size-3" />
+                  </span>
+                  <span className="text-sm text-muted-foreground">{point}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-
-          <ul className="space-y-4">
-            {TRUST_POINTS.map((point) => (
-              <li key={point} className="flex items-start gap-3">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
-                  <CheckIcon className="size-3" />
-                </span>
-                <span className="text-sm text-muted-foreground">{point}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          SnapCos © {new Date().getFullYear()}
-        </p>
+        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <BrandLogo size="sm" />
+          <span>Copyright {new Date().getFullYear()}</span>
+        </div>
       </div>
     </div>
   );

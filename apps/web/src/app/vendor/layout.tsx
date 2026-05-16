@@ -14,6 +14,7 @@ import {
 } from "@radix-ui/react-icons";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -122,12 +123,10 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   const Sidebar = () => (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-        <div className="min-w-0">
-          <p className="font-playfair text-sm font-semibold leading-none text-foreground">
-            Snap<em>Cos</em>
-          </p>
-          <p className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="flex h-20 items-center border-b border-border px-6">
+        <div className="space-y-2">
+          <BrandLogo size="md" />
+          <p className="pl-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
             Vendor House
           </p>
         </div>
@@ -209,8 +208,8 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         <header className="border-b border-border bg-background">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5">
             <div>
-              <Link href="/" className="font-playfair text-xl font-semibold text-foreground">
-                Snap<em>Cos</em>
+              <Link href="/" aria-label="SnapCos home">
+                <BrandLogo size="md" />
               </Link>
               <p className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Vendor House

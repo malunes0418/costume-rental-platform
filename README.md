@@ -1,4 +1,6 @@
-# Costume Rental Platform
+![SnapCos logo](apps/web/public/brand/snapcos-lockup.png)
+
+# SnapCos
 
 A full-stack costume rental marketplace with an Express/TypeScript backend and a Next.js frontend. Users can browse costumes, place reservations, manage wishlists, and authenticate with email/password or Google OAuth.
 

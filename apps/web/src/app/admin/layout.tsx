@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
   StackIcon,
   CardStackIcon,
@@ -37,17 +38,15 @@ type AdminSidebarProps = {
 function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }: AdminSidebarProps) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-        <div className="flex size-7 items-center justify-center rounded-sm bg-foreground">
-          <LockClosedIcon className="size-3 text-background" />
+      <div className="flex h-20 items-center justify-between gap-3 border-b border-border px-6">
+        <div className="space-y-2">
+          <BrandLogo size="md" />
+          <p className="pl-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+            Admin Console
+          </p>
         </div>
-        <div>
-          <p className="font-playfair text-sm font-semibold leading-none text-foreground">
-            Snap<em>Cos</em>
-          </p>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Admin
-          </p>
+        <div className="flex size-8 items-center justify-center rounded-[1rem] border border-border bg-muted text-foreground">
+          <LockClosedIcon className="size-3.5" />
         </div>
       </div>
 
@@ -168,9 +167,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <HamburgerMenuIcon className="size-4" />
           </button>
-          <p className="font-playfair text-sm font-semibold text-foreground">
-            Snap<em>Cos</em> Admin
-          </p>
+          <div className="flex items-center gap-2">
+            <BrandLogo size="sm" variant="mark" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Admin
+            </p>
+          </div>
           <ThemeToggle />
         </div>
 

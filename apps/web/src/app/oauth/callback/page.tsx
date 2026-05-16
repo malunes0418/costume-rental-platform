@@ -3,8 +3,10 @@
 import { UpdateIcon as Loader } from "@radix-ui/react-icons";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuth } from "../../../lib/auth";
+
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { getDefaultPostLoginPath } from "../../../lib/authRedirects";
+import { useAuth } from "../../../lib/auth";
 
 export default function OAuthCallbackPage() {
   const { refreshUser } = useAuth();
@@ -28,9 +30,7 @@ export default function OAuthCallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
       <div className="flex animate-fade-up flex-col items-center gap-5 text-center">
-        <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-          Snap<em>Cos</em>
-        </p>
+        <BrandLogo priority size="lg" />
         <Loader className="size-5 animate-spin text-muted-foreground" />
       </div>
     </div>

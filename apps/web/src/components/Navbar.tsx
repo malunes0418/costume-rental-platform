@@ -28,6 +28,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./NotificationBell";
 import { useCart } from "../lib/CartContext";
 import { CartDrawer } from "./CartDrawer";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -81,11 +82,8 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-6 md:px-8">
 
         {/* ── Logo ── */}
-        <Link href="/" className="shrink-0 group flex items-center gap-2">
-          {/* Minimal wordmark */}
-          <span className="font-playfair text-xl font-semibold tracking-tight text-foreground group-hover:opacity-70 transition-opacity">
-            Snap<em>Cos</em>
-          </span>
+        <Link href="/" aria-label="SnapCos home" className="shrink-0 transition-transform duration-300 hover:scale-[0.99]">
+          <BrandLogo priority size="md" />
         </Link>
 
         {/* ── Desktop Nav ── */}

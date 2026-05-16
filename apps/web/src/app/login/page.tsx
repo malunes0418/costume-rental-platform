@@ -3,20 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { ApiError } from "../../lib/api";
-import { useAuth } from "../../lib/auth";
-import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
+import { toast } from "sonner";
+import {
+  ExclamationTriangleIcon,
+  EyeClosedIcon as EyeOff,
+  EyeOpenIcon as Eye,
+  UpdateIcon as Loader,
+} from "@radix-ui/react-icons";
+
+import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
-import { toast } from "sonner";
-import {
-  EyeOpenIcon as Eye,
-  EyeClosedIcon as EyeOff,
-  ExclamationTriangleIcon,
-  UpdateIcon as Loader
-} from "@radix-ui/react-icons";
+import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
+import { ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 
 export default function LoginPage() {
   const { login, user, isLoading: isAuthLoading } = useAuth();
@@ -65,38 +67,27 @@ export default function LoginPage() {
   return (
     <div className="flex flex-1 flex-col lg:flex-row">
       <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-r border-border bg-muted/30 px-12 py-16">
-        <Link
-          href="/"
-          className="font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity"
-        >
-          Snap<em>Cos</em>
-        </Link>
-
-        <div className="space-y-6">
-          <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
-            Your wardrobe,
-            <br />
-            elevated.
-          </p>
-          <p className="text-base leading-relaxed text-muted-foreground max-w-xs">
-            Access your reservations, saved costumes, and booking history - all in one place.
-          </p>
+        <div className="flex flex-1 items-center">
+          <div className="space-y-6">
+            <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+              Your wardrobe,
+              <br />
+              elevated.
+            </p>
+            <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
+              Access your reservations, saved costumes, and booking history - all in one place.
+            </p>
+          </div>
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          SnapCos © {new Date().getFullYear()}
-        </p>
+        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <BrandLogo size="sm" />
+          <span>Copyright {new Date().getFullYear()}</span>
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
         <div className="w-full max-w-[400px] animate-fade-up">
-          <Link
-            href="/"
-            className="mb-10 block font-playfair text-xl font-semibold text-foreground hover:opacity-70 transition-opacity lg:hidden"
-          >
-            Snap<em>Cos</em>
-          </Link>
-
           <div className="mb-10 space-y-2">
             <h1 className="font-playfair text-4xl font-semibold text-foreground">Welcome back</h1>
             <p className="text-sm text-muted-foreground">Log in to your account to continue.</p>
@@ -119,7 +110,9 @@ export default function LoginPage() {
 
           <div className="relative mb-8 flex items-center gap-4">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">or</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              or
+            </span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -139,7 +132,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
               />
             </div>
 
@@ -158,8 +151,8 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  placeholder="••••••••"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground/30"
+                  placeholder="........"
+                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
                 />
                 <button
                   type="button"
@@ -176,7 +169,7 @@ export default function LoginPage() {
               id="login-submit-btn"
               type="submit"
               disabled={isSubmitting}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isSubmitting ? (
                 <>
@@ -193,7 +186,7 @@ export default function LoginPage() {
             New here?{" "}
             <Link
               href="/register"
-              className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
+              className="font-semibold text-foreground underline underline-offset-4 transition-opacity hover:opacity-70"
             >
               Create an account
             </Link>
