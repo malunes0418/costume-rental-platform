@@ -41,6 +41,7 @@ export const CostumeListQuerySchema = registry.register(
     size: z.string().optional(),
     gender: z.string().optional(),
     theme: z.string().optional(),
+    ownerId: z.string().optional(),
     sort: z.string().optional(),
     page: z.string().optional(),
     pageSize: z.string().optional(),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ApiError } from "../../../lib/api";
 import { resolveApiAsset } from "../../../lib/assets";
 import {
@@ -13,6 +13,7 @@ import {
   type Review,
 } from "../../../lib/costumes";
 import { useAuth } from "../../../lib/auth";
+import { useCart } from "../../../lib/CartContext";
 import { apiFetch } from "../../../lib/api";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -43,7 +44,9 @@ export default function CostumeDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
 
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { openCart, triggerRefresh } = useCart();
+  const router = useRouter();
 
   const [data, setData] = useState<CostumeDetailResponse | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -56,8 +59,17 @@ export default function CostumeDetailPage() {
 
   const [quantity, setQuantity] = useState(1);
 
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (user?.role === "ADMIN") {
+      router.replace("/admin");
+    }
+  }, [user, isAuthLoading, router]);
+
+
 
   const images = data?.costume.CostumeImages || [];
+  const isOwnCostume = !!user && data?.costume.owner_id === user.id;
 
   const nights = useMemo(() => (startDate && endDate ? daysBetween(startDate, endDate) : 0), [startDate, endDate]);
   const price = useMemo(() => (data ? nights * Number(data.costume.base_price_per_day) * quantity : 0), [data, nights, quantity]);
@@ -111,6 +123,10 @@ export default function CostumeDetailPage() {
       toast.error("Please log in to reserve.");
       return;
     }
+    if (isOwnCostume) {
+      toast.error("You cannot add your own costume to your cart.");
+      return;
+    }
     if (!startDate || !endDate) {
       toast.error("Please choose dates first.");
       return;
@@ -126,13 +142,16 @@ export default function CostumeDetailPage() {
           endDate: format(endDate, "yyyy-MM-dd") 
         }),
       });
-      toast.success("Added to cart successfully.");
+      triggerRefresh();
+      openCart();
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Failed to add to cart");
     }
   }
 
-
+  if (user?.role === "ADMIN") {
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -172,6 +191,11 @@ export default function CostumeDetailPage() {
               <span>·</span>
               <span className="underline decoration-border underline-offset-4">{data.ratingCount} reviews</span>
             </div>
+            {isOwnCostume ? (
+              <div className="animate-fade-up-delay-2 inline-flex items-center rounded-sm border border-foreground/15 bg-foreground px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-background">
+                Your listing
+              </div>
+            ) : null}
           </div>
 
           {/* Shadix UI Photo Grid */}
@@ -193,7 +217,10 @@ export default function CostumeDetailPage() {
 
           <div className="grid grid-cols-1 gap-16 lg:grid-cols-12 mt-8 animate-fade-up-delay-3">
             {/* Left Col: Description & Reviews */}
-            <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-16">
+            <div className={cn(
+              "flex flex-col gap-16",
+              user?.role === "ADMIN" ? "lg:col-span-12 xl:col-span-12" : "lg:col-span-7 xl:col-span-8"
+            )}>
               <section className="space-y-6">
                 <h2 className="font-playfair text-3xl font-semibold text-foreground">About this piece</h2>
                 {data.costume.description ? (
@@ -227,15 +254,16 @@ export default function CostumeDetailPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-muted-foreground italic">This costume doesn't have any reviews yet.</p>
+                    <p className="text-muted-foreground italic">This costume does not have any reviews yet.</p>
                   )}
                 </div>
               </section>
             </div>
 
             {/* Right Col: Reservation */}
-            <div className="lg:col-span-5 xl:col-span-4">
-              <div className="sticky top-24 border border-border bg-card shadow-none rounded-md p-8 flex flex-col gap-8">
+            {user?.role !== "ADMIN" && (
+              <div className="lg:col-span-5 xl:col-span-4">
+                <div className="sticky top-24 border border-border bg-card shadow-none rounded-md p-8 flex flex-col gap-8">
                 <div className="flex items-baseline justify-between border-b border-border pb-6">
                   <div className="font-playfair text-4xl font-semibold tracking-tight text-foreground">
                     {fmtMoney(Number(data.costume.base_price_per_day))}
@@ -244,6 +272,14 @@ export default function CostumeDetailPage() {
                 </div>
                 
                 <div className="space-y-6">
+                  {isOwnCostume ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Your listing</AlertTitle>
+                      <AlertDescription>You cannot add your own costume to your cart.</AlertDescription>
+                    </Alert>
+                  ) : null}
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start Date</Label>
@@ -312,12 +348,14 @@ export default function CostumeDetailPage() {
                       variant="outline"
                       className="w-full h-12 text-sm uppercase tracking-wider font-semibold"
                       onClick={checkAvailability}
+                      disabled={isOwnCostume}
                     >
                       Check Availability
                     </Button>
                     <Button
                       className="w-full h-12 text-sm uppercase tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                       onClick={addToCart}
+                      disabled={isOwnCostume}
                     >
                       Reserve Now
                     </Button>
@@ -336,6 +374,7 @@ export default function CostumeDetailPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
         </div>

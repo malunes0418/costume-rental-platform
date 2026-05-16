@@ -122,7 +122,7 @@ export default function AdminPaymentsPage() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Reservation #{p.reservation_id} · User #{p.user_id} · {fmt(p.created_at)}
+                  Reservations #{(p.reservation_ids || []).join(', #')} · User #{p.user_id} · {fmt(p.created_at)}
                 </p>
                 {p.notes && <p className="mt-1 text-xs text-muted-foreground italic">{p.notes}</p>}
               </div>

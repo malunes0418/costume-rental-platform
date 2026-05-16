@@ -9,6 +9,7 @@ export type AuthUser = {
   name?: string;
   avatar_url?: string | null;
   role?: string;
+  vendor_status?: string;
 };
 
 type AuthContextValue = {

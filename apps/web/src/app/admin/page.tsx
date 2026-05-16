@@ -189,7 +189,7 @@ export default function AdminOverviewPage() {
     ...payments.slice(-4).map((p) => ({
       id: `pay-${p.id}`,
       label: `Payment #${p.id}`,
-      sub: `Reservation #${p.reservation_id}`,
+      sub: `Reservations #${(p.reservation_ids || []).join(', #')}`,
       amount: currency(p.amount),
       status: p.status,
       date: p.created_at,

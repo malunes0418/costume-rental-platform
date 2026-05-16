@@ -5,7 +5,7 @@ export type PaymentStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface PaymentAttributes {
   id: number;
-  reservation_id: number;
+  reservation_ids: number[];
   user_id: number;
   amount: number;
   status: PaymentStatus;
@@ -19,7 +19,7 @@ export interface PaymentCreationAttributes extends Optional<PaymentAttributes, "
 
 export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes> implements PaymentAttributes {
   public id!: number;
-  public reservation_id!: number;
+  public reservation_ids!: number[];
   public user_id!: number;
   public amount!: number;
   public status!: PaymentStatus;
@@ -32,7 +32,7 @@ export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes>
 Payment.init(
   {
     id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
-    reservation_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+    reservation_ids: { type: DataTypes.JSON, allowNull: false },
     user_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     status: { type: DataTypes.ENUM("PENDING", "APPROVED", "REJECTED"), allowNull: false, defaultValue: "PENDING" },

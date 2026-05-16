@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError } from "../lib/api";
 import { CostumeCard, CostumeCardSkeleton } from "../components/CostumeCard";
 import { listCostumes, type Costume, type CostumeListQuery } from "../lib/costumes";
@@ -41,7 +42,8 @@ const categoryFilters = [
 const spotlightWords = ["Extraordinary", "Theatrical", "Unforgettable", "Iconic"];
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const router = useRouter();
   const [query, setQuery]         = useState<CostumeListQuery>({ page: 1, pageSize: 12 });
   const [qText, setQText]         = useState("");
   const [items, setItems]         = useState<Costume[]>([]);
@@ -51,6 +53,9 @@ export default function Home() {
   const [wordIdx, setWordIdx]     = useState(0);
   const [wordVisible, setWordVisible] = useState(true);
   const [savedIds, setSavedIds]   = useState<Set<number>>(new Set());
+  const isApprovedVendor = user?.vendor_status === "APPROVED";
+  const listingScope = query.ownerId === user?.id ? "mine" : "all";
+  const scopeLabel = listingScope === "mine" ? "Viewing your catalog" : "Viewing the full catalog";
 
   const canPrev = (query.page || 1) > 1;
   const canNext = useMemo(() => {
@@ -58,6 +63,14 @@ export default function Home() {
     const pageSize = query.pageSize || 12;
     return page * pageSize < total;
   }, [query.page, query.pageSize, total]);
+
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (user?.role === "ADMIN") {
+      router.replace("/admin");
+    }
+  }, [user, isAuthLoading, router]);
+
 
   // Cycling spotlight words
   useEffect(() => {
@@ -80,6 +93,11 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
+    if (isAuthLoading || isApprovedVendor) return;
+    setQuery((q) => (q.ownerId === undefined ? q : { ...q, ownerId: undefined, page: 1 }));
+  }, [isApprovedVendor, isAuthLoading]);
+
+  useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     setError(null);
@@ -99,6 +117,10 @@ export default function Home() {
       });
     return () => { cancelled = true; };
   }, [query]);
+
+  if (user?.role === "ADMIN") {
+    return null;
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-background">
@@ -243,6 +265,43 @@ export default function Home() {
         className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-8"
         aria-label="Costume listings"
       >
+        {isApprovedVendor && user ? (
+          <div className="mb-10 flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-6">
+              {[
+                { value: "all", label: "All Listings" },
+                { value: "mine", label: "My Listings" },
+              ].map(({ value, label }) => {
+                const isActive = listingScope === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setQuery((q) => ({
+                        ...q,
+                        ownerId: value === "mine" ? user.id : undefined,
+                        page: 1,
+                      }))
+                    }
+                    className={cn(
+                      "pb-2 text-xs font-semibold uppercase tracking-widest transition-all",
+                      isActive
+                        ? "border-b-2 border-foreground text-foreground"
+                        : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {scopeLabel}
+            </p>
+          </div>
+        ) : null}
+
         {/* Error */}
         {error && (
           <Alert variant="destructive" className="mb-10 rounded-md border-border bg-transparent">
@@ -263,9 +322,13 @@ export default function Home() {
                     <Search className="size-12" />
                   </div>
                   <p className="font-playfair text-3xl text-foreground">
-                    No costumes found.
+                    {listingScope === "mine" ? "No listings yet." : "No costumes found."}
                   </p>
-                  <p className="mt-4 text-muted-foreground">Try adjusting your filters or search terms.</p>
+                  <p className="mt-4 text-muted-foreground">
+                    {listingScope === "mine"
+                      ? "You do not have any listings that match the current filters."
+                      : "Try adjusting your filters or search terms."}
+                  </p>
                 </div>
               )}
         </div>

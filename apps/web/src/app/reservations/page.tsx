@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ApiError, apiFetch } from "../../lib/api";
+import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import {
@@ -13,17 +14,8 @@ import {
   type Payment,
   type ReservationWithItems,
 } from "../../lib/account";
-import { Button } from "@/components/ui/button";
+import { useCart } from "../../lib/CartContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   CalendarIcon as CalendarDays,
   IdCardIcon as CreditCard,
@@ -81,22 +73,23 @@ const STATUS_CLASS: Record<string, string> = {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function ReservationsPage() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { openCart } = useCart();
+  const router = useRouter();
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [isLoading, setIsLoading]       = useState(true);
 
-  const [uploadReservationId, setUploadReservationId] = useState<number | null>(null);
-  const [amount, setAmount] = useState("");
-  const [file, setFile]     = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
+  // Build a map from reservationId → payments[] using the new reservation_ids array
   const paymentsByReservation = useMemo(() => {
     const m = new Map<number, Payment[]>();
     for (const p of payments) {
-      const arr = m.get(p.reservation_id) || [];
-      arr.push(p);
-      m.set(p.reservation_id, arr);
+      const ids: number[] = p.reservation_ids || [];
+      for (const rid of ids) {
+        const arr = m.get(rid) || [];
+        arr.push(p);
+        m.set(rid, arr);
+      }
     }
     return m;
   }, [payments]);
@@ -107,7 +100,12 @@ export default function ReservationsPage() {
   );
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!user) { setReservations([]); setPayments([]); setIsLoading(false); return; }
+    if (user.role === "ADMIN") {
+      router.replace("/admin");
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
     Promise.all([myReservations(), myPayments()])
@@ -117,7 +115,7 @@ export default function ReservationsPage() {
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, isAuthLoading, router]);
 
   async function doCheckout(reservationId: number) {
     if (!user) return;
@@ -127,31 +125,6 @@ export default function ReservationsPage() {
       setReservations(await myReservations());
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Checkout failed");
-    }
-  }
-
-  async function doUploadProof() {
-    if (!user) { toast.error("Please log in."); return; }
-    if (!uploadReservationId) { toast.error("Select a reservation."); return; }
-    if (!amount.trim()) { toast.error("Enter an amount."); return; }
-    if (!file) { toast.error("Choose a file."); return; }
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.set("reservationId", String(uploadReservationId));
-      form.set("amount", amount);
-      form.set("proof", file);
-      await apiFetch("/api/payments/proof", { method: "POST", body: form });
-      toast.success("Proof uploaded successfully.");
-      const p = await myPayments();
-      setPayments(p);
-      setUploadReservationId(null);
-      setAmount("");
-      setFile(null);
-    } catch (e: unknown) {
-      toast.error(e instanceof ApiError ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -169,10 +142,32 @@ export default function ReservationsPage() {
             <p className="text-muted-foreground">Sign in to view and manage your costume reservations.</p>
           </div>
           <Link
-            href="/login?next=/trips"
+            href="/login?next=/reservations"
             className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
           >
             Log in to continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === "ADMIN") {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
+        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+          <div className="text-muted-foreground/20">
+            <CalendarDays className="mx-auto size-16" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="font-playfair text-4xl font-semibold text-foreground">Unavailable</h1>
+            <p className="text-muted-foreground">Administrators cannot make or view personal reservations.</p>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+          >
+            Return Home
           </Link>
         </div>
       </div>
@@ -286,7 +281,7 @@ export default function ReservationsPage() {
                         {r.status === "PENDING_PAYMENT" && (
                           <button
                             type="button"
-                            onClick={() => setUploadReservationId(r.id)}
+                            onClick={openCart}
                             className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
                           >
                             <Upload className="size-3.5" />
@@ -383,71 +378,26 @@ export default function ReservationsPage() {
             </div>
 
             <div className="flex flex-col gap-5">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Reservation
-                </Label>
-                <Select
-                  value={uploadReservationId?.toString() ?? ""}
-                  onValueChange={(val: string) => setUploadReservationId(val ? Number(val) : null)}
-                >
-                  <SelectTrigger className="h-11 rounded-sm border-border bg-transparent text-sm">
-                    <SelectValue placeholder="Select a reservation…" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-sm border-border bg-background shadow-none">
-                    {pendingPaymentReservations.length ? (
-                      pendingPaymentReservations.map((r) => (
-                        <SelectItem key={r.id} value={r.id.toString()} className="text-sm text-foreground">
-                          #{r.id} · {formatDate(r.start_date)} → {formatDate(r.end_date)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                        No pending reservations
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="proof-amount" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Amount (₱)
-                </Label>
-                <Input
-                  id="proof-amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="e.g. 1200"
-                  className="h-11 rounded-sm border-border bg-transparent text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="proof-file" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Proof file
-                </Label>
-                <div className="flex h-11 items-center rounded-sm border border-border px-3">
-                  <input
-                    id="proof-file"
-                    type="file"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="w-full cursor-pointer text-xs text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-sm file:border file:border-border file:bg-transparent file:px-3 file:py-1 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest file:text-foreground"
-                    accept="image/*,application/pdf"
-                  />
+              {pendingPaymentReservations.length > 0 ? (
+                <>
+                  <p className="text-sm text-foreground mb-2">
+                    You have <strong>{pendingPaymentReservations.length}</strong> reservation{pendingPaymentReservations.length > 1 ? "s" : ""} awaiting payment. You can submit one proof of payment for your entire cart.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openCart}
+                    className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                  >
+                    <Upload className="size-3.5" />
+                    Complete Payment in Cart
+                  </button>
+                </>
+              ) : (
+                <div className="py-8 text-center border-2 border-dashed border-border rounded-sm">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">All set</p>
+                  <p className="text-sm text-muted-foreground">You don't have any pending payments right now.</p>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={doUploadProof}
-                disabled={uploading}
-                className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Upload className="size-3.5" />
-                {uploading ? "Uploading…" : "Upload proof"}
-              </button>
+              )}
             </div>
           </div>
         </div>

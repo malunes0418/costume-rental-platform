@@ -8,7 +8,7 @@ import { getPagination } from "../utils/pagination";
 
 export class CostumeService {
   private costumeListQueryFromRequestQuery(q: Request["query"]): CostumeListQuery {
-    const { q: search, category, size, gender, theme, sort, page, pageSize } = q;
+    const { q: search, category, size, gender, theme, ownerId, sort, page, pageSize } = q;
     const str = (v: unknown) => (typeof v === "string" ? v : undefined);
     const num = (v: unknown) => (v !== undefined && v !== "" && v !== null ? Number(v) : undefined);
     return {
@@ -17,6 +17,7 @@ export class CostumeService {
       size: str(size),
       gender: str(gender),
       theme: str(theme),
+      ownerId: num(ownerId),
       sort: str(sort),
       page: num(page),
       pageSize: num(pageSize)
@@ -36,6 +37,7 @@ export class CostumeService {
     if (query.size) where.size = query.size;
     if (query.gender) where.gender = query.gender;
     if (query.theme) where.theme = query.theme;
+    if (query.ownerId !== undefined) where.owner_id = query.ownerId;
     const { offset, limit, page, pageSize } = getPagination(query.page, query.pageSize);
     const order: any[] = [];
     if (query.sort === "price_asc") order.push(["base_price_per_day", "ASC"]);

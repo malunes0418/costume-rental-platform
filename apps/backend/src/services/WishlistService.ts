@@ -7,6 +7,14 @@ import { CostumeImage } from "../models/CostumeImage";
 export class WishlistService {
   async addToWishlist(userId: number, body: AddWishlistRequest) {
     const costumeId = Number(body.costumeId);
+    const costume = await Costume.findByPk(costumeId);
+    if (!costume) {
+      throw new Error("Costume not found");
+    }
+    if (costume.owner_id === userId) {
+      throw new Error("You cannot add your own costume to your wishlist");
+    }
+
     const existing = await WishlistItem.findOne({ where: { user_id: userId, costume_id: costumeId } });
     if (existing) {
       return existing;

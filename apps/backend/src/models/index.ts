@@ -40,8 +40,9 @@ ReservationItem.belongsTo(Costume, { foreignKey: "costume_id" });
 User.hasMany(Payment, { foreignKey: "user_id" });
 Payment.belongsTo(User, { foreignKey: "user_id" });
 
-Reservation.hasMany(Payment, { foreignKey: "reservation_id" });
-Payment.belongsTo(Reservation, { foreignKey: "reservation_id" });
+// Legacy single association removed since Payment uses reservation_ids (JSON array)
+// Reservation.hasMany(Payment, { foreignKey: "reservation_id" });
+// Payment.belongsTo(Reservation, { foreignKey: "reservation_id" });
 
 Reservation.hasMany(Message, { foreignKey: "reservation_id" });
 Message.belongsTo(Reservation, { foreignKey: "reservation_id" });

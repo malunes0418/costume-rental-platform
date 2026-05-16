@@ -11,6 +11,7 @@ export interface CostumeListQuery {
   size?: string;
   gender?: string;
   theme?: string;
+  ownerId?: number;
   sort?: string;
   page?: number;
   pageSize?: number;

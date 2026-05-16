@@ -66,6 +66,14 @@ export class ReservationService {
     const qty = Number(quantity);
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const costume = await Costume.findByPk(costumeIdNum);
+    if (!costume) {
+      throw new Error("Costume not found");
+    }
+    if (costume.owner_id === userId) {
+      throw new Error("You cannot add your own costume to your cart");
+    }
+
     await this.validateAvailability(costumeIdNum, start, end, qty);
     let reservation = await Reservation.findOne({ where: { user_id: userId, status: "CART" }, include: [{ model: ReservationItem, as: "items" }] });
     if (!reservation) {
@@ -81,10 +89,6 @@ export class ReservationService {
       reservation.start_date = start.toISOString().slice(0, 10);
       reservation.end_date = end.toISOString().slice(0, 10);
       await reservation.save();
-    }
-    const costume = await Costume.findByPk(costumeIdNum);
-    if (!costume) {
-      throw new Error("Costume not found");
     }
     const days = countDaysInclusive(start, end);
     const pricePerDay = Number(costume.base_price_per_day);

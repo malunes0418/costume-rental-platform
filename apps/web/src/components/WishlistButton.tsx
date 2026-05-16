@@ -9,24 +9,30 @@ import { cn } from "@/lib/utils";
 
 interface WishlistButtonProps {
   costumeId: number;
+  ownerId?: number | null;
   initialSaved?: boolean;
-  /** Size variant — defaults to "md" */
+  /** Size variant; defaults to "md" */
   size?: "sm" | "md";
   className?: string;
 }
 
 export function WishlistButton({
   costumeId,
+  ownerId,
   initialSaved = false,
   size = "md",
   className,
 }: WishlistButtonProps) {
   const { user } = useAuth();
-  const [saved, setSaved]       = useState(initialSaved);
-  const [loading, setLoading]   = useState(false);
+  const [saved, setSaved] = useState(initialSaved);
+  const [loading, setLoading] = useState(false);
+  const isOwnCostume = !!user && ownerId === user.id;
+
+  if (user?.role === "ADMIN") return null;
+  if (isOwnCostume) return null;
 
   async function toggle(e: React.MouseEvent) {
-    // Prevent the parent link from navigating
+    // Prevent the parent link from navigating.
     e.preventDefault();
     e.stopPropagation();
 
@@ -38,15 +44,20 @@ export function WishlistButton({
       return;
     }
 
+    if (isOwnCostume) {
+      toast.error("You cannot save your own listing to your wishlist.");
+      return;
+    }
+
     if (loading) return;
     setLoading(true);
 
-    // Optimistic update
-    const wassaved = saved;
-    setSaved(!wassaved);
+    // Optimistic update.
+    const wasSaved = saved;
+    setSaved(!wasSaved);
 
     try {
-      if (wassaved) {
+      if (wasSaved) {
         await removeWishlist(costumeId);
         toast.success("Removed from wishlist.");
       } else {
@@ -54,8 +65,8 @@ export function WishlistButton({
         toast.success("Saved to wishlist.");
       }
     } catch {
-      // Revert on failure
-      setSaved(wassaved);
+      // Revert on failure.
+      setSaved(wasSaved);
       toast.error("Could not update wishlist. Try again.");
     } finally {
       setLoading(false);
@@ -72,16 +83,11 @@ export function WishlistButton({
       onClick={toggle}
       disabled={loading}
       className={cn(
-        // Base
         "flex items-center justify-center rounded-sm border backdrop-blur-sm",
         "transition-all duration-200 disabled:cursor-wait",
-        // Sizing
         isSmall ? "size-7" : "size-9",
-        // State: unsaved
         !saved && "border-border/60 bg-background/80 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-        // State: saved
         saved && "border-transparent bg-foreground text-background",
-        // Scale on press
         "active:scale-90",
         className
       )}

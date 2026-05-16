@@ -21,13 +21,16 @@ import {
   ChevronDownIcon as ChevronDown,
   LockClosedIcon as Shield,
 } from "@radix-ui/react-icons";
-import { CreditCard } from "lucide-react";
+import { CreditCard, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./NotificationBell";
+import { useCart } from "../lib/CartContext";
+import { CartDrawer } from "./CartDrawer";
 
 export function Navbar() {
   const { user, logout } = useAuth();
+  const { openCart } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -86,10 +89,10 @@ export function Navbar() {
             Browse
           </Link>
 
-          {user && (
+          {user && user.role !== "ADMIN" && (
             <>
               <Link
-                href="/trips"
+                href="/reservations"
                 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
               >
                 Reservations
@@ -107,6 +110,14 @@ export function Navbar() {
         {/* ── Desktop Actions ── */}
         <div className="hidden items-center gap-4 md:flex">
           {user && <NotificationBell />}
+          {user && user.role !== "ADMIN" && (
+              <button
+                onClick={openCart}
+                className="flex size-9 items-center justify-center rounded-sm border border-transparent text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+              >
+                <ShoppingBag className="size-4" />
+              </button>
+          )}
           <ThemeToggle />
 
           {!user ? (
@@ -158,22 +169,26 @@ export function Navbar() {
                 </div>
 
                 {/* Navigation group */}
-                <div className="py-1.5">
-                  <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
-                    <Link href="/trips">
-                      <CalendarDays className="size-3.5 shrink-0" />
-                      Reservations
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
-                    <Link href="/wishlist">
-                      <Heart className="size-3.5 shrink-0" />
-                      Wishlist
-                    </Link>
-                  </DropdownMenuItem>
-                </div>
+                {user?.role !== "ADMIN" && (
+                  <>
+                    <div className="py-1.5">
+                      <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                        <Link href="/reservations">
+                          <CalendarDays className="size-3.5 shrink-0" />
+                          Reservations
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground focus:text-foreground focus:bg-muted cursor-pointer gap-3">
+                        <Link href="/wishlist">
+                          <Heart className="size-3.5 shrink-0" />
+                          Wishlist
+                        </Link>
+                      </DropdownMenuItem>
+                    </div>
 
-                <DropdownMenuSeparator className="my-0 bg-border" />
+                    <DropdownMenuSeparator className="my-0 bg-border" />
+                  </>
+                )}
 
                 {/* Admin group — only for ADMIN role */}
                 {user?.role === "ADMIN" && (
@@ -229,6 +244,14 @@ export function Navbar() {
         {/* ── Mobile Trigger ── */}
         <div className="flex items-center gap-3 md:hidden">
           {user && <NotificationBell />}
+          {user && user.role !== "ADMIN" && (
+            <button
+              onClick={openCart}
+              className="flex size-9 items-center justify-center rounded-sm border border-transparent text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+            >
+              <ShoppingBag className="size-4" />
+            </button>
+          )}
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -262,8 +285,10 @@ export function Navbar() {
               {[
                 { href: "/", label: "Browse" },
                 ...(user ? [
-                  { href: "/trips", label: "Reservations" },
-                  { href: "/wishlist", label: "Wishlist" },
+                  ...(user?.role !== "ADMIN" ? [
+                    { href: "/reservations", label: "Reservations" },
+                    { href: "/wishlist", label: "Wishlist" },
+                  ] : []),
                   ...(user?.role === "ADMIN"
                     ? [{ href: "/admin", label: "Admin Dashboard" }]
                     : [
@@ -323,6 +348,8 @@ export function Navbar() {
         </div>,
         document.body
       )}
+      {/* ── Cart Drawer ── */}
+      <CartDrawer />
     </>
   );
 }

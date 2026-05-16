@@ -43,7 +43,7 @@ export type Notification = {
 
 export type Payment = {
   id: number;
-  reservation_id: number;
+  reservation_ids: number[];
   user_id: number;
   amount: number;
   proof_url: string;

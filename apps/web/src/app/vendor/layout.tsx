@@ -28,7 +28,7 @@ const NAV = [
 ];
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,8 +37,15 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    if (isAuthLoading) return;
+
     if (!user) {
       router.push("/login?next=/vendor");
+      return;
+    }
+
+    if (user.role === "ADMIN") {
+      router.replace("/admin");
       return;
     }
 
@@ -69,7 +76,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     }
 
     fetchData();
-  }, [user, router, pathname]);
+  }, [user, isAuthLoading, router, pathname]);
 
   if (loading) {
     return (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
@@ -17,13 +18,19 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function WishlistPage() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const router = useRouter();
   const [items, setItems]         = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [removing, setRemoving]   = useState<number | null>(null);
 
   useEffect(() => {
+    if (isAuthLoading) return;
     if (!user) { setItems([]); setIsLoading(false); return; }
+    if (user.role === "ADMIN") {
+      router.replace("/admin");
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
     myWishlist()
@@ -33,7 +40,7 @@ export default function WishlistPage() {
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, isAuthLoading, router]);
 
   async function handleRemove(item: WishlistItem) {
     if (!user) return;
@@ -67,6 +74,28 @@ export default function WishlistPage() {
             className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
           >
             Log in to continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role === "ADMIN") {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
+        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+          <div className="text-muted-foreground/20">
+            <Heart className="mx-auto size-16" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="font-playfair text-4xl font-semibold text-foreground">Unavailable</h1>
+            <p className="text-muted-foreground">Administrators cannot use the wishlist feature.</p>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+          >
+            Return Home
           </Link>
         </div>
       </div>

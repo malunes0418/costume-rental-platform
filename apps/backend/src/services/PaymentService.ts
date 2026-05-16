@@ -7,29 +7,55 @@ import { User } from "../models/User";
 export class PaymentService {
   constructor(private notificationService: NotificationService) {}
 
-  async uploadProof(userId: number, body: UploadPaymentProofRequest, file: Express.Multer.File | undefined) {
+  async uploadProof(userId: number, body: UploadPaymentProofRequest, file: any) {
     if (!file) {
       throw new Error("Proof file is required");
     }
-    const { reservationId, amount } = body;
-    const reservation = await Reservation.findOne({ where: { id: Number(reservationId), user_id: userId } });
-    if (!reservation) {
-      throw new Error("Reservation not found");
+    const { reservationIds, amount } = body;
+    let parsedIds: number[] = [];
+    try {
+      if (typeof reservationIds === 'string') {
+        parsedIds = JSON.parse(reservationIds).map(Number);
+      } else if (Array.isArray(reservationIds)) {
+        parsedIds = reservationIds.map(Number);
+      } else {
+        parsedIds = [Number(reservationIds)];
+      }
+    } catch {
+      if (typeof reservationIds === 'string') {
+        parsedIds = reservationIds.split(',').map(Number);
+      } else {
+        parsedIds = [];
+      }
     }
-    if (reservation.status !== "PENDING_PAYMENT") {
-      throw new Error("Reservation not pending payment");
+
+    if (!parsedIds || parsedIds.length === 0 || parsedIds.some(isNaN)) {
+      throw new Error("Invalid reservation IDs");
     }
+
+    // Verify all reservations
+    for (const resId of parsedIds) {
+      const reservation = await Reservation.findOne({ where: { id: resId, user_id: userId } });
+      if (!reservation) {
+        throw new Error(`Reservation ${resId} not found`);
+      }
+      if (reservation.status !== "PENDING_PAYMENT") {
+        throw new Error(`Reservation ${resId} not pending payment`);
+      }
+    }
+
     const proofUrl = `/uploads/${file.filename}`;
     const payment = await Payment.create({
-      reservation_id: reservation.id,
+      reservation_ids: parsedIds,
       user_id: userId,
       amount: Number(amount),
       proof_url: proofUrl,
       status: "PENDING"
     });
+    
     const user = await User.findByPk(userId);
     if (user) {
-      await this.notificationService.createForAdmin("PAYMENT_PROOF_UPLOADED", "Payment proof uploaded", `User ${user.email} uploaded a payment proof for reservation ${reservation.id}`);
+      await this.notificationService.createForAdmin("PAYMENT_PROOF_UPLOADED", "Payment proof uploaded", `User ${user.email} uploaded a payment proof for reservations: ${parsedIds.join(", ")}`);
     }
     return payment;
   }
@@ -45,18 +71,31 @@ export class PaymentService {
     if (!payment) {
       throw new Error("Payment not found");
     }
-    const reservation = await Reservation.findByPk(payment.reservation_id);
-    if (!reservation) {
-      throw new Error("Reservation not found");
+    
+    // Instead of single reservation_id, we now have reservation_ids
+    const reservationIds = payment.reservation_ids || [];
+    if (!reservationIds.length) {
+      throw new Error("No reservations found for this payment");
     }
+
+    // Verify all reservations exist
+    const reservations = await Reservation.findAll({ where: { id: reservationIds } });
+    if (reservations.length !== reservationIds.length) {
+      throw new Error("One or more reservations not found");
+    }
+
     payment.status = ok ? "APPROVED" : "REJECTED";
     payment.notes = notes || "";
     await payment.save();
+
     if (ok) {
-      reservation.status = "PAID";
-      await reservation.save();
+      for (const res of reservations) {
+        res.status = "PAID";
+        await res.save();
+      }
     }
+    
     await this.notificationService.create(payment.user_id, "PAYMENT_STATUS", "Payment reviewed", ok ? "Your payment has been approved" : "Your payment has been rejected");
-    return { payment, reservation };
+    return { payment, reservations };
   }
 }

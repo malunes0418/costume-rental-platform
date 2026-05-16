@@ -99,17 +99,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <ThemeToggle />
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-sm border border-border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
-          >
-            ← Store
-          </Link>
+        <div className="flex">
           <button
             type="button"
             onClick={logout}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
+            className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
           >
             <ExitIcon className="size-3" /> Log out
           </button>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
+import { CartProvider } from "../lib/CartContext";
 import { ConditionalNavbar } from "../components/ConditionalNavbar";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "../components/theme-provider";
@@ -51,11 +52,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <ConditionalNavbar />
-            <div className="flex flex-1 flex-col">{children}</div>
-            <Toaster position="top-right" />
-            {/* Theatrical grain overlay */}
-            <div
+            <CartProvider>
+              <ConditionalNavbar />
+              <div className="flex flex-1 flex-col">{children}</div>
+              <Toaster position="top-right" />
+              {/* Theatrical grain overlay */}
+              <div
+
               aria-hidden="true"
               style={{
                 position: "fixed",
@@ -69,12 +72,10 @@ export default function RootLayout({
                 backgroundSize: "128px",
               }}
             />
+            </CartProvider>
           </AuthProvider>
         </ThemeProvider>
-      {/* impeccable-live-start */}
-<script src="http://localhost:8400/live.js"></script>
-{/* impeccable-live-end */}
-</body>
+      </body>
     </html>
   );
 }

@@ -12,7 +12,7 @@ export interface AdminReviewPaymentRequest {
 
 export interface AdminReviewPaymentResponse {
   payment: PaymentAttributes;
-  reservation: ReservationAttributes;
+  reservations: ReservationAttributes[];
 }
 
 /** Admin list row: cart/reservation lines plus optional customer. */

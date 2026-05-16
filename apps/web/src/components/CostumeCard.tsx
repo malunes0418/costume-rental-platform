@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { resolveApiAsset } from "../lib/assets";
 import type { Costume } from "../lib/costumes";
+import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageIcon } from "@radix-ui/react-icons";
 import { WishlistButton } from "./WishlistButton";
-import { cn } from "@/lib/utils";
 
-// Re-export for convenience in parent pages
+// Re-export for convenience in parent pages.
 export type { Costume };
 
 function primaryImage(costume: Costume) {
@@ -18,19 +18,20 @@ function primaryImage(costume: Costume) {
 
 interface CostumeCardProps {
   costume: Costume;
-  /** Set of costume IDs already saved to the user's wishlist */
+  /** Set of costume IDs already saved to the user's wishlist. */
   savedIds?: Set<number>;
 }
 
 export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
-  const img   = primaryImage(costume);
+  const { user } = useAuth();
+  const img = primaryImage(costume);
   const price = Number(costume.base_price_per_day).toLocaleString();
-  const tags  = [costume.theme, costume.size].filter(Boolean);
+  const tags = [costume.theme, costume.size].filter(Boolean);
   const initialSaved = savedIds ? savedIds.has(costume.id) : false;
+  const isOwnCostume = !!user && costume.owner_id === user.id;
 
   return (
     <article className="group flex flex-col gap-4">
-      {/* Image container */}
       <div className="relative w-full overflow-hidden rounded-sm border border-border bg-muted aspect-[3/4]">
         <Link
           href={`/costumes/${costume.id}`}
@@ -52,20 +53,23 @@ export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
           )}
         </Link>
 
-        {/* Category label */}
         {costume.category && (
           <span className="pointer-events-none absolute left-3 top-3 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
             {costume.category}
           </span>
         )}
 
-        {/* Wishlist button — top right */}
-        <div className="absolute right-3 top-3">
-          <WishlistButton costumeId={costume.id} initialSaved={initialSaved} size="md" />
-        </div>
+        {isOwnCostume ? (
+          <span className="pointer-events-none absolute right-3 top-3 rounded-sm border border-foreground/15 bg-foreground px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-background shadow-sm">
+            Your listing
+          </span>
+        ) : (
+          <div className="absolute right-3 top-3">
+            <WishlistButton costumeId={costume.id} ownerId={costume.owner_id} initialSaved={initialSaved} size="md" />
+          </div>
+        )}
       </div>
 
-      {/* Info row */}
       <div className="flex items-start justify-between gap-3">
         <Link
           href={`/costumes/${costume.id}`}
@@ -78,15 +82,13 @@ export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
           </p>
           {tags.length > 0 && (
             <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {tags.join(" · ")}
+              {tags.join(" \u00B7 ")}
             </p>
           )}
         </Link>
 
         <div className="shrink-0 text-right">
-          <p className="font-playfair text-lg font-semibold text-foreground">
-            ₱{price}
-          </p>
+          <p className="font-playfair text-lg font-semibold text-foreground">{"\u20B1"}{price}</p>
           <p className="text-[10px] text-muted-foreground">/ day</p>
         </div>
       </div>
@@ -94,7 +96,6 @@ export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
   );
 }
 
-/* ── Skeleton ── */
 export function CostumeCardSkeleton() {
   return (
     <div className="flex flex-col gap-4">

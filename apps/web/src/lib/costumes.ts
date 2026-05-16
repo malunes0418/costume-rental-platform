@@ -16,6 +16,7 @@ export type Costume = {
   gender?: string | null;
   theme?: string | null;
   base_price_per_day: number;
+  owner_id?: number | null;
   is_active?: boolean;
   created_at?: string;
   CostumeImages?: CostumeImage[];
@@ -34,6 +35,7 @@ export type CostumeListQuery = Partial<{
   size: string;
   gender: string;
   theme: string;
+  ownerId: number;
   sort: "price_asc" | "price_desc";
   page: number;
   pageSize: number;
