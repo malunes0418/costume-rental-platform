@@ -6,7 +6,8 @@ import type { ReservationWithItems } from "./reservation.dto";
 
 export interface AdminReviewPaymentRequest {
   paymentId: number;
-  approve: boolean;
+  approve?: boolean;
+  status?: "APPROVED" | "REJECTED";
   notes?: string;
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { getDefaultPostLoginPath } from "../../lib/authRedirects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -39,9 +40,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await register(email.trim(), password, name.trim() || undefined);
+      const authUser = await register(email.trim(), password, name.trim() || undefined);
       toast.success("Account created — welcome to SnapCos.");
-      router.push("/");
+      router.replace(getDefaultPostLoginPath(authUser));
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Registration failed");
       setIsSubmitting(false);

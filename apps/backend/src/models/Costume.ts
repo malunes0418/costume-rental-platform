@@ -14,7 +14,7 @@ export interface CostumeAttributes {
   stock: number;
   is_active: boolean;
   owner_id?: number | null;
-  status: "ACTIVE" | "HIDDEN" | "FLAGGED";
+  status: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
   created_at?: Date;
   updated_at?: Date;
 }
@@ -34,7 +34,7 @@ export class Costume extends Model<CostumeAttributes, CostumeCreationAttributes>
   public stock!: number;
   public is_active!: boolean;
   public owner_id!: number | null;
-  public status!: "ACTIVE" | "HIDDEN" | "FLAGGED";
+  public status!: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
   public created_at!: Date;
   public updated_at!: Date;
 }
@@ -53,7 +53,7 @@ Costume.init(
     stock: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     is_active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     owner_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
-    status: { type: DataTypes.ENUM("ACTIVE", "HIDDEN", "FLAGGED"), allowNull: false, defaultValue: "ACTIVE" },
+    status: { type: DataTypes.ENUM("DRAFT", "ACTIVE", "HIDDEN", "FLAGGED"), allowNull: false, defaultValue: "ACTIVE" },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },

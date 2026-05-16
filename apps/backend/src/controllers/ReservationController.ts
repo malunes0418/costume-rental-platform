@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { ReservationService } from "../services/ReservationService";
+import { VendorService } from "../services/VendorService";
 import {
   AddToCartRequest,
   AddToCartResponse,
@@ -11,6 +12,7 @@ import {
 } from "../dto";
 
 const reservationService = new ReservationService();
+const vendorService = new VendorService();
 
 export class ReservationController {
   async addToCart(req: Request, res: Response) {
@@ -46,6 +48,24 @@ export class ReservationController {
       ApiResponse.ok(res, result as RemoveReservationResponse);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async listMessages(req: Request, res: Response) {
+    try {
+      const result = await vendorService.listMessages(Number(req.params.id), req.user!.id);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e, 403);
+    }
+  }
+
+  async createMessage(req: Request, res: Response) {
+    try {
+      const result = await vendorService.createMessage(Number(req.params.id), req.user!.id, req.body);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e, 403);
     }
   }
 }

@@ -5,6 +5,8 @@ import { ensureUploadDir } from "../utils/fileStorage";
 
 ensureUploadDir();
 
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     cb(null, env.fileUploadDir);
@@ -16,4 +18,17 @@ const storage = multer.diskStorage({
   }
 });
 
-export const upload = multer({ storage });
+const fileFilter: multer.Options["fileFilter"] = (req, file, cb) => {
+  if (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf") {
+    cb(null, true);
+    return;
+  }
+
+  cb(new Error("Only image and PDF uploads are allowed"));
+};
+
+export const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: MAX_UPLOAD_BYTES }
+});

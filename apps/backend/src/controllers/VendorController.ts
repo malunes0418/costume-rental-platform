@@ -8,10 +8,8 @@ const vendorService = new VendorService();
 export class VendorController {
   async apply(req: Request, res: Response) {
     try {
-      // Assuming req.user exists from auth middleware
       const userId = (req as any).user.id;
-      // In a real app, you would handle the file upload via multer and get the path
-      const idDocumentUrl = req.file ? req.file.path : (req.body.id_document_url || "");
+      const idDocumentUrl = req.file ? `/uploads/${req.file.filename}` : "";
       if (!idDocumentUrl) throw new Error("ID Document is required");
 
       const result = await vendorService.apply(userId, req.body as VendorApplyRequest, idDocumentUrl);
@@ -55,6 +53,26 @@ export class VendorController {
     try {
       const vendorId = (req as any).user.id;
       const result = await vendorService.updateCostume(vendorId, Number(req.params.id), req.body);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async publishCostume(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.publishCostume(vendorId, Number(req.params.id));
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async unpublishCostume(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.unpublishCostume(vendorId, Number(req.params.id));
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

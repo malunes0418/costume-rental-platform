@@ -6,7 +6,6 @@ import {
   ApiResponse,
   AuthTokenResponse,
   LoginRequest,
-  LogoutRequest,
   MeResponse,
   MessageResponse,
   RegisterRequest
@@ -55,9 +54,9 @@ export class AuthController {
     res.redirect(`${env.frontendBaseUrl}/oauth/callback`);
   }
 
-  async logout(req: Request, res: Response) {
+  async logout(_req: Request, res: Response) {
     try {
-      await authService.logout(req.body as LogoutRequest);
+      await authService.logout();
       res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTS, maxAge: undefined });
       ApiResponse.ok(res, { message: "Logged out" } as MessageResponse);
     } catch (e: unknown) {

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "../../../lib/auth";
+import { getDefaultPostLoginPath } from "../../../lib/authRedirects";
 
 export default function OAuthCallbackPage() {
   const { refreshUser } = useAuth();
@@ -10,7 +11,7 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     // Cookie is already set by the backend redirect — just rehydrate user state
-    refreshUser().then(() => router.replace("/"));
+    refreshUser().then((authUser) => router.replace(getDefaultPostLoginPath(authUser)));
   }, [refreshUser, router]);
 
   return (

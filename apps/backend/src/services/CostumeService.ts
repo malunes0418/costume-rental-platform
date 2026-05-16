@@ -29,7 +29,7 @@ export class CostumeService {
   }
 
   async list(query: CostumeListQuery) {
-    const where: any = { is_active: true };
+    const where: any = { is_active: true, status: "ACTIVE" };
     if (query.q) {
       where.name = { [Op.like]: `%${query.q}%` };
     }
@@ -58,7 +58,10 @@ export class CostumeService {
   }
 
   async getById(id: number) {
-    const costume = await Costume.findByPk(id, { include: [CostumeImage] });
+    const costume = await Costume.findOne({
+      where: { id, is_active: true, status: "ACTIVE" },
+      include: [CostumeImage]
+    });
     if (!costume) {
       throw new Error("Costume not found");
     }

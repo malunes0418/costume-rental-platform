@@ -1,24 +1,75 @@
 import { apiFetch } from "./api";
 
-// ─── Types ───────────────────────────────────────────────
-export type VendorProfile = {
+export type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+export type VendorBlockingReason =
+  | "APPLICATION_REQUIRED"
+  | "APPLICATION_UNDER_REVIEW"
+  | "APPLICATION_REJECTED";
+
+export type VendorProfileData = {
   id: number;
   user_id: number;
-  store_name: string;
-  store_description?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  created_at: string;
-  updated_at: string;
+  business_name?: string | null;
+  bio?: string | null;
+  id_document_url?: string | null;
+  review_note?: string | null;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type VendorProfile = {
+  profile: VendorProfileData | null;
+  status: VendorStatus;
+  vendorStatus: VendorStatus;
+  canManageDrafts: boolean;
+  canPublish: boolean;
+  canAcceptReservations: boolean;
+  blockingReasons: VendorBlockingReason[];
 };
 
 export type VendorApplicationPayload = {
-  store_name: string;
-  store_description?: string;
-  id_document_url?: string;
+  business_name: string;
+  bio?: string;
+  id_document: File;
 };
 
-export type VendorCostume = Record<string, unknown>;
-export type VendorCostumePayload = Record<string, unknown>;
+export type VendorCostume = {
+  id: number;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  size?: string | null;
+  gender?: string | null;
+  theme?: string | null;
+  base_price_per_day: number;
+  deposit_amount: number;
+  stock: number;
+  is_active: boolean;
+  owner_id?: number | null;
+  status: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
+  created_at?: string;
+  updated_at?: string;
+  CostumeImages?: Array<{
+    id: number;
+    costume_id: number;
+    image_url: string;
+    is_primary: boolean;
+  }>;
+};
+
+export type VendorCostumePayload = {
+  name: string;
+  description?: string;
+  category?: string;
+  size?: string;
+  gender?: string;
+  theme?: string;
+  base_price_per_day: number;
+  deposit_amount?: number;
+  stock?: number;
+  images: string[];
+};
 
 export type Message = {
   id: number;
@@ -55,6 +106,7 @@ export type ReservationItem = {
   Costume?: {
     id: number;
     name: string;
+    owner_id?: number | null;
   };
 };
 
@@ -73,87 +125,95 @@ export type Reservation = {
   payments?: ReservationPayment[];
 };
 
-// ─── API calls ───────────────────────────────────────────
-
 export function applyForVendor(payload: VendorApplicationPayload) {
-  const bodyPayload = {
-    ...payload,
-    business_name: payload.store_name,
-    bio: payload.store_description,
-    id_document_url: payload.id_document_url || "https://example.com/dummy-id.png"
-  };
-  return apiFetch<{ success: boolean; data: VendorProfile }>("/api/vendors/apply", {
+  const formData = new FormData();
+  formData.append("business_name", payload.business_name);
+  if (payload.bio) {
+    formData.append("bio", payload.bio);
+  }
+  formData.append("id_document", payload.id_document);
+
+  return apiFetch<VendorProfile>("/api/vendors/apply", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyPayload),
+    body: formData
   });
 }
 
 export function getVendorProfile() {
-  return apiFetch<{ success: boolean; data: VendorProfile | null }>("/api/vendors/me", {
+  return apiFetch<VendorProfile>("/api/vendors/me", {
     cache: "no-store",
     headers: {
       "Cache-Control": "no-cache",
-      "Pragma": "no-cache",
+      Pragma: "no-cache"
     }
   });
 }
 
 export function listVendorCostumes() {
-  return apiFetch<{ success: boolean; data: VendorCostume[] }>("/api/vendors/costumes");
+  return apiFetch<VendorCostume[]>("/api/vendors/costumes");
 }
 
 export function createVendorCostume(payload: VendorCostumePayload) {
-  return apiFetch<{ success: boolean; data: VendorCostume }>("/api/vendors/costumes", {
+  return apiFetch<VendorCostume>("/api/vendors/costumes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
   });
 }
 
-export function updateVendorCostume(id: number, payload: VendorCostumePayload) {
-  return apiFetch<{ success: boolean; data: VendorCostume }>(`/api/vendors/costumes/${id}`, {
+export function updateVendorCostume(id: number, payload: Partial<VendorCostumePayload>) {
+  return apiFetch<VendorCostume>(`/api/vendors/costumes/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function publishVendorCostume(id: number) {
+  return apiFetch<VendorCostume>(`/api/vendors/costumes/${id}/publish`, {
+    method: "POST"
+  });
+}
+
+export function unpublishVendorCostume(id: number) {
+  return apiFetch<VendorCostume>(`/api/vendors/costumes/${id}/unpublish`, {
+    method: "POST"
   });
 }
 
 export function deleteVendorCostume(id: number) {
-  return apiFetch<{ success: boolean }>(`/api/vendors/costumes/${id}`, {
-    method: "DELETE",
+  return apiFetch<{ message: string }>(`/api/vendors/costumes/${id}`, {
+    method: "DELETE"
   });
 }
 
 export function listVendorReservations() {
-  return apiFetch<{ success: boolean; data: Reservation[] }>("/api/vendors/reservations");
+  return apiFetch<Reservation[]>("/api/vendors/reservations");
 }
 
 export function approveReservation(id: number) {
-  return apiFetch<{ success: boolean; data: Reservation }>(`/api/vendors/reservations/${id}/approve`, {
-    method: "POST",
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/approve`, {
+    method: "POST"
   });
 }
 
 export function rejectReservation(id: number) {
-  return apiFetch<{ success: boolean; data: Reservation }>(`/api/vendors/reservations/${id}/reject`, {
-    method: "POST",
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/reject`, {
+    method: "POST"
   });
 }
 
 export function listReservationMessages(id: number) {
-  return apiFetch<{ success: boolean; data: Message[] }>(`/api/vendors/reservations/${id}/messages`);
+  return apiFetch<Message[]>(`/api/reservations/${id}/messages`);
 }
 
 export function createReservationMessage(id: number, content: string) {
-  return apiFetch<{ success: boolean; data: Message }>(`/api/vendors/reservations/${id}/messages`, {
+  return apiFetch<Message>(`/api/reservations/${id}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content })
   });
 }
-
-// ─── Subscription API calls ──────────────────────────────
 
 export type Subscription = {
   id: number;
@@ -174,7 +234,6 @@ export function subscribeToPlan(planName: string) {
   return apiFetch<Subscription>("/api/subscriptions/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ planName }),
+    body: JSON.stringify({ planName })
   });
 }
-

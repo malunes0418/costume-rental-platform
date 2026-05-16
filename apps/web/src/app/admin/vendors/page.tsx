@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
+import { resolveApiAsset } from "@/lib/assets";
 
 function fmt(d?: string) {
   if (!d) return "—";
@@ -116,6 +117,19 @@ export default function AdminVendorsPage() {
                     {v.User?.email || `User #${v.user_id}`}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1">Applied {fmt(v.created_at)}</p>
+                  {v.bio ? (
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{v.bio}</p>
+                  ) : null}
+                  {v.id_document_url ? (
+                    <a
+                      href={resolveApiAsset(v.id_document_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex text-[10px] font-semibold uppercase tracking-widest text-foreground underline underline-offset-4"
+                    >
+                      Open ID document
+                    </a>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -158,6 +172,11 @@ export default function AdminVendorsPage() {
                     {v.User?.email || `User #${v.user_id}`}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1">Joined {fmt(v.created_at)}</p>
+                  {v.review_note ? (
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                      Review note: {v.review_note}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={cn(

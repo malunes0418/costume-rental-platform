@@ -88,6 +88,10 @@ export class AdminController {
         user_id: u.id,
         business_name: u.VendorProfile?.business_name,
         store_name: u.VendorProfile?.business_name, // fallback for UI
+        bio: u.VendorProfile?.bio,
+        id_document_url: u.VendorProfile?.id_document_url,
+        review_note: u.VendorProfile?.review_note,
+        reviewed_at: u.VendorProfile?.reviewed_at,
         status: u.vendor_status,
         created_at: u.VendorProfile?.created_at || u.created_at,
         User: {
@@ -109,6 +113,10 @@ export class AdminController {
         user_id: p.user_id,
         business_name: p.business_name,
         store_name: p.business_name, // fallback for UI
+        bio: p.bio,
+        id_document_url: p.id_document_url,
+        review_note: p.review_note,
+        reviewed_at: p.reviewed_at,
         status: p.User?.vendor_status || "NONE",
         created_at: p.created_at,
         User: {
@@ -124,7 +132,7 @@ export class AdminController {
 
   async approveVendor(req: Request, res: Response) {
     try {
-      const result = await adminService.updateVendorStatus(Number(req.params.userId), "APPROVED");
+      const result = await adminService.updateVendorStatus(Number(req.params.userId), "APPROVED", req.body.review_note);
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
@@ -133,7 +141,7 @@ export class AdminController {
 
   async rejectVendor(req: Request, res: Response) {
     try {
-      const result = await adminService.updateVendorStatus(Number(req.params.userId), "REJECTED");
+      const result = await adminService.updateVendorStatus(Number(req.params.userId), "REJECTED", req.body.review_note);
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

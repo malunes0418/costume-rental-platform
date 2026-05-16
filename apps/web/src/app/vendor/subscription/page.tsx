@@ -43,7 +43,7 @@ export default function SubscriptionPage() {
   const [submitting, setSubmitting]     = useState(false);
 
   useEffect(() => {
-    if (!user) { router.push("/login?next=/vendor/subscription"); return; }
+    if (!user) { router.replace("/login"); return; }
     getMySubscription()
       .then((sub) => setSubscription(sub || null))
       .catch(() => {})
@@ -57,8 +57,8 @@ export default function SubscriptionPage() {
       const res = await subscribeToPlan("Pro Vendor");
       setSubscription(res);
       toast.success("Subscribed to Pro Vendor — welcome aboard.");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to subscribe. Please try again.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to subscribe. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +167,7 @@ export default function SubscriptionPage() {
               {/* Features included */}
               <div className="border-t border-border pt-6 space-y-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-                  What's included
+                  What&apos;s included
                 </p>
                 <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {PLAN_FEATURES.map((f) => (
@@ -200,7 +200,7 @@ export default function SubscriptionPage() {
               </div>
               <div>
                 <p className="font-playfair text-2xl font-semibold text-foreground">
-                  You're all set.
+                  You&apos;re all set.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Your Pro Vendor subscription is active. You can list unlimited costumes and accept reservations with no commission fees.

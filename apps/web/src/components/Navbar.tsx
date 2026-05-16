@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../lib/auth";
 import {
@@ -31,6 +32,7 @@ import { CartDrawer } from "./CartDrawer";
 export function Navbar() {
   const { user, logout } = useAuth();
   const { openCart } = useCart();
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -59,6 +61,12 @@ export function Navbar() {
   const initials = user?.name
     ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "U";
+
+  async function handleLogout() {
+    await logout();
+    setMenuOpen(false);
+    router.replace("/login");
+  }
 
   return (
     <>
@@ -229,7 +237,7 @@ export function Navbar() {
                 {/* Sign out */}
                 <div className="py-1.5">
                   <DropdownMenuItem
-                    onClick={logout}
+                    onClick={() => void handleLogout()}
                     className="rounded-none px-5 py-3 text-xs font-semibold uppercase tracking-widest text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-3"
                   >
                     <LogOut className="size-3.5 shrink-0" />
@@ -336,7 +344,7 @@ export function Navbar() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => { logout(); setMenuOpen(false); }}
+                  onClick={() => void handleLogout()}
                   className="flex h-12 w-full items-center justify-center rounded-md border border-border text-xs font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <LogOut className="mr-2.5 size-3.5" />

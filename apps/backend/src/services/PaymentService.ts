@@ -128,9 +128,9 @@ export class PaymentService {
     return Payment.findAll({ where: { user_id: userId } });
   }
 
-  async adminReview({ paymentId, approve, notes }: AdminReviewPaymentRequest) {
+  async adminReview({ paymentId, approve, status, notes }: AdminReviewPaymentRequest) {
     const id = Number(paymentId);
-    const ok = typeof approve === "boolean" ? approve : Boolean(approve);
+    const ok = status ? status === "APPROVED" : typeof approve === "boolean" ? approve : Boolean(approve);
     const payment = await Payment.findByPk(id);
     if (!payment) {
       throw new Error("Payment not found");

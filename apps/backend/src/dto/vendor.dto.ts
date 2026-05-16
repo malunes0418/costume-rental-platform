@@ -4,7 +4,7 @@ export interface VendorApplyRequest {
 }
 
 export interface CostumeStatusUpdateRequest {
-  status: "ACTIVE" | "HIDDEN" | "FLAGGED";
+  status: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
 }
 
 export interface MessageCreateRequest {

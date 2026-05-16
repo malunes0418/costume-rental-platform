@@ -26,5 +26,9 @@ export interface AuthTokenResponse {
 /** `GET /auth/me` — shape attached by JWT middleware. */
 export interface MeResponse {
   id: number;
+  email?: string;
+  name?: string | null;
+  avatar_url?: string | null;
   role: string;
+  vendor_status: string;
 }

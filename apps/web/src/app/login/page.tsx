@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { EyeOpenIcon as Eye, EyeClosedIcon as EyeOff, UpdateIcon as Loader } from "@radix-ui/react-icons";
-import { cn } from "@/lib/utils";
 
 // ── Google G mark ─────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ function GoogleMark() {
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
-  const { login, user } = useAuth();
+  const { login, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const [next, setNext] = useState("/");
 
@@ -46,14 +46,19 @@ export default function LoginPage() {
     setNext(usp.get("next") || "/");
   }, []);
 
+  useEffect(() => {
+    if (isAuthLoading || !user) return;
+    router.replace(getDefaultPostLoginPath(user));
+  }, [isAuthLoading, router, user]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await login(email.trim(), password);
+      const authUser = await login(email.trim(), password);
       toast.success("Welcome back.");
       await new Promise((r) => setTimeout(r, 400));
-      router.push(next);
+      router.replace(resolvePostLoginPath(authUser, next));
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Login failed");
       setIsSubmitting(false);

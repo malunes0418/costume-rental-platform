@@ -1,9 +1,9 @@
-import { Reservation } from "../models/Reservation";
 import { ReservationItem } from "../models/ReservationItem";
 import { Payment } from "../models/Payment";
 import { Costume } from "../models/Costume";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
+import { Reservation } from "../models/Reservation";
 
 export class AdminService {
   async listReservations() {
@@ -22,7 +22,7 @@ export class AdminService {
   }
 
   async listPayments() {
-    return Payment.findAll({ include: [Reservation, User], order: [["created_at", "DESC"]] });
+    return Payment.findAll({ include: [User], order: [["created_at", "DESC"]] });
   }
 
   async listInventory() {
@@ -55,18 +55,24 @@ export class AdminService {
     });
   }
 
-  async updateVendorStatus(userId: number, status: "APPROVED" | "REJECTED") {
+  async updateVendorStatus(userId: number, status: "APPROVED" | "REJECTED", reviewNote?: string) {
     const user = await User.findByPk(userId);
     if (!user) throw new Error("User not found");
+    const profile = await VendorProfile.findOne({ where: { user_id: userId } });
+    if (!profile) throw new Error("Vendor profile not found");
     user.vendor_status = status;
     await user.save();
+    profile.review_note = reviewNote || null;
+    profile.reviewed_at = new Date();
+    await profile.save();
     return user;
   }
 
-  async updateCostumeStatus(costumeId: number, status: "ACTIVE" | "HIDDEN" | "FLAGGED") {
+  async updateCostumeStatus(costumeId: number, status: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED") {
     const costume = await Costume.findByPk(costumeId);
     if (!costume) throw new Error("Costume not found");
     costume.status = status;
+    costume.is_active = status === "ACTIVE" ? true : costume.is_active;
     await costume.save();
     return costume;
   }

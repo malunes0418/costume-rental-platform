@@ -13,6 +13,12 @@ import { countDaysInclusive } from "../utils/dateUtils";
 export class ReservationService {
   private notificationService = new NotificationService();
 
+  private assertBookableCostume(costume: Costume | null): asserts costume is Costume {
+    if (!costume || !costume.is_active || costume.status !== "ACTIVE") {
+      throw new Error("Costume is not available for booking");
+    }
+  }
+
   private async loadReservationWithItems(reservationId: number) {
     return Reservation.findByPk(reservationId, {
       include: [{ model: ReservationItem, as: "items", include: [Costume] }]
@@ -60,9 +66,7 @@ export class ReservationService {
 
   async validateAvailability(costumeId: number, startDate: Date, endDate: Date, quantity: number) {
     const costume = await Costume.findByPk(costumeId);
-    if (!costume) {
-      throw new Error("Costume not found");
-    }
+    this.assertBookableCostume(costume);
     const existingReservations = await this.getAvailability(costumeId, startDate, endDate);
     let reservedQuantity = 0;
     for (const res of existingReservations) {
@@ -84,9 +88,7 @@ export class ReservationService {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const costume = await Costume.findByPk(costumeIdNum);
-    if (!costume) {
-      throw new Error("Costume not found");
-    }
+    this.assertBookableCostume(costume);
     if (costume.owner_id === userId) {
       throw new Error("You cannot add your own costume to your cart");
     }

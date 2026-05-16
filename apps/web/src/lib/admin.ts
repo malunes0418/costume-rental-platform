@@ -48,6 +48,10 @@ export type PendingVendor = {
   user_id: number;
   store_name?: string;
   business_name?: string;
+  bio?: string;
+  id_document_url?: string;
+  review_note?: string | null;
+  reviewed_at?: string | null;
   status: string;
   created_at?: string;
   User?: { name?: string; email?: string };
@@ -79,15 +83,19 @@ export function adminListAllVendors() {
   return apiFetch<PendingVendor[]>("/api/admin/vendors");
 }
 
-export function adminApproveVendor(userId: number) {
+export function adminApproveVendor(userId: number, review_note?: string) {
   return apiFetch<{ success: boolean }>(`/api/admin/vendors/${userId}/approve`, {
     method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ review_note }),
   });
 }
 
-export function adminRejectVendor(userId: number) {
+export function adminRejectVendor(userId: number, review_note?: string) {
   return apiFetch<{ success: boolean }>(`/api/admin/vendors/${userId}/reject`, {
     method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ review_note }),
   });
 }
 

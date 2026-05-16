@@ -167,7 +167,7 @@ export default function VendorReservationsPage() {
 
     try {
       const response = await listVendorReservations();
-      setReservations(Array.isArray(response) ? response : response.data || []);
+      setReservations(response);
     } catch (error: unknown) {
       if (showError) {
         toast.error(getErrorMessage(error, "Failed to load reservations."));

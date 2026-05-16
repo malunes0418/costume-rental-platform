@@ -14,46 +14,35 @@ import {
   PersonIcon,
   ExitIcon,
   HamburgerMenuIcon,
-  Cross1Icon,
   LockClosedIcon,
 } from "@radix-ui/react-icons";
 
 const NAV = [
-  { href: "/admin",              label: "Overview",     icon: StackIcon },
-  { href: "/admin/vendors",      label: "Vendors",      icon: CardStackIcon },
+  { href: "/admin", label: "Overview", icon: StackIcon },
+  { href: "/admin/vendors", label: "Vendors", icon: CardStackIcon },
   { href: "/admin/reservations", label: "Reservations", icon: CalendarIcon },
-  { href: "/admin/payments",     label: "Payments",     icon: ArchiveIcon },
-  { href: "/admin/users",        label: "Users",        icon: PersonIcon },
+  { href: "/admin/payments", label: "Payments", icon: ArchiveIcon },
+  { href: "/admin/users", label: "Users", icon: PersonIcon },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
-  const router  = useRouter();
-  const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+type AdminSidebarProps = {
+  email?: string;
+  initials: string;
+  name?: string;
+  onLogout: () => void;
+  onNavigate: () => void;
+  pathname: string;
+};
 
-  // ── access guard ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) { router.push("/login?next=/admin"); return; }
-    if (user.role !== "ADMIN") { router.push("/"); }
-  }, [user, router]);
-
-  if (!user || user.role !== "ADMIN") return null;
-
-  const initials = user.name
-    ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "A";
-
-  const Sidebar = () => (
+function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }: AdminSidebarProps) {
+  return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
-
-      {/* Brand */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-6">
         <div className="flex size-7 items-center justify-center rounded-sm bg-foreground">
           <LockClosedIcon className="size-3 text-background" />
         </div>
         <div>
-          <p className="font-playfair text-sm font-semibold text-foreground leading-none">
+          <p className="font-playfair text-sm font-semibold leading-none text-foreground">
             Snap<em>Cos</em>
           </p>
           <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -62,17 +51,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-col gap-0.5 px-3 py-4 flex-1" aria-label="Admin navigation">
+      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4" aria-label="Admin navigation">
         {NAV.map(({ href, label, icon: Icon }) => {
-          const isActive = href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(href);
+          const isActive = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
-              onClick={() => setSidebarOpen(false)}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
                 isActive
@@ -87,22 +73,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         })}
       </nav>
 
-      {/* User + actions */}
-      <div className="border-t border-border px-4 py-4 space-y-3">
+      <div className="space-y-3 border-t border-border px-4 py-4">
         <div className="flex items-center gap-3">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-foreground leading-none">{user.name || "Admin"}</p>
-            <p className="truncate text-[10px] text-muted-foreground mt-0.5">{user.email}</p>
+            <p className="truncate text-xs font-semibold leading-none text-foreground">{name || "Admin"}</p>
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{email}</p>
           </div>
           <ThemeToggle />
         </div>
         <div className="flex">
           <button
             type="button"
-            onClick={logout}
+            onClick={onLogout}
             className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
           >
             <ExitIcon className="size-3" /> Log out
@@ -111,16 +96,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     </aside>
   );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { user, logout, isLoading: isAuthLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (user.role !== "ADMIN") {
+      router.replace("/");
+    }
+  }, [isAuthLoading, user, router]);
+
+  if (isAuthLoading || !user || user.role !== "ADMIN") return null;
+
+  const initials = user.name
+    ? user.name.split(" ").map((namePart) => namePart[0]).join("").slice(0, 2).toUpperCase()
+    : "A";
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-
-      {/* ── Desktop sidebar ── */}
       <div className="hidden md:flex">
-        <Sidebar />
+        <AdminSidebar
+          email={user.email}
+          initials={initials}
+          name={user.name}
+          onLogout={() => void handleLogout()}
+          onNavigate={() => setSidebarOpen(false)}
+          pathname={pathname}
+        />
       </div>
 
-      {/* ── Mobile sidebar overlay ── */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
@@ -128,15 +146,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-10 flex h-full">
-            <Sidebar />
+            <AdminSidebar
+              email={user.email}
+              initials={initials}
+              name={user.name}
+              onLogout={() => void handleLogout()}
+              onNavigate={() => setSidebarOpen(false)}
+              pathname={pathname}
+            />
           </div>
         </div>
       )}
 
-      {/* ── Main content ── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-
-        {/* Mobile topbar */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4 md:hidden">
           <button
             type="button"
@@ -152,10 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <ThemeToggle />
         </div>
 
-        {/* Page content scrollable */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );

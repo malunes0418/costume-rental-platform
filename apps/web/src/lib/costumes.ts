@@ -17,6 +17,7 @@ export type Costume = {
   theme?: string | null;
   base_price_per_day: number;
   owner_id?: number | null;
+  status?: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
   owner?: {
     id: number;
     name?: string | null;
