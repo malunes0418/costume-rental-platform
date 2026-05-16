@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { JwtHelper } from "../helpers/JwtHelper";
-import { AuthService } from "../services/AuthService";
+import { AuthService, parseOAuthIntent } from "../services/AuthService";
 import { env } from "../config/env";
 import {
   ApiResponse,
@@ -18,10 +18,22 @@ const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
 export class AuthController {
+  getOAuthIntent(req: Request) {
+    return parseOAuthIntent(req.query.intent ?? req.query.state);
+  }
+
+  getOAuthFailureRedirect(req: Request, error: unknown) {
+    const intent = this.getOAuthIntent(req);
+    const path = intent === "register" ? "/register" : "/login";
+    const message = error instanceof Error ? error.message : "Google authentication failed";
+    const params = new URLSearchParams({ oauthError: message });
+    return `${env.frontendBaseUrl}${path}?${params.toString()}`;
+  }
+
   async register(req: Request, res: Response) {
     try {
       const result = await authService.register(req.body as RegisterRequest);
@@ -50,8 +62,12 @@ export class AuthController {
     const user = (req as any).user;
     const token = JwtHelper.generateToken(user);
     res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
-    // Redirect without token in URL — cookie handles auth
     res.redirect(`${env.frontendBaseUrl}/oauth/callback`);
+  }
+
+  oauthFailure(req: Request, res: Response, error: unknown) {
+    res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTS, maxAge: undefined });
+    res.redirect(this.getOAuthFailureRedirect(req, error));
   }
 
   async logout(_req: Request, res: Response) {
@@ -64,4 +80,3 @@ export class AuthController {
     }
   }
 }
-
