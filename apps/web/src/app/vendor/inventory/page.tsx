@@ -12,6 +12,15 @@ import { toast } from "sonner";
 
 import { AddCostumeModal } from "@/components/AddCostumeModal";
 import { EditCostumeModal } from "@/components/EditCostumeModal";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolveApiAsset } from "@/lib/assets";
 import {
@@ -187,6 +196,8 @@ export default function VendorInventoryPage() {
   const [costumes, setCostumes] = useState<VendorCostume[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCostume, setSelectedCostume] = useState<VendorCostume | null>(null);
+  const [costumePendingDelete, setCostumePendingDelete] = useState<VendorCostume | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const refresh = useCallback(async () => {
     const [vendorProfile, costumeList] = await Promise.all([getVendorProfile(), listVendorCostumes()]);
@@ -216,13 +227,24 @@ export default function VendorInventoryPage() {
     };
   }, [costumes]);
 
-  async function handleDelete(costumeId: number) {
+  function handleDeleteRequest(costumeId: number) {
+    const costume = costumes.find((item) => item.id === costumeId) ?? null;
+    setCostumePendingDelete(costume);
+  }
+
+  async function handleConfirmDelete() {
+    if (!costumePendingDelete) return;
+
+    setDeleteSubmitting(true);
     try {
-      await deleteVendorCostume(costumeId);
-      toast.success("Listing removed.");
+      const result = await deleteVendorCostume(costumePendingDelete.id);
+      toast.success(result.message);
+      setCostumePendingDelete(null);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete listing.");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -329,7 +351,7 @@ export default function VendorInventoryPage() {
           items={grouped.drafts}
           canPublish={profile.canPublish}
           onEdit={setSelectedCostume}
-          onDelete={handleDelete}
+          onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
         />
@@ -340,7 +362,7 @@ export default function VendorInventoryPage() {
           items={grouped.active}
           canPublish={profile.canPublish}
           onEdit={setSelectedCostume}
-          onDelete={handleDelete}
+          onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
         />
@@ -351,13 +373,129 @@ export default function VendorInventoryPage() {
           items={grouped.moderated}
           canPublish={profile.canPublish}
           onEdit={setSelectedCostume}
-          onDelete={handleDelete}
+          onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
         />
       </div>
 
       <EditCostumeModal costume={selectedCostume} onClose={() => setSelectedCostume(null)} onSuccess={refresh} />
+
+      <Dialog
+        open={!!costumePendingDelete}
+        onOpenChange={(open: boolean) => {
+          if (!open && !deleteSubmitting) {
+            setCostumePendingDelete(null);
+          }
+        }}
+      >
+        <DialogContent className="overflow-hidden border-border bg-background p-0 sm:max-w-2xl">
+          {costumePendingDelete ? (
+            <>
+              <div className="grid gap-0 sm:grid-cols-[minmax(0,232px)_minmax(0,1fr)]">
+                <div className="relative border-b border-border bg-muted/40 sm:border-b-0 sm:border-r">
+                  {resolveImage(costumePendingDelete) ? (
+                    <img
+                      src={resolveImage(costumePendingDelete)}
+                      alt={costumePendingDelete.name}
+                      className="h-48 w-full object-cover sm:h-full sm:min-h-[320px]"
+                    />
+                  ) : (
+                    <div className="flex h-48 items-center justify-center text-muted-foreground/30 sm:h-full sm:min-h-[320px]">
+                      <ImageIcon className="size-12" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <DialogHeader className="space-y-5 px-6 pb-0 pt-6 sm:px-8 sm:pt-8">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                        Inventory atelier
+                      </p>
+                      {statusPill(costumePendingDelete.status)}
+                    </div>
+
+                    <div className="space-y-3">
+                      <DialogTitle className="font-playfair text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+                        Release this piece from the collection?
+                      </DialogTitle>
+                      <DialogDescription className="max-w-[52ch] text-sm leading-7 text-muted-foreground">
+                        We will permanently remove this listing only if it has never been part of a reservation. If it
+                        has booking history, we will archive it quietly so past records stay intact.
+                      </DialogDescription>
+                    </div>
+                  </DialogHeader>
+
+                  <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
+                    <div className="rounded-sm border border-border bg-muted/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="min-w-0 space-y-2">
+                          <p className="truncate font-playfair text-2xl font-semibold text-foreground">
+                            {costumePendingDelete.name}
+                          </p>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            {[costumePendingDelete.category, costumePendingDelete.size].filter(Boolean).join(" / ") ||
+                              "Curated piece"}
+                          </p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Daily rate
+                          </p>
+                          <p className="mt-2 font-playfair text-2xl font-semibold text-foreground">
+                            PHP {Number(costumePendingDelete.base_price_per_day).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-border bg-background px-4 py-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          If untouched
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-foreground">
+                          The listing is removed completely from inventory.
+                        </p>
+                      </div>
+                      <div className="rounded-sm border border-border bg-background px-4 py-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          If previously reserved
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-foreground">
+                          The listing is archived and hidden, while reservation history remains visible.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="border-t border-border bg-muted/10 px-6 py-5 sm:px-8">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCostumePendingDelete(null)}
+                      disabled={deleteSubmitting}
+                      className="h-10 rounded-sm px-5 text-[10px] font-semibold uppercase tracking-widest"
+                    >
+                      Keep listing
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => void handleConfirmDelete()}
+                      disabled={deleteSubmitting}
+                      className="h-10 rounded-sm px-5 text-[10px] font-semibold uppercase tracking-widest"
+                    >
+                      {deleteSubmitting ? "Processing..." : "Delete or archive"}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

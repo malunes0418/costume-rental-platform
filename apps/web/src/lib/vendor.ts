@@ -71,6 +71,12 @@ export type VendorCostumePayload = {
   images: string[];
 };
 
+export type DeleteVendorCostumeResult = {
+  message: string;
+  deleted: boolean;
+  archived: boolean;
+};
+
 export type Message = {
   id: number;
   reservation_id: number;
@@ -182,7 +188,7 @@ export function unpublishVendorCostume(id: number) {
 }
 
 export function deleteVendorCostume(id: number) {
-  return apiFetch<{ message: string }>(`/api/vendors/costumes/${id}`, {
+  return apiFetch<DeleteVendorCostumeResult>(`/api/vendors/costumes/${id}`, {
     method: "DELETE"
   });
 }

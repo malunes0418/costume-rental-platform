@@ -4,6 +4,7 @@ import { Costume, type CostumeCreationAttributes } from "../models/Costume";
 import { Message } from "../models/Message";
 import { Payment } from "../models/Payment";
 import { Reservation } from "../models/Reservation";
+import { ReservationItem } from "../models/ReservationItem";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
 import { NotificationService } from "./NotificationService";
@@ -180,7 +181,7 @@ export class VendorService {
   async listCostumes(vendorId: number) {
     const { CostumeImage } = require("../models/CostumeImage");
     return Costume.findAll({
-      where: { owner_id: vendorId },
+      where: { owner_id: vendorId, is_active: true },
       include: [{ model: CostumeImage }],
       order: [["created_at", "DESC"]]
     });
@@ -257,8 +258,20 @@ export class VendorService {
   async deleteCostume(vendorId: number, costumeId: number) {
     const costume = await Costume.findOne({ where: { id: costumeId, owner_id: vendorId } });
     if (!costume) throw new Error("Costume not found or unauthorized");
+
+    const reservationItemCount = await ReservationItem.count({ where: { costume_id: costume.id } });
+    if (reservationItemCount > 0) {
+      costume.is_active = false;
+      await costume.save();
+      return {
+        message: "Costume archived because it has reservation history.",
+        deleted: false,
+        archived: true
+      };
+    }
+
     await costume.destroy();
-    return { message: "Costume deleted" };
+    return { message: "Costume deleted.", deleted: true, archived: false };
   }
 
   async listReservations(vendorId: number) {
@@ -270,7 +283,7 @@ export class VendorService {
             {
               model: Costume,
               attributes: ["id", "name", "owner_id"],
-              where: { owner_id: vendorId, status: { [Op.ne]: "DRAFT" } },
+              where: { owner_id: vendorId },
               required: true
             }
           ],

@@ -30,9 +30,9 @@ export const metadata: Metadata = {
     "Discover extraordinary costumes for any occasion. Browse, book, and wear with confidence.",
   keywords: ["costume rental", "cosplay", "party costumes", "theatrical costumes"],
   icons: {
-    icon: "/brand/snapcos-mark.png",
+    icon: "/icon.png",
     apple: "/brand/snapcos-mark.png",
-    shortcut: "/brand/snapcos-mark.png",
+    shortcut: "/icon.png",
   },
   openGraph: {
     title: "SnapCos - Premium Costume Rentals",

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateVendorCostume, deleteVendorCostume } from "@/lib/vendor";
+import { updateVendorCostume } from "@/lib/vendor";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { X, UploadCloud } from "lucide-react";
@@ -110,23 +110,6 @@ export function EditCostumeModal({ costume, onClose, onSuccess }: EditCostumeMod
       onClose();
     } catch (err: any) {
       toast.error(err?.message || "Failed to update costume.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!user || !costume) return;
-    if (!confirm("Are you sure you want to delete this costume? This action cannot be undone.")) return;
-
-    setSubmitting(true);
-    try {
-      await deleteVendorCostume(costume.id);
-      toast.success("Costume deleted successfully!");
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete costume.");
     } finally {
       setSubmitting(false);
     }
