@@ -6,7 +6,8 @@ import {
   ApiResponse,
   CheckoutRequest,
   CheckoutResponse,
-  MyReservationsResponse
+  MyReservationsResponse,
+  RemoveReservationResponse
 } from "../dto";
 
 const reservationService = new ReservationService();
@@ -34,6 +35,15 @@ export class ReservationController {
     try {
       const reservations = await reservationService.listUserReservations(req.user!.id);
       ApiResponse.ok(res, reservations as MyReservationsResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async removeReservation(req: Request, res: Response) {
+    try {
+      const result = await reservationService.removeReservation(req.user!.id, Number(req.params.id));
+      ApiResponse.ok(res, result as RemoveReservationResponse);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }

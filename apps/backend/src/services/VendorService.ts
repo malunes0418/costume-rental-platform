@@ -2,10 +2,15 @@ import { VendorProfile } from "../models/VendorProfile";
 import { User } from "../models/User";
 import { Costume } from "../models/Costume";
 import { Reservation } from "../models/Reservation";
+import { Payment } from "../models/Payment";
 import { Message } from "../models/Message";
 import { VendorApplyRequest, CostumeStatusUpdateRequest, MessageCreateRequest } from "../dto/vendor.dto";
+import { Op } from "sequelize";
+import { NotificationService } from "./NotificationService";
 
 export class VendorService {
+  private notificationService = new NotificationService();
+
   // --- Vendor Application (KYC) ---
   async apply(userId: number, data: VendorApplyRequest, idDocumentUrl: string) {
     const user = await User.findByPk(userId);
@@ -100,20 +105,60 @@ export class VendorService {
   async listReservations(vendorId: number) {
     // A vendor can see reservations for costumes they own
     // This requires a join through ReservationItem and Costume
-    return Reservation.findAll({
+    const reservations = await Reservation.findAll({
       include: [
         {
           association: "items",
           include: [
             {
               model: Costume,
+              attributes: ["id", "name"],
               where: { owner_id: vendorId },
               required: true
             }
           ],
           required: true
+        },
+        {
+          model: User,
+          attributes: ["id", "name", "email"]
         }
-      ]
+      ],
+      order: [["created_at", "DESC"]]
+    });
+
+    const userIds = [...new Set(reservations.map((reservation) => Number(reservation.user_id)).filter(Boolean))];
+    const payments = userIds.length
+      ? await Payment.findAll({
+          where: { user_id: { [Op.in]: userIds } },
+          order: [["created_at", "DESC"]]
+        })
+      : [];
+
+    return reservations.map((reservation) => {
+      const reservationJson = reservation.toJSON();
+      const matchingPayments = payments
+        .filter((payment) =>
+          Array.isArray(payment.reservation_ids) &&
+          payment.reservation_ids.some((paymentReservationId) => Number(paymentReservationId) === Number(reservation.id))
+        )
+        .map((payment) => payment.toJSON());
+
+      const hasPendingReceipt = matchingPayments.some(
+        (payment) => payment.status === "PENDING" && Boolean(payment.proof_url)
+      );
+      const effectiveVendorStatus =
+        reservation.vendor_status === "CONFIRMED" &&
+        reservation.status === "PENDING_PAYMENT" &&
+        hasPendingReceipt
+          ? "PENDING_VENDOR"
+          : reservation.vendor_status;
+
+      return {
+        ...reservationJson,
+        vendor_status: effectiveVendorStatus,
+        payments: matchingPayments
+      };
     });
   }
 
@@ -135,10 +180,39 @@ export class VendorService {
       ]
     });
     if (!reservation) throw new Error("Reservation not found or unauthorized");
-    if (reservation.vendor_status !== "PENDING_VENDOR") throw new Error("Reservation is not pending vendor approval");
+
+    const matchingPayments = await Payment.findAll({
+      where: { user_id: reservation.user_id, status: "PENDING" },
+      order: [["created_at", "DESC"]]
+    });
+    const hasPendingReceipt = matchingPayments.some(
+      (payment) =>
+        Array.isArray(payment.reservation_ids) &&
+        payment.reservation_ids.some((paymentReservationId) => Number(paymentReservationId) === Number(reservation.id)) &&
+        Boolean(payment.proof_url)
+    );
+
+    const isPendingVendorReview =
+      reservation.vendor_status === "PENDING_VENDOR" ||
+      (reservation.vendor_status === "CONFIRMED" &&
+        reservation.status === "PENDING_PAYMENT" &&
+        hasPendingReceipt);
+
+    if (!isPendingVendorReview) throw new Error("Reservation is not pending vendor approval");
 
     reservation.vendor_status = status;
+    reservation.status = status === "CONFIRMED" ? "PAID" : "CANCELLED";
     await reservation.save();
+
+    await this.notificationService.create(
+      reservation.user_id,
+      "RESERVATION_VENDOR_REVIEW",
+      status === "CONFIRMED" ? "Reservation approved" : "Reservation declined",
+      status === "CONFIRMED"
+        ? `Your payment receipt was reviewed and reservation #${reservation.id} has been approved by the vendor.`
+        : `Your payment receipt was reviewed and reservation #${reservation.id} was declined by the vendor.`
+    );
+
     return reservation;
   }
 

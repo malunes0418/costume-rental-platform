@@ -17,6 +17,13 @@ export type Costume = {
   theme?: string | null;
   base_price_per_day: number;
   owner_id?: number | null;
+  owner?: {
+    id: number;
+    name?: string | null;
+    VendorProfile?: {
+      business_name?: string | null;
+    };
+  };
   is_active?: boolean;
   created_at?: string;
   CostumeImages?: CostumeImage[];

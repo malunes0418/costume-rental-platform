@@ -8,7 +8,6 @@ import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import {
-  checkoutReservation,
   myPayments,
   myReservations,
   type Payment,
@@ -57,24 +56,96 @@ function daysBetween(start: string, end: string) {
 const STATUS_LABEL: Record<string, string> = {
   CART:            "In Cart",
   PENDING_PAYMENT: "Pending Payment",
-  CONFIRMED:       "Confirmed",
-  COMPLETED:       "Completed",
+  PAID:            "Approved",
   CANCELLED:       "Cancelled",
 };
 
 const STATUS_CLASS: Record<string, string> = {
   CART:            "text-muted-foreground border-border",
   PENDING_PAYMENT: "text-amber-600 border-amber-400/40 dark:text-amber-400",
-  CONFIRMED:       "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
-  COMPLETED:       "text-blue-700 border-blue-400/40 dark:text-blue-400",
+  PAID:            "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
   CANCELLED:       "text-destructive border-destructive/30",
 };
+
+function resolveReservationStatus(reservation: ReservationWithItems, payments: Payment[]) {
+  const hasReceipt = payments.some((payment) => Boolean(payment.proof_url));
+
+  if (reservation.status === "PENDING_PAYMENT" && reservation.vendor_status === "PENDING_VENDOR" && hasReceipt) {
+    return {
+      label: "Under Review",
+      className: "text-amber-600 border-amber-400/40 dark:text-amber-400",
+    };
+  }
+
+  return {
+    label: STATUS_LABEL[reservation.status] || reservation.status,
+    className: STATUS_CLASS[reservation.status] || "text-muted-foreground border-border",
+  };
+}
+
+function buildReserveAgainHref(reservation: ReservationWithItems) {
+  const costumeId = reservation.items?.[0]?.costume_id;
+  if (!costumeId) return null;
+
+  const params = new URLSearchParams();
+  params.set("startDate", reservation.start_date);
+  params.set("endDate", reservation.end_date);
+  params.set("quantity", String(reservation.items?.[0]?.quantity || 1));
+
+  return `/costumes/${costumeId}?${params.toString()}`;
+}
+
+function resolvePaymentHistoryStatus(payment: Payment, reservation: ReservationWithItems) {
+  if (reservation.status === "PAID") {
+    return {
+      label: "APPROVED",
+      className: "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
+    };
+  }
+
+  if (reservation.status === "CANCELLED" || reservation.vendor_status === "REJECTED_BY_VENDOR") {
+    return {
+      label: "REJECTED",
+      className: "text-destructive border-destructive/30",
+    };
+  }
+
+  if (payment.status === "APPROVED") {
+    return {
+      label: "APPROVED",
+      className: "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
+    };
+  }
+
+  if (payment.status === "REJECTED") {
+    return {
+      label: "REJECTED",
+      className: "text-destructive border-destructive/30",
+    };
+  }
+
+  if (reservation.vendor_status === "PENDING_VENDOR" && payment.proof_url) {
+    return {
+      label: "UNDER REVIEW",
+      className: "text-amber-700 border-amber-400/40 dark:text-amber-400",
+    };
+  }
+
+  return {
+    label: "PENDING",
+    className: "text-muted-foreground border-border",
+  };
+}
+
+function hasActivePaymentForReservation(payments: Payment[]) {
+  return payments.some((payment) => payment.status !== "REJECTED");
+}
 
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function ReservationsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { openCart } = useCart();
+  const { openCart, refreshKey } = useCart();
   const router = useRouter();
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [payments, setPayments]         = useState<Payment[]>([]);
@@ -95,8 +166,13 @@ export default function ReservationsPage() {
   }, [payments]);
 
   const pendingPaymentReservations = useMemo(
-    () => reservations.filter((r) => r.status === "PENDING_PAYMENT"),
-    [reservations]
+    () =>
+      reservations.filter((reservation) => {
+        if (reservation.status !== "PENDING_PAYMENT") return false;
+        const reservationPayments = paymentsByReservation.get(reservation.id) || [];
+        return !hasActivePaymentForReservation(reservationPayments);
+      }),
+    [paymentsByReservation, reservations]
   );
 
   useEffect(() => {
@@ -115,18 +191,7 @@ export default function ReservationsPage() {
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [user, isAuthLoading, router]);
-
-  async function doCheckout(reservationId: number) {
-    if (!user) return;
-    try {
-      await checkoutReservation(reservationId);
-      toast.success("Reservation checked out.");
-      setReservations(await myReservations());
-    } catch (e: unknown) {
-      toast.error(e instanceof ApiError ? e.message : "Checkout failed");
-    }
-  }
+  }, [user, isAuthLoading, router, refreshKey]);
 
   // ── unauthenticated state ──────────────────────────────────────────────────
 
@@ -217,8 +282,9 @@ export default function ReservationsPage() {
                 const title = first?.Costume?.name || `Reservation #${r.id}`;
                 const pay   = paymentsByReservation.get(r.id) || [];
                 const days  = daysBetween(r.start_date, r.end_date);
-                const statusLabel = STATUS_LABEL[r.status] || r.status;
-                const statusClass = STATUS_CLASS[r.status] || "text-muted-foreground border-border";
+                const status = resolveReservationStatus(r, pay);
+                const reserveAgainHref = buildReserveAgainHref(r);
+                const canContinuePayment = r.status === "PENDING_PAYMENT" && !hasActivePaymentForReservation(pay);
 
                 return (
                   <article key={r.id} className="flex flex-col gap-6 py-10 sm:flex-row sm:gap-8">
@@ -259,10 +325,10 @@ export default function ReservationsPage() {
                         <span
                           className={cn(
                             "shrink-0 rounded-sm border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest",
-                            statusClass
+                            status.className
                           )}
                         >
-                          {statusLabel}
+                          {status.label}
                         </span>
                       </div>
 
@@ -271,21 +337,21 @@ export default function ReservationsPage() {
                         {r.status === "CART" && (
                           <button
                             type="button"
-                            onClick={() => doCheckout(r.id)}
+                            onClick={openCart}
                             className="inline-flex h-9 items-center gap-2 rounded-sm border border-foreground bg-foreground px-5 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
                           >
                             <CreditCard className="size-3.5" />
-                            Checkout
+                            Continue in Cart
                           </button>
                         )}
-                        {r.status === "PENDING_PAYMENT" && (
+                        {canContinuePayment && (
                           <button
                             type="button"
                             onClick={openCart}
                             className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
                           >
                             <Upload className="size-3.5" />
-                            Upload proof
+                            Continue Payment
                           </button>
                         )}
                         {first?.costume_id && (
@@ -294,6 +360,14 @@ export default function ReservationsPage() {
                             className="inline-flex h-9 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                           >
                             View costume
+                          </Link>
+                        )}
+                        {r.status === "CANCELLED" && reserveAgainHref && (
+                          <Link
+                            href={reserveAgainHref}
+                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                          >
+                            Change dates & reserve again
                           </Link>
                         )}
                       </div>
@@ -309,13 +383,9 @@ export default function ReservationsPage() {
                               <div className="flex items-center gap-3">
                                 <span className={cn(
                                   "text-[10px] font-semibold uppercase tracking-widest border rounded-sm px-2 py-0.5",
-                                  p.status === "APPROVED"
-                                    ? "text-emerald-700 border-emerald-400/40 dark:text-emerald-400"
-                                    : p.status === "REJECTED"
-                                    ? "text-destructive border-destructive/30"
-                                    : "text-muted-foreground border-border"
+                                  resolvePaymentHistoryStatus(p, r).className
                                 )}>
-                                  {p.status}
+                                  {resolvePaymentHistoryStatus(p, r).label}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                   ₱{Number(p.amount).toLocaleString()}
@@ -395,7 +465,7 @@ export default function ReservationsPage() {
               ) : (
                 <div className="py-8 text-center border-2 border-dashed border-border rounded-sm">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">All set</p>
-                  <p className="text-sm text-muted-foreground">You don't have any pending payments right now.</p>
+                  <p className="text-sm text-muted-foreground">You don&apos;t have any pending payments right now.</p>
                 </div>
               )}
             </div>

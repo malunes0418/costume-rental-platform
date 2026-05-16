@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "../../../lib/api";
 import { resolveApiAsset } from "../../../lib/assets";
 import {
@@ -47,6 +47,7 @@ export default function CostumeDetailPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { openCart, triggerRefresh } = useCart();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [data, setData] = useState<CostumeDetailResponse | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -99,6 +100,33 @@ export default function CostumeDetailPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
+    const quantityParam = searchParams.get("quantity");
+
+    if (startDateParam) {
+      const parsed = new Date(startDateParam);
+      if (!Number.isNaN(parsed.getTime())) {
+        setStartDate(parsed);
+      }
+    }
+
+    if (endDateParam) {
+      const parsed = new Date(endDateParam);
+      if (!Number.isNaN(parsed.getTime())) {
+        setEndDate(parsed);
+      }
+    }
+
+    if (quantityParam) {
+      const parsedQuantity = Number(quantityParam);
+      if (Number.isFinite(parsedQuantity) && parsedQuantity > 0) {
+        setQuantity(parsedQuantity);
+      }
+    }
+  }, [searchParams]);
+
   async function checkAvailability() {
     setAvailability(null);
     if (!startDate || !endDate) {
@@ -118,7 +146,7 @@ export default function CostumeDetailPage() {
     }
   }
 
-  async function addToCart() {
+  async function addToCart(openDrawer = false) {
     if (!user) {
       toast.error("Please log in to reserve.");
       return;
@@ -143,7 +171,10 @@ export default function CostumeDetailPage() {
         }),
       });
       triggerRefresh();
-      openCart();
+      toast.success(openDrawer ? "Added to cart." : "Costume added to cart.");
+      if (openDrawer) {
+        openCart();
+      }
     } catch (e: unknown) {
       toast.error(e instanceof ApiError ? e.message : "Failed to add to cart");
     }
@@ -353,8 +384,16 @@ export default function CostumeDetailPage() {
                       Check Availability
                     </Button>
                     <Button
+                      variant="outline"
+                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold"
+                      onClick={() => addToCart(false)}
+                      disabled={isOwnCostume}
+                    >
+                      Add to Cart
+                    </Button>
+                    <Button
                       className="w-full h-12 text-sm uppercase tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                      onClick={addToCart}
+                      onClick={() => addToCart(true)}
                       disabled={isOwnCostume}
                     >
                       Reserve Now

@@ -247,6 +247,16 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: 'delete',
+  path: '/reservations/{id}',
+  tags: ['Reservations'],
+  summary: 'Remove reservation from cart or unpaid queue',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Reservation removed' } },
+});
+
+registry.registerPath({
   method: 'get',
   path: '/reservations/my',
   tags: ['Reservations'],

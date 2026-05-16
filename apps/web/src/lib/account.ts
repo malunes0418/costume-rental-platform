@@ -14,7 +14,8 @@ export type ReservationItem = {
 export type ReservationWithItems = {
   id: number;
   user_id: number;
-  status: string;
+  status: "CART" | "PENDING_PAYMENT" | "PAID" | "CANCELLED";
+  vendor_status?: "PENDING_VENDOR" | "CONFIRMED" | "REJECTED_BY_VENDOR";
   start_date: string;
   end_date: string;
   total_price: number;
@@ -47,7 +48,7 @@ export type Payment = {
   user_id: number;
   amount: number;
   proof_url: string;
-  status: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
   notes?: string;
   created_at?: string;
 };
@@ -61,6 +62,12 @@ export function checkoutReservation(reservationId: number) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ reservationId }),
+  });
+}
+
+export function removeReservation(reservationId: number) {
+  return apiFetch<{ success: true }>(`/api/reservations/${reservationId}`, {
+    method: "DELETE",
   });
 }
 

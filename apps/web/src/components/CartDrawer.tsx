@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useCart } from "../lib/CartContext";
 import { useAuth } from "../lib/auth";
-import { myReservations, checkoutReservation, type ReservationWithItems } from "../lib/account";
+import {
+  checkoutReservation,
+  myPayments,
+  myReservations,
+  removeReservation,
+  type Payment,
+  type ReservationWithItems,
+} from "../lib/account";
 import { apiFetch } from "../lib/api";
 import { resolveApiAsset } from "../lib/assets";
 import { toast } from "sonner";
@@ -15,96 +22,207 @@ function daysBetween(start: string, end: string) {
   return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)));
 }
 
-function formatDate(d: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function formatDate(date: string) {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+type CartGroup = {
+  vendorId: number;
+  vendorName: string;
+  items: ReservationWithItems[];
+  subtotal: number;
+  reservationIds: number[];
+  hasCartItems: boolean;
+};
+
+function hasActivePayment(reservationId: number, payments: Payment[]) {
+  return payments.some(
+    (payment) =>
+      payment.status !== "REJECTED" &&
+      Array.isArray(payment.reservation_ids) &&
+      payment.reservation_ids.some((id) => Number(id) === reservationId)
+  );
+}
+
+function vendorIdForReservation(reservation: ReservationWithItems) {
+  return Number(reservation.items?.[0]?.Costume?.owner?.id || reservation.items?.[0]?.Costume?.owner_id || 0);
+}
+
+function vendorNameForReservation(reservation: ReservationWithItems) {
+  const owner = reservation.items?.[0]?.Costume?.owner;
+  const storeName = owner?.VendorProfile?.business_name?.trim();
+  if (storeName) return storeName;
+  if (owner?.name) return owner.name;
+  const vendorId = vendorIdForReservation(reservation);
+  return vendorId ? `Vendor ${vendorId}` : "Vendor";
 }
 
 export function CartDrawer() {
-  const { isCartOpen, closeCart, refreshKey } = useCart();
+  const { isCartOpen, closeCart, refreshKey, triggerRefresh } = useCart();
   const { user } = useAuth();
-  
+
   const [items, setItems] = useState<ReservationWithItems[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"CART" | "UPLOAD" | "SUCCESS">("CART");
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Upload State
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
+
+  const loadDrawerData = useCallback(async () => {
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const [reservationData, paymentData] = await Promise.all([myReservations(), myPayments()]);
+      const actionableReservations = reservationData.filter((reservation) => {
+        if (reservation.status === "CART") return true;
+        if (reservation.status !== "PENDING_PAYMENT") return false;
+        return !hasActivePayment(reservation.id, paymentData);
+      });
+
+      setItems(actionableReservations);
+    } catch {
+      // Keep drawer quiet on transient failures.
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!isCartOpen || !user) return;
     let cancelled = false;
+
     setIsLoading(true);
-    myReservations()
-      .then(res => {
-        if (!cancelled) {
-          setItems(res.filter(r => r.status === "CART" || r.status === "PENDING_PAYMENT"));
-        }
+    Promise.all([myReservations(), myPayments()])
+      .then(([reservationData, paymentData]) => {
+        if (cancelled) return;
+        const actionableReservations = reservationData.filter((reservation) => {
+          if (reservation.status === "CART") return true;
+          if (reservation.status !== "PENDING_PAYMENT") return false;
+          return !hasActivePayment(reservation.id, paymentData);
+        });
+
+        setItems(actionableReservations);
       })
       .catch(() => {})
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [isCartOpen, user, refreshKey]);
 
-  const grandTotal = useMemo(() => {
-    return items.reduce((sum, item) => sum + Number(item.total_price), 0);
+  const cartGroups = useMemo(() => {
+    const groups = new Map<number, CartGroup>();
+
+    for (const item of items) {
+      const vendorId = vendorIdForReservation(item);
+      const existing = groups.get(vendorId);
+
+      if (existing) {
+        existing.items.push(item);
+        existing.subtotal += Number(item.total_price);
+        existing.reservationIds.push(item.id);
+        existing.hasCartItems = existing.hasCartItems || item.status === "CART";
+        continue;
+      }
+
+      groups.set(vendorId, {
+        vendorId,
+        vendorName: vendorNameForReservation(item),
+        items: [item],
+        subtotal: Number(item.total_price),
+        reservationIds: [item.id],
+        hasCartItems: item.status === "CART",
+      });
+    }
+
+    return Array.from(groups.values());
   }, [items]);
 
-  // Escape key to close
+  const selectedGroup = useMemo(
+    () => cartGroups.find((group) => group.vendorId === selectedVendorId) || null,
+    [cartGroups, selectedVendorId]
+  );
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeCart();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCart();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeCart]);
 
-  // Lock body scroll when open
   useEffect(() => {
     if (isCartOpen) {
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-      // Reset state on close
-      setTimeout(() => {
-        setStep("CART");
-        setFile(null);
-      }, 300);
+      return;
     }
+
+    document.body.style.overflow = "";
+    setTimeout(() => {
+      setStep("CART");
+      setFile(null);
+      setSelectedVendorId(null);
+    }, 300);
   }, [isCartOpen]);
 
-  async function handleCheckout() {
+  async function handleRemove(reservationId: number) {
+    setRemovingId(reservationId);
+    try {
+      await removeReservation(reservationId);
+      setItems((current) => current.filter((item) => item.id !== reservationId));
+      triggerRefresh();
+      toast.success("Removed from your cart.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Unable to remove this reservation.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  function handleProceedToPayment(vendorId: number) {
+    setSelectedVendorId(vendorId);
     setStep("UPLOAD");
+    setFile(null);
   }
 
   async function handleUploadAndPay() {
+    if (!selectedGroup) {
+      toast.error("Choose a vendor checkout group first.");
+      setStep("CART");
+      return;
+    }
+
     if (!file) {
       toast.error("Please select a payment receipt.");
       return;
     }
-    
+
     setIsProcessing(true);
     try {
-      // 1. Checkout all items to PENDING_PAYMENT
-      const cartItems = items.filter(item => item.status === "CART");
-      await Promise.all(cartItems.map(item => checkoutReservation(item.id)));
-      
-      // 2. Upload one proof for all reservation IDs
+      const cartItems = selectedGroup.items.filter((item) => item.status === "CART");
+      await Promise.all(cartItems.map((item) => checkoutReservation(item.id)));
+
       const form = new FormData();
-      const ids = items.map(i => i.id);
-      form.set("reservationIds", JSON.stringify(ids));
-      form.set("amount", String(grandTotal));
+      form.set("reservationIds", JSON.stringify(selectedGroup.reservationIds));
+      form.set("amount", String(selectedGroup.subtotal));
       form.set("proof", file);
 
       await apiFetch("/api/payments/proof", { method: "POST", body: form });
-      
+
+      setItems((current) => current.filter((item) => !selectedGroup.reservationIds.includes(item.id)));
+      triggerRefresh();
       setStep("SUCCESS");
-    } catch (e: any) {
-      toast.error(e.message || "Something went wrong.");
-      // Even if proof fails, they might be in PENDING_PAYMENT now.
+      setSelectedVendorId(null);
+      setFile(null);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong.");
+      await loadDrawerData();
     } finally {
       setIsProcessing(false);
     }
@@ -114,29 +232,34 @@ export function CartDrawer() {
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
+      <div
         className={cn(
           "fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm transition-opacity duration-300",
-          isCartOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          isCartOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
         onClick={closeCart}
       />
-      
-      {/* Drawer */}
-      <div 
+
+      <div
         className={cn(
-          "fixed inset-y-0 right-0 z-[101] w-full max-w-md border-l border-border bg-background shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col",
+          "fixed inset-y-0 right-0 z-[101] flex w-full max-w-md flex-col border-l border-border bg-background shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
           isCartOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between px-6 py-6 border-b border-border">
-          <h2 className="font-playfair text-2xl font-semibold tracking-tight">
-            {step === "CART" ? "Your Curation" : step === "UPLOAD" ? "Payment" : "Confirmed"}
-          </h2>
-          <button 
+        <div className="flex items-center justify-between border-b border-border px-6 py-6">
+          <div className="space-y-1">
+            <h2 className="font-playfair text-2xl font-semibold tracking-tight">
+              {step === "CART" ? "Your Curation" : step === "UPLOAD" ? "Vendor Payment" : "Confirmed"}
+            </h2>
+            {step === "CART" && (
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Each vendor is checked out separately
+              </p>
+            )}
+          </div>
+          <button
             onClick={closeCart}
-            className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 -mr-2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <Cross2Icon className="h-5 w-5" />
           </button>
@@ -144,117 +267,174 @@ export function CartDrawer() {
 
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading ? (
-            <div className="flex flex-col gap-6 animate-pulse">
-              {[1, 2].map(i => (
-                <div key={i} className="flex gap-4">
-                  <div className="size-20 bg-muted rounded-sm" />
+            <div className="flex animate-pulse flex-col gap-6">
+              {[1, 2].map((index) => (
+                <div key={index} className="flex gap-4">
+                  <div className="size-20 rounded-sm bg-muted" />
                   <div className="flex-1 space-y-2 py-1">
-                    <div className="h-4 w-3/4 bg-muted rounded" />
-                    <div className="h-3 w-1/2 bg-muted rounded" />
+                    <div className="h-4 w-3/4 rounded bg-muted" />
+                    <div className="h-3 w-1/2 rounded bg-muted" />
                   </div>
                 </div>
               ))}
             </div>
-          ) : items.length === 0 && step === "CART" ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 text-muted-foreground">
-              <div className="size-16 rounded-full border border-border flex items-center justify-center bg-muted/30">
+          ) : cartGroups.length === 0 && step === "CART" ? (
+            <div className="flex h-full flex-col items-center justify-center space-y-4 text-center text-muted-foreground">
+              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-muted/30">
                 <ImageIcon className="h-6 w-6 opacity-50" />
               </div>
               <p className="font-playfair text-xl text-foreground">Your curation is empty.</p>
-              <p className="text-sm">Discover pieces for your next event.</p>
-              <button 
+              <p className="text-sm">Add costumes to your cart and pay each vendor separately.</p>
+              <button
                 onClick={closeCart}
-                className="mt-4 border-b border-foreground text-xs uppercase tracking-widest font-semibold pb-1 hover:opacity-70 transition-opacity"
+                className="mt-4 border-b border-foreground pb-1 text-xs font-semibold uppercase tracking-widest transition-opacity hover:opacity-70"
               >
                 Continue Browsing
               </button>
             </div>
           ) : step === "CART" ? (
             <div className="flex flex-col gap-8">
-              <div className="flex flex-col gap-6">
-                {items.map(item => {
-                  const img = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
-                  const name = item.items?.[0]?.Costume?.name || "Costume";
-                  const days = daysBetween(item.start_date, item.end_date);
-                  return (
-                    <div key={item.id} className="flex gap-5 group">
-                      <div className="size-24 shrink-0 rounded-sm border border-border bg-muted overflow-hidden">
-                        {img ? (
-                          <img src={resolveApiAsset(img)} alt={name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center"><ImageIcon className="h-6 w-6 opacity-20"/></div>
-                        )}
-                      </div>
-                      <div className="flex flex-col justify-center flex-1 min-w-0 py-1">
-                        <p className="font-playfair text-lg font-semibold truncate text-foreground">{name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDate(item.start_date)} – {formatDate(item.end_date)} ({days} day{days !== 1 && 's'})
-                        </p>
-                        <p className="text-sm font-medium mt-2">₱{Number(item.total_price).toLocaleString()}</p>
-                      </div>
+              {cartGroups.map((group) => (
+                <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
+                  <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <p className="font-playfair text-xl font-semibold text-foreground">{group.vendorName}</p>
+                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        {group.items.length} item{group.items.length === 1 ? "" : "s"} · PHP {group.subtotal.toLocaleString()}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => handleProceedToPayment(group.vendorId)}
+                      className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90"
+                    >
+                      {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-5">
+                    {group.items.map((item) => {
+                      const image = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
+                      const name = item.items?.[0]?.Costume?.name || "Costume";
+                      const days = daysBetween(item.start_date, item.end_date);
+                      const isPendingPayment = item.status === "PENDING_PAYMENT";
+
+                      return (
+                        <div key={item.id} className="group flex gap-4">
+                          <div className="size-20 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                            {image ? (
+                              <img
+                                src={resolveApiAsset(image)}
+                                alt={name}
+                                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ImageIcon className="h-6 w-6 opacity-20" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-playfair text-lg font-semibold text-foreground">{name}</p>
+                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                  {isPendingPayment ? "Ready for receipt" : "In Cart"}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemove(item.id)}
+                                disabled={removingId === item.id || isProcessing}
+                                className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                              >
+                                {removingId === item.id ? "Removing" : "Remove"}
+                              </button>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {formatDate(item.start_date)} - {formatDate(item.end_date)} ({days} day{days !== 1 ? "s" : ""})
+                            </p>
+                            <p className="mt-2 text-sm font-medium">PHP {Number(item.total_price).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
-          ) : step === "UPLOAD" ? (
-            <div className="flex flex-col gap-8 h-full">
-              <div className="space-y-2 text-center mt-4">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Grand Total</p>
-                <p className="font-playfair text-5xl font-semibold">₱{grandTotal.toLocaleString()}</p>
+          ) : step === "UPLOAD" && selectedGroup ? (
+            <div className="flex h-full flex-col gap-8">
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("CART")}
+                  className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Back to Cart
+                </button>
+                <div className="space-y-2 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    {selectedGroup.vendorName}
+                  </p>
+                  <p className="font-playfair text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Upload one receipt for {selectedGroup.items.length} costume{selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex-1 mt-8">
-                <label 
-                  htmlFor="receipt-upload" 
+              <div className="flex-1">
+                <label
+                  htmlFor="receipt-upload"
                   className={cn(
-                    "flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-border rounded-sm bg-muted/20 hover:bg-muted/50 transition-colors cursor-pointer relative overflow-hidden",
+                    "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-border bg-muted/20 transition-colors hover:bg-muted/50",
                     file && "border-solid border-foreground bg-muted/10"
                   )}
                 >
                   {file ? (
-                    <div className="flex flex-col items-center gap-2 p-4 text-center z-10">
-                      <div className="size-10 rounded-full bg-foreground text-background flex items-center justify-center mb-2">
+                    <div className="z-10 flex flex-col items-center gap-2 p-4 text-center">
+                      <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-foreground text-background">
                         <UploadIcon className="h-5 w-5" />
                       </div>
-                      <p className="text-sm font-semibold truncate max-w-[200px]">{file.name}</p>
+                      <p className="max-w-[220px] truncate text-sm font-semibold">{file.name}</p>
                       <p className="text-xs text-muted-foreground">Click to change file</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-3 text-muted-foreground">
                       <UploadIcon className="h-6 w-6" />
-                      <div className="text-sm text-center">
+                      <div className="text-center text-sm">
                         <p className="font-medium text-foreground">Upload your receipt</p>
-                        <p className="text-xs mt-1">PNG, JPG or PDF up to 5MB</p>
+                        <p className="mt-1 text-xs">PNG, JPG or PDF up to 5MB</p>
                       </div>
                     </div>
                   )}
-                  <input 
-                    id="receipt-upload" 
-                    type="file" 
-                    className="hidden" 
+                  <input
+                    id="receipt-upload"
+                    type="file"
+                    className="hidden"
                     accept="image/*,application/pdf"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    onChange={(event) => setFile(event.target.files?.[0] || null)}
                   />
                 </label>
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
-              <div className="size-20 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex h-full flex-col items-center justify-center space-y-6 text-center">
+              <div className="flex size-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div className="space-y-2">
                 <p className="font-playfair text-3xl font-semibold">Payment Received</p>
-                <p className="text-muted-foreground text-sm max-w-[280px] mx-auto leading-relaxed">
-                  Your receipt has been submitted. Our team will verify it shortly.
+                <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
+                  Your receipt has been submitted for vendor review. We&apos;ll notify you once they approve or reject it.
                 </p>
               </div>
-              <a 
+              <a
                 href="/reservations"
-                className="inline-flex h-12 items-center justify-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90 mt-4"
+                className="mt-4 inline-flex h-12 items-center justify-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90"
               >
                 View Reservations
               </a>
@@ -262,35 +442,19 @@ export function CartDrawer() {
           )}
         </div>
 
-        {/* Footer actions */}
-        {(step === "CART" || step === "UPLOAD") && items.length > 0 && (
-          <div className="p-6 border-t border-border bg-background">
-            {step === "CART" ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Total</p>
-                  <p className="font-playfair text-2xl font-semibold">₱{grandTotal.toLocaleString()}</p>
-                </div>
-                <button
-                  onClick={handleCheckout}
-                  className="w-full h-12 bg-foreground text-background text-xs font-semibold uppercase tracking-widest rounded-sm hover:bg-foreground/90 transition-all"
-                >
-                  Proceed to Payment
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleUploadAndPay}
-                disabled={isProcessing || !file}
-                className="w-full h-12 bg-foreground text-background text-xs font-semibold uppercase tracking-widest rounded-sm hover:bg-foreground/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isProcessing ? (
-                  <div className="h-4 w-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                ) : (
-                  "Confirm & Pay"
-                )}
-              </button>
-            )}
+        {step === "UPLOAD" && selectedGroup && (
+          <div className="border-t border-border bg-background p-6">
+            <button
+              onClick={handleUploadAndPay}
+              disabled={isProcessing || !file}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+              ) : (
+                "Confirm & Pay This Vendor"
+              )}
+            </button>
           </div>
         )}
       </div>

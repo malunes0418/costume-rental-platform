@@ -17,6 +17,9 @@ export type VendorApplicationPayload = {
   id_document_url?: string;
 };
 
+export type VendorCostume = Record<string, unknown>;
+export type VendorCostumePayload = Record<string, unknown>;
+
 export type Message = {
   id: number;
   reservation_id: number;
@@ -25,15 +28,49 @@ export type Message = {
   created_at: string;
 };
 
+export type ReservationPayment = {
+  id: number;
+  reservation_ids: number[];
+  user_id: number;
+  amount: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  proof_url?: string | null;
+  notes?: string | null;
+  created_at?: string;
+};
+
+export type ReservationCustomer = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+};
+
+export type ReservationItem = {
+  id: number;
+  reservation_id: number;
+  costume_id: number;
+  quantity: number;
+  price_per_day: number;
+  subtotal: number;
+  Costume?: {
+    id: number;
+    name: string;
+  };
+};
+
 export type Reservation = {
   id: number;
-  costume_id: number;
-  renter_id: number;
+  user_id: number;
   start_date: string;
   end_date: string;
   total_price: number;
-  status: string;
+  status: "CART" | "PENDING_PAYMENT" | "PAID" | "CANCELLED";
+  vendor_status: "PENDING_VENDOR" | "CONFIRMED" | "REJECTED_BY_VENDOR";
+  currency?: string;
   created_at: string;
+  User?: ReservationCustomer;
+  items?: ReservationItem[];
+  payments?: ReservationPayment[];
 };
 
 // ─── API calls ───────────────────────────────────────────
@@ -63,19 +100,19 @@ export function getVendorProfile() {
 }
 
 export function listVendorCostumes() {
-  return apiFetch<{ success: boolean; data: any[] }>("/api/vendors/costumes");
+  return apiFetch<{ success: boolean; data: VendorCostume[] }>("/api/vendors/costumes");
 }
 
-export function createVendorCostume(payload: any) {
-  return apiFetch<{ success: boolean; data: any }>("/api/vendors/costumes", {
+export function createVendorCostume(payload: VendorCostumePayload) {
+  return apiFetch<{ success: boolean; data: VendorCostume }>("/api/vendors/costumes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 }
 
-export function updateVendorCostume(id: number, payload: any) {
-  return apiFetch<{ success: boolean; data: any }>(`/api/vendors/costumes/${id}`, {
+export function updateVendorCostume(id: number, payload: VendorCostumePayload) {
+  return apiFetch<{ success: boolean; data: VendorCostume }>(`/api/vendors/costumes/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

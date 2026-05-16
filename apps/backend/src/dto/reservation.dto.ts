@@ -13,6 +13,10 @@ export interface CheckoutRequest {
   reservationId: number;
 }
 
+export interface RemoveReservationResponse {
+  success: true;
+}
+
 export interface ReservationItemWithCostume extends ReservationItemAttributes {
   Costume?: CostumeAttributes;
 }

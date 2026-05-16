@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
   myNotifications,
@@ -37,6 +39,7 @@ function typeLabel(type: string): string {
 
 export function NotificationBell() {
   const { user } = useAuth();
+  const router = useRouter();
   const [items, setItems]     = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen]       = useState(false);
@@ -44,10 +47,11 @@ export function NotificationBell() {
 
   const panelRef  = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const outsideRefs: RefObject<HTMLElement | null>[] = [panelRef, triggerRef];
 
   // Close on outside click
-  useClickOutside<any>({
-    ref: [panelRef, triggerRef],
+  useClickOutside({
+    ref: outsideRefs,
     callback: () => setOpen(false),
   });
 
@@ -73,17 +77,6 @@ export function NotificationBell() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // Mark all read when panel opens
-  useEffect(() => {
-    if (!open || !user) return;
-    const hasUnread = items.some((n) => !n.is_read);
-    if (!hasUnread) return;
-    markAllNotificationsRead()
-      .then(() => setItems((xs) => xs.map((n) => ({ ...n, is_read: true }))))
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
   async function handleMarkAll() {
     if (!user || markingAll) return;
     setMarkingAll(true);
@@ -97,14 +90,25 @@ export function NotificationBell() {
     }
   }
 
-  async function handleMarkOne(n: Notification) {
-    if (!user || n.is_read) return;
-    try {
-      const updated = await markNotificationRead(n.id);
-      setItems((xs) => xs.map((x) => (x.id === n.id ? updated : x)));
-    } catch {
-      // silent
+  async function handleOpenNotification(n: Notification) {
+    if (!user) return;
+
+    if (!n.is_read) {
+      try {
+        const updated = await markNotificationRead(n.id);
+        setItems((xs) => xs.map((x) => (x.id === n.id ? updated : x)));
+      } catch {
+        // silent
+      }
     }
+
+    setOpen(false);
+    router.push(`/notifications?notification=${n.id}`);
+  }
+
+  function handleViewAll() {
+    setOpen(false);
+    router.push("/notifications");
   }
 
   const unreadCount = items.filter((n) => !n.is_read).length;
@@ -207,7 +211,7 @@ export function NotificationBell() {
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => handleMarkOne(n)}
+                  onClick={() => handleOpenNotification(n)}
                   className={cn(
                     "group w-full text-left px-5 py-4 transition-colors hover:bg-muted/50",
                     !n.is_read && "bg-muted/30"
@@ -256,10 +260,17 @@ export function NotificationBell() {
 
           {/* Footer — only when there are items */}
           {items.length > 0 && (
-            <div className="border-t border-border px-5 py-3">
+            <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {items.length} {items.length === 1 ? "notification" : "notifications"} total
               </p>
+              <button
+                type="button"
+                onClick={handleViewAll}
+                className="text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:text-muted-foreground"
+              >
+                View all
+              </button>
             </div>
           )}
         </div>
