@@ -1,5 +1,6 @@
 "use client";
 
+import { UpdateIcon as Loader } from "@radix-ui/react-icons";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "../../../lib/auth";
@@ -25,12 +26,12 @@ export default function OAuthCallbackPage() {
   }, [refreshUser, router]);
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-16">
-      <div className="rounded-3xl border border-black/5 bg-white p-8 shadow-sm dark:border-white/10 dark:bg-zinc-950">
-        <h1 className="text-xl font-semibold tracking-tight">Signing you in...</h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Finishing your login. You will be redirected shortly.
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+      <div className="flex animate-fade-up flex-col items-center gap-5 text-center">
+        <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+          Snap<em>Cos</em>
         </p>
+        <Loader className="size-5 animate-spin text-muted-foreground" />
       </div>
     </div>
   );
