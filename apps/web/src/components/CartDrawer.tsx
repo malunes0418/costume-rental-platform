@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useCart } from "../lib/CartContext";
-import { useAuth } from "../lib/auth";
+import { Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
+import { toast } from "sonner";
+
+import { buttonVariants } from "@/components/ui/button";
 import {
   checkoutReservation,
   myPayments,
@@ -13,13 +15,16 @@ import {
 } from "../lib/account";
 import { apiFetch } from "../lib/api";
 import { resolveApiAsset } from "../lib/assets";
-import { toast } from "sonner";
-import { Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
+import { useAuth } from "../lib/auth";
+import { useCart } from "../lib/CartContext";
 import { cn } from "../lib/utils";
 
 function daysBetween(start: string, end: string) {
   if (!start || !end) return 0;
-  return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)));
+  return Math.max(
+    1,
+    Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24))
+  );
 }
 
 function formatDate(date: string) {
@@ -46,7 +51,9 @@ function hasActivePayment(reservationId: number, payments: Payment[]) {
 }
 
 function vendorIdForReservation(reservation: ReservationWithItems) {
-  return Number(reservation.items?.[0]?.Costume?.owner?.id || reservation.items?.[0]?.Costume?.owner_id || 0);
+  return Number(
+    reservation.items?.[0]?.Costume?.owner?.id || reservation.items?.[0]?.Costume?.owner_id || 0
+  );
 }
 
 function vendorNameForReservation(reservation: ReservationWithItems) {
@@ -84,7 +91,6 @@ export function CartDrawer() {
 
       setItems(actionableReservations);
     } catch {
-      // Keep drawer quiet on transient failures.
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +104,7 @@ export function CartDrawer() {
     Promise.all([myReservations(), myPayments()])
       .then(([reservationData, paymentData]) => {
         if (cancelled) return;
+
         const actionableReservations = reservationData.filter((reservation) => {
           if (reservation.status === "CART") return true;
           if (reservation.status !== "PENDING_PAYMENT") return false;
@@ -114,7 +121,7 @@ export function CartDrawer() {
     return () => {
       cancelled = true;
     };
-  }, [isCartOpen, user, refreshKey]);
+  }, [isCartOpen, refreshKey, user]);
 
   const cartGroups = useMemo(() => {
     const groups = new Map<number, CartGroup>();
@@ -153,6 +160,7 @@ export function CartDrawer() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeCart();
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeCart]);
@@ -215,7 +223,9 @@ export function CartDrawer() {
 
       await apiFetch("/api/payments/proof", { method: "POST", body: form });
 
-      setItems((current) => current.filter((item) => !selectedGroup.reservationIds.includes(item.id)));
+      setItems((current) =>
+        current.filter((item) => !selectedGroup.reservationIds.includes(item.id))
+      );
       triggerRefresh();
       setStep("SUCCESS");
       setSelectedVendorId(null);
@@ -234,7 +244,7 @@ export function CartDrawer() {
     <>
       <div
         className={cn(
-          "fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm transition-opacity duration-300",
+          "fixed inset-0 z-[100] bg-[color:color-mix(in_oklab,var(--color-foreground)_16%,transparent)] backdrop-blur-[3px] transition-opacity duration-300",
           isCartOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
         onClick={closeCart}
@@ -242,24 +252,28 @@ export function CartDrawer() {
 
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-[101] flex w-full max-w-md flex-col border-l border-border bg-background shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "fixed inset-y-0 right-0 z-[101] flex w-full max-w-[28rem] flex-col border-l border-border bg-popover shadow-[var(--shadow-overlay)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
           isCartOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-6">
           <div className="space-y-1">
-            <h2 className="font-playfair text-2xl font-semibold tracking-tight">
-              {step === "CART" ? "Your Curation" : step === "UPLOAD" ? "Vendor Payment" : "Confirmed"}
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">
+              {step === "CART"
+                ? "Your Curation"
+                : step === "UPLOAD"
+                  ? "Vendor Payment"
+                  : "Confirmed"}
             </h2>
-            {step === "CART" && (
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            {step === "CART" ? (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Each vendor is checked out separately
               </p>
-            )}
+            ) : null}
           </div>
           <button
             onClick={closeCart}
-            className="p-2 -mr-2 text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-accent hover:text-foreground"
           >
             <Cross2Icon className="h-5 w-5" />
           </button>
@@ -270,24 +284,24 @@ export function CartDrawer() {
             <div className="flex animate-pulse flex-col gap-6">
               {[1, 2].map((index) => (
                 <div key={index} className="flex gap-4">
-                  <div className="size-20 rounded-sm bg-muted" />
+                  <div className="size-20 rounded-[var(--radius-sm)] bg-muted" />
                   <div className="flex-1 space-y-2 py-1">
-                    <div className="h-4 w-3/4 rounded bg-muted" />
-                    <div className="h-3 w-1/2 rounded bg-muted" />
+                    <div className="h-4 w-3/4 rounded-full bg-muted" />
+                    <div className="h-3 w-1/2 rounded-full bg-muted" />
                   </div>
                 </div>
               ))}
             </div>
           ) : cartGroups.length === 0 && step === "CART" ? (
             <div className="flex h-full flex-col items-center justify-center space-y-4 text-center text-muted-foreground">
-              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-muted/30">
+              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-card">
                 <ImageIcon className="h-6 w-6 opacity-50" />
               </div>
-              <p className="font-playfair text-xl text-foreground">Your curation is empty.</p>
+              <p className="text-lg font-semibold text-foreground">Your curation is empty.</p>
               <p className="text-sm">Add costumes to your cart and pay each vendor separately.</p>
               <button
                 onClick={closeCart}
-                className="mt-4 border-b border-foreground pb-1 text-xs font-semibold uppercase tracking-widest transition-opacity hover:opacity-70"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2")}
               >
                 Continue Browsing
               </button>
@@ -295,18 +309,22 @@ export function CartDrawer() {
           ) : step === "CART" ? (
             <div className="flex flex-col gap-8">
               {cartGroups.map((group) => (
-                <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
+                <section
+                  key={group.vendorId}
+                  className="space-y-5 rounded-[var(--radius-lg)] border border-border bg-card p-5 shadow-[var(--shadow-card)]"
+                >
                   <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
                     <div>
-                      <p className="font-playfair text-xl font-semibold text-foreground">{group.vendorName}</p>
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {group.items.length} item{group.items.length === 1 ? "" : "s"} · PHP {group.subtotal.toLocaleString()}
+                      <p className="text-lg font-semibold text-foreground">{group.vendorName}</p>
+                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        {group.items.length} item{group.items.length === 1 ? "" : "s"} • PHP{" "}
+                        {group.subtotal.toLocaleString()}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleProceedToPayment(group.vendorId)}
-                      className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90"
+                      className={cn(buttonVariants({ variant: "brand", size: "sm" }), "shrink-0")}
                     >
                       {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
                     </button>
@@ -321,7 +339,7 @@ export function CartDrawer() {
 
                       return (
                         <div key={item.id} className="group flex gap-4">
-                          <div className="size-20 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                          <div className="size-20 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-muted">
                             {image ? (
                               <img
                                 src={resolveApiAsset(image)}
@@ -337,8 +355,8 @@ export function CartDrawer() {
                           <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate font-playfair text-lg font-semibold text-foreground">{name}</p>
-                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <p className="truncate text-base font-semibold text-foreground">{name}</p>
+                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                                   {isPendingPayment ? "Ready for receipt" : "In Cart"}
                                 </p>
                               </div>
@@ -346,15 +364,18 @@ export function CartDrawer() {
                                 type="button"
                                 onClick={() => handleRemove(item.id)}
                                 disabled={removingId === item.id || isProcessing}
-                                className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                                className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
                               >
                                 {removingId === item.id ? "Removing" : "Remove"}
                               </button>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {formatDate(item.start_date)} - {formatDate(item.end_date)} ({days} day{days !== 1 ? "s" : ""})
+                              {formatDate(item.start_date)} - {formatDate(item.end_date)} ({days} day
+                              {days !== 1 ? "s" : ""})
                             </p>
-                            <p className="mt-2 text-sm font-medium">PHP {Number(item.total_price).toLocaleString()}</p>
+                            <p className="mt-2 text-sm font-semibold text-foreground">
+                              PHP {Number(item.total_price).toLocaleString()}
+                            </p>
                           </div>
                         </div>
                       );
@@ -369,17 +390,20 @@ export function CartDrawer() {
                 <button
                   type="button"
                   onClick={() => setStep("CART")}
-                  className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Back to Cart
                 </button>
                 <div className="space-y-2 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     {selectedGroup.vendorName}
                   </p>
-                  <p className="font-playfair text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
+                  <p className="text-4xl font-semibold tracking-[-0.04em] text-foreground">
+                    PHP {selectedGroup.subtotal.toLocaleString()}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Upload one receipt for {selectedGroup.items.length} costume{selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
+                    Upload one receipt for {selectedGroup.items.length} costume
+                    {selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
                   </p>
                 </div>
               </div>
@@ -388,7 +412,7 @@ export function CartDrawer() {
                 <label
                   htmlFor="receipt-upload"
                   className={cn(
-                    "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-border bg-muted/20 transition-colors hover:bg-muted/50",
+                    "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border-2 border-dashed border-border bg-card transition-colors hover:bg-accent/40",
                     file && "border-solid border-foreground bg-muted/10"
                   )}
                 >
@@ -423,18 +447,26 @@ export function CartDrawer() {
             <div className="flex h-full flex-col items-center justify-center space-y-6 text-center">
               <div className="flex size-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
                 <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
               <div className="space-y-2">
-                <p className="font-playfair text-3xl font-semibold">Payment Received</p>
+                <p className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                  Payment Received
+                </p>
                 <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
-                  Your receipt has been submitted for vendor review. We&apos;ll notify you once they approve or reject it.
+                  Your receipt has been submitted for vendor review. We&apos;ll notify you once they
+                  approve or reject it.
                 </p>
               </div>
               <a
                 href="/reservations"
-                className="mt-4 inline-flex h-12 items-center justify-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90"
+                className={cn(buttonVariants({ variant: "brand", size: "lg" }), "mt-2")}
               >
                 View Reservations
               </a>
@@ -442,12 +474,15 @@ export function CartDrawer() {
           )}
         </div>
 
-        {step === "UPLOAD" && selectedGroup && (
-          <div className="border-t border-border bg-background p-6">
+        {step === "UPLOAD" && selectedGroup ? (
+          <div className="border-t border-border bg-popover p-6">
             <button
               onClick={handleUploadAndPay}
               disabled={isProcessing || !file}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
+              className={cn(
+                buttonVariants({ variant: "brand", size: "lg" }),
+                "w-full justify-center disabled:opacity-50"
+              )}
             >
               {isProcessing ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
@@ -456,7 +491,7 @@ export function CartDrawer() {
               )}
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </>
   );

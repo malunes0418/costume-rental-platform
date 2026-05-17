@@ -1,280 +1,260 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import { BellIcon as Bell, CheckIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { useEffect, useRef, useState, type RefObject } from "react";
+
 import {
-  myNotifications,
-  markNotificationRead,
   markAllNotificationsRead,
+  markNotificationRead,
+  myNotifications,
   type Notification,
 } from "@/lib/account";
-import { BellIcon as Bell, CheckIcon } from "@radix-ui/react-icons";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
-// ── relative time formatter ───────────────────────────────────────────────────
+const triggerClass =
+  "relative inline-flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-[0_1px_0_color-mix(in_oklab,white_35%,transparent)] transition-[border-color,background-color,color] duration-[var(--dur-fast)] hover:border-[color:color-mix(in_oklab,var(--color-brand)_18%,var(--color-border))] hover:bg-accent hover:text-foreground dark:shadow-[0_1px_0_color-mix(in_oklab,white_7%,transparent)]";
 
 function relativeTime(iso?: string): string {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
+  const minutes = Math.floor(diff / 60_000);
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── type label formatter ──────────────────────────────────────────────────────
-
 function typeLabel(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return type.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
-
-// ── component ─────────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
-  const [items, setItems]     = useState<Notification[]>([]);
+  const [items, setItems] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
 
-  const panelRef  = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const outsideRefs: RefObject<HTMLElement | null>[] = [panelRef, triggerRef];
 
-  // Close on outside click
   useClickOutside({
     ref: outsideRefs,
     callback: () => setOpen(false),
   });
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open]);
 
-  // Fetch notifications
   useEffect(() => {
-    if (!user) { setItems([]); setIsLoading(false); return; }
+    if (!user) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setIsLoading(true);
+
     myNotifications()
-      .then((res) => { if (!cancelled) setItems(res); })
+      .then((response) => {
+        if (!cancelled) setItems(response);
+      })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   async function handleMarkAll() {
     if (!user || markingAll) return;
     setMarkingAll(true);
+
     try {
       await markAllNotificationsRead();
-      setItems((xs) => xs.map((n) => ({ ...n, is_read: true })));
+      setItems((current) => current.map((item) => ({ ...item, is_read: true })));
     } catch {
-      // silent
     } finally {
       setMarkingAll(false);
     }
   }
 
-  async function handleOpenNotification(n: Notification) {
+  async function handleOpenNotification(notification: Notification) {
     if (!user) return;
 
-    if (!n.is_read) {
+    if (!notification.is_read) {
       try {
-        const updated = await markNotificationRead(n.id);
-        setItems((xs) => xs.map((x) => (x.id === n.id ? updated : x)));
+        const updated = await markNotificationRead(notification.id);
+        setItems((current) => current.map((item) => (item.id === notification.id ? updated : item)));
       } catch {
-        // silent
       }
     }
 
     setOpen(false);
-    router.push(`/notifications?notification=${n.id}`);
+    router.push(`/notifications?notification=${notification.id}`);
   }
 
-  function handleViewAll() {
-    setOpen(false);
-    router.push("/notifications");
-  }
-
-  const unreadCount = items.filter((n) => !n.is_read).length;
+  const unreadCount = items.filter((item) => !item.is_read).length;
 
   if (!user) return null;
 
   return (
     <div className="relative">
-      {/* ── Trigger ── */}
       <button
         ref={triggerRef}
         type="button"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         aria-haspopup="true"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "relative flex size-9 items-center justify-center rounded-sm border transition-colors",
-          open
-            ? "border-foreground/20 bg-muted text-foreground"
-            : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
-        )}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(open ? `${triggerClass} border-[color:color-mix(in_oklab,var(--color-brand)_18%,var(--color-border))] bg-accent text-foreground` : triggerClass)}
       >
         <Bell className="size-4" />
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute right-2 top-2 size-1.5 rounded-full bg-foreground ring-1 ring-background"
+            className="absolute right-2 top-2 size-2 rounded-full bg-[color:var(--color-brand)] ring-2 ring-background"
           />
-        )}
+        ) : null}
       </button>
 
-      {/* ── Panel ── */}
-      {open && (
+      {open ? (
         <div
           ref={panelRef}
           role="dialog"
           aria-label="Notifications"
-          className={cn(
-            "absolute right-0 top-full z-[100] mt-2 w-[360px] max-w-[calc(100vw-2rem)]",
-            "flex flex-col border border-border bg-background shadow-none",
-            "rounded-sm overflow-hidden",
-            "animate-fade-up"
-          )}
-          style={{ animationDuration: "200ms" }}
+          className="surface-elevated absolute right-0 top-full z-[100] mt-2 flex w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[var(--radius-xl)]"
         >
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <div className="flex items-center gap-3">
-              <p className="font-playfair text-base font-semibold text-foreground">
-                Notifications
-              </p>
-              {unreadCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-sm border border-border bg-muted px-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">Notifications</p>
+              {unreadCount > 0 ? (
+                <span className="rounded-full border border-[color:color-mix(in_oklab,var(--color-brand)_18%,var(--color-border))] bg-[color:color-mix(in_oklab,var(--color-brand)_8%,var(--color-card))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-brand)]">
                   {unreadCount}
                 </span>
-              )}
+              ) : null}
             </div>
-            {unreadCount > 0 && (
+
+            {unreadCount > 0 ? (
               <button
                 type="button"
                 onClick={handleMarkAll}
                 disabled={markingAll}
-                className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
-                <CheckIcon className="size-3" />
                 Mark all read
               </button>
-            )}
+            ) : null}
           </div>
 
-          {/* Body */}
-          <div className="flex max-h-[400px] flex-col overflow-y-auto divide-y divide-border">
+          <div className="flex max-h-[26rem] flex-col overflow-y-auto">
             {isLoading && items.length === 0 ? (
-              /* Skeleton */
-              <div className="flex flex-col divide-y divide-border">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-2 px-5 py-4">
-                    <div className="h-3 w-1/3 rounded-sm bg-muted animate-pulse" />
-                    <div className="h-3 w-2/3 rounded-sm bg-muted animate-pulse" />
+              <div className="space-y-3 px-5 py-4">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="rounded-[var(--radius-md)] border border-border bg-card px-4 py-3">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-muted" />
+                    <div className="mt-2 h-3 w-48 animate-pulse rounded-full bg-muted" />
                   </div>
                 ))}
               </div>
             ) : items.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 px-5 py-16 text-center">
-                <div className="text-muted-foreground/20">
-                  <Bell className="size-8" />
+              <div className="flex flex-col items-center gap-3 px-5 py-14 text-center">
+                <div className="flex size-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+                  <Bell className="size-5" />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-playfair text-lg font-semibold text-foreground">
-                    All clear
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    You&apos;re fully up to date.
+                  <p className="text-sm font-semibold text-foreground">All clear</p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    New platform events and renter activity will show up here.
                   </p>
                 </div>
               </div>
             ) : (
-              items.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => handleOpenNotification(n)}
-                  className={cn(
-                    "group w-full text-left px-5 py-4 transition-colors hover:bg-muted/50",
-                    !n.is_read && "bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      {/* Unread dot */}
-                      <span
-                        className={cn(
-                          "mt-1.5 size-1.5 shrink-0 rounded-full transition-opacity",
-                          !n.is_read
-                            ? "bg-foreground opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className={cn(
-                          "text-sm leading-snug",
-                          !n.is_read ? "font-semibold text-foreground" : "font-medium text-foreground/75"
-                        )}>
-                          {n.title}
-                        </p>
-                        {n.message && (
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {n.message}
+              <div className="space-y-2 px-3 py-3">
+                {items.map((notification) => (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    onClick={() => handleOpenNotification(notification)}
+                    className={cn(
+                      "w-full rounded-[var(--radius-md)] border px-4 py-3 text-left transition-colors",
+                      notification.is_read
+                        ? "border-transparent bg-transparent hover:border-border hover:bg-accent/60"
+                        : "border-[color:color-mix(in_oklab,var(--color-brand)_12%,var(--color-border))] bg-[color:color-mix(in_oklab,var(--color-brand)_5%,var(--color-card))] hover:bg-[color:color-mix(in_oklab,var(--color-brand)_8%,var(--color-card))]"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {!notification.is_read ? (
+                            <span className="size-2 rounded-full bg-[color:var(--color-brand)]" />
+                          ) : null}
+                          <p className="truncate text-sm font-semibold text-foreground">{notification.title}</p>
+                        </div>
+                        {notification.message ? (
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {notification.message}
                           </p>
-                        )}
+                        ) : null}
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          {typeLabel(notification.type)}
+                        </p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{relativeTime(notification.created_at)}</p>
                       </div>
                     </div>
-
-                    {/* Meta */}
-                    <div className="shrink-0 flex flex-col items-end gap-1.5 mt-0.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {typeLabel(n.type)}
-                      </span>
-                      <span className="text-[10px] tabular-nums text-muted-foreground/60">
-                        {relativeTime(n.created_at)}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Footer — only when there are items */}
-          {items.length > 0 && (
-            <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {items.length} {items.length === 1 ? "notification" : "notifications"} total
+          {items.length > 0 ? (
+            <div className="flex items-center justify-between border-t border-border px-5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {items.length} total
               </p>
               <button
                 type="button"
-                onClick={handleViewAll}
-                className="text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:text-muted-foreground"
+                onClick={() => {
+                  setOpen(false);
+                  router.push("/notifications");
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-foreground transition-colors hover:text-[color:var(--color-brand)]"
               >
+                <CheckIcon className="size-3.5" />
                 View all
               </button>
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

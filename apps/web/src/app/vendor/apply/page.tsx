@@ -7,16 +7,17 @@ import { ArrowLeftIcon, FileTextIcon, UploadIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
 
 import { VendorApplicationPreview } from "@/components/VendorApplicationPreview";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { applyForVendor, getVendorProfile, type VendorProfile } from "@/lib/vendor";
 
-function detailBlock(title: string, copy: string) {
+function DetailBlock({ title, copy }: { title: string; copy: string }) {
   return (
-    <div className="rounded-sm border border-border bg-card p-5">
-      <p className="font-playfair text-2xl font-semibold text-foreground">{title}</p>
+    <div className="surface-panel rounded-[var(--radius-xl)] p-5">
+      <p className="text-lg font-semibold text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-7 text-muted-foreground">{copy}</p>
     </div>
   );
@@ -56,17 +57,17 @@ export default function VendorApply() {
   }, [user]);
 
   const documentLabel = useMemo(() => {
-    if (!documentFile) return "Upload government ID or PDF";
+    if (!documentFile) return "Upload a government ID or PDF";
     return `${documentFile.name} - ${(documentFile.size / 1024 / 1024).toFixed(2)} MB`;
   }, [documentFile]);
 
   if (profileLoading) {
     return (
-      <div className="mx-auto max-w-[1200px] px-6 py-16">
-        <div className="space-y-4">
-          <Skeleton className="h-4 w-32 rounded-sm" />
-          <Skeleton className="h-16 w-96 rounded-sm" />
-          <Skeleton className="h-64 w-full rounded-sm" />
+      <div className="space-y-6">
+        <Skeleton className="h-40 rounded-[var(--radius-xl)]" />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <Skeleton className="h-[620px] rounded-[var(--radius-xl)]" />
+          <Skeleton className="h-[620px] rounded-[var(--radius-xl)]" />
         </div>
       </div>
     );
@@ -79,45 +80,58 @@ export default function VendorApply() {
         : "Your application is already under review.";
     const copy =
       profile.vendorStatus === "APPROVED"
-        ? "This page is now read-only because your vendor house has already been approved."
-        : "This page is read-only while the team reviews the submission currently on file.";
+        ? "This form is now read-only because the vendor workspace is already unlocked."
+        : "This form is read-only while the current submission is waiting in manual review.";
 
     return (
-      <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-16">
-        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-          <section className="space-y-8">
-            <Link
-              href="/vendor"
-              className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeftIcon className="size-3" />
-              Back to vendor house
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+          <Link
+            href="/vendor"
+            className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3" />
+            Back to vendor overview
+          </Link>
+
+          <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Vendor application
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-5xl">
+            {heading}
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
+            {copy}
+          </p>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            <DetailBlock
+              title="What changes next"
+              copy={
+                profile.vendorStatus === "APPROVED"
+                  ? "Head to inventory and keep the collection disciplined: clean imagery, clear pricing, and deliberate publishing."
+                  : "Use the waiting period to strengthen private drafts instead of waiting passively on approval."
+              }
+            />
+            <DetailBlock
+              title="Why the gate stays manual"
+              copy="Identity review, boutique clarity, and marketplace trust all matter more than removing every approval step."
+            />
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/vendor" className={buttonVariants({ variant: "brand" })}>
+              Back to overview
             </Link>
+            <Link href="/vendor/inventory" className={buttonVariants({ variant: "outline" })}>
+              Go to inventory
+            </Link>
+          </div>
+        </section>
 
-            <div className="space-y-5 border-b border-border pb-10">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Submitted Application
-              </p>
-              <h1 className="max-w-3xl font-playfair text-5xl font-semibold leading-tight text-foreground md:text-6xl">
-                {heading}
-              </h1>
-              <p className="max-w-xl text-base leading-8 text-muted-foreground">{copy}</p>
-            </div>
-
-            <div className="rounded-sm border border-border bg-muted/30 p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Next step</p>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                {profile.vendorStatus === "APPROVED"
-                  ? "Head back to inventory to publish and manage listings."
-                  : "You can prepare private drafts now and wait for approval before publishing anything live."}
-              </p>
-            </div>
-          </section>
-
-          <section className="border border-border bg-card p-6 md:p-8">
-            <VendorApplicationPreview profile={profile.profile} status={profile.vendorStatus} />
-          </section>
-        </div>
+        <aside className="surface-panel rounded-[var(--radius-xl)] p-6">
+          <VendorApplicationPreview profile={profile.profile} status={profile.vendorStatus} />
+        </aside>
       </div>
     );
   }
@@ -151,7 +165,7 @@ export default function VendorApply() {
       await refreshUser();
       toast.success("Application submitted for review.");
       router.push("/vendor");
-    } catch (error) {
+    } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "Failed to submit application.");
     } finally {
       setLoading(false);
@@ -159,58 +173,50 @@ export default function VendorApply() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-16">
-      <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-        <section className="space-y-8">
-          <Link
-            href="/vendor"
-            className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeftIcon className="size-3" />
-            Back to vendor house
-          </Link>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+        <Link
+          href="/vendor"
+          className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-3" />
+          Back to vendor overview
+        </Link>
 
-          <div className="space-y-5 border-b border-border pb-10">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Vendor Application
-            </p>
-            <h1 className="max-w-3xl font-playfair text-5xl font-semibold leading-tight text-foreground md:text-6xl">
-              Apply with trust, not friction.
-            </h1>
-            <p className="max-w-xl text-base leading-8 text-muted-foreground">
-              Share the story behind your collection, add a real identity document, and start preparing private drafts while the team reviews your boutique.
-            </p>
-          </div>
+        <div className="mt-6 max-w-3xl">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Vendor application
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-5xl">
+            Apply with trust, clarity, and enough structure to move fast.
+          </h1>
+          <p className="mt-4 text-sm leading-7 text-muted-foreground md:text-base">
+            Share the boutique story, provide one identity document, and unlock draft-building once
+            the account enters manual review.
+          </p>
+        </div>
 
-          <div className="space-y-4">
-            {detailBlock(
-              "Manual review",
-              "Every application is reviewed by a human before any storefront can go live."
-            )}
-            {detailBlock(
-              "Private drafts first",
-              "You can start arranging inventory before approval, but customers will only see published active listings."
-            )}
-            {detailBlock(
-              "Curated marketplace",
-              "We optimize for trust, clarity, and a well-shaped marketplace rather than volume at any cost."
-            )}
-          </div>
-        </section>
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          <DetailBlock
+            title="Manual review"
+            copy="Every vendor account is checked by a human before the storefront can go live."
+          />
+          <DetailBlock
+            title="Drafts first"
+            copy="You can build the collection while approval is pending, but only approved houses can publish."
+          />
+          <DetailBlock
+            title="Marketplace quality"
+            copy="The goal is a cleaner renter experience with stronger vendor trust signals."
+          />
+        </div>
 
-        <section className="border border-border bg-card p-6 md:p-8">
-          <div className="border-b border-border pb-6">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Boutique profile</p>
-            <p className="mt-3 max-w-2xl font-playfair text-3xl font-semibold text-foreground">
-              Tell us who you are and what kind of wardrobe you are bringing in.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-7">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <div className="grid gap-5">
             <div className="space-y-2">
               <Label
                 htmlFor="business-name"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Business name
               </Label>
@@ -220,14 +226,14 @@ export default function VendorApply() {
                 onChange={(event) => setBusinessName(event.target.value)}
                 placeholder="Maison Masquerade"
                 required
-                className="h-12 rounded-sm border-border bg-transparent text-base text-foreground shadow-none focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-[var(--radius-md)] bg-background"
               />
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="business-bio"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Boutique story
               </Label>
@@ -235,25 +241,25 @@ export default function VendorApply() {
                 id="business-bio"
                 value={bio}
                 onChange={(event) => setBio(event.target.value)}
-                rows={6}
-                placeholder="Describe the world your costumes belong to, the quality of the collection, and the occasions they are best suited for."
-                className="w-full resize-y rounded-sm border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30"
+                rows={7}
+                placeholder="Describe the collection, the quality standard, and the kind of renter or event this wardrobe is designed for."
+                className="w-full resize-y rounded-[var(--radius-md)] border border-border bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-ring/60 focus:ring-4 focus:ring-ring/14"
               />
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="id-document"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Identity document
               </Label>
               <label
                 htmlFor="id-document"
-                className="flex cursor-pointer flex-col gap-4 rounded-sm border border-dashed border-border bg-muted/30 px-5 py-6 transition-colors hover:bg-muted"
+                className="flex cursor-pointer flex-col gap-4 rounded-[var(--radius-lg)] border border-dashed border-[color:color-mix(in_oklab,var(--color-brand)_24%,var(--color-border))] bg-[color:color-mix(in_oklab,var(--color-brand)_5%,var(--color-background))] px-5 py-6 transition-colors hover:bg-[color:color-mix(in_oklab,var(--color-brand)_9%,var(--color-background))]"
               >
                 <div className="flex items-start gap-4">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-background text-foreground">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-background text-foreground">
                     <UploadIcon className="size-4" />
                   </span>
                   <div className="min-w-0">
@@ -263,7 +269,7 @@ export default function VendorApply() {
                     </p>
                   </div>
                 </div>
-                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                   <FileTextIcon className="size-3.5" />
                   Used only for manual review
                 </div>
@@ -276,22 +282,41 @@ export default function VendorApply() {
                 onChange={handleFileChange}
               />
             </div>
+          </div>
 
-            <div className="border-t border-border pt-6">
-              <button
-                type="submit"
-                disabled={loading || !businessName.trim() || !documentFile}
-                className="flex h-12 w-full items-center justify-center rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {loading ? "Submitting for review..." : "Submit application"}
-              </button>
-              <p className="mt-4 text-center text-xs leading-6 text-muted-foreground">
-                After submission, you can start shaping private drafts while the application is under review.
-              </p>
-            </div>
-          </form>
-        </section>
-      </div>
+          <div className="border-t border-border pt-6">
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              disabled={loading || !businessName.trim() || !documentFile}
+              className="w-full"
+            >
+              {loading ? "Submitting for review..." : "Submit application"}
+            </Button>
+            <p className="mt-4 text-center text-xs leading-6 text-muted-foreground">
+              After submission, inventory opens for draft preparation while the application is under
+              review.
+            </p>
+          </div>
+        </form>
+      </section>
+
+      <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <div className="surface-panel rounded-[var(--radius-xl)] p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Preview
+          </p>
+          <p className="mt-3 text-xl font-semibold text-foreground">Submission snapshot</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            This preview uses the current information on file, not unsaved edits in the form.
+          </p>
+        </div>
+
+        <div className="surface-panel rounded-[var(--radius-xl)] p-6">
+          <VendorApplicationPreview profile={profile?.profile ?? null} status={profile?.vendorStatus ?? "NONE"} />
+        </div>
+      </aside>
     </div>
   );
 }

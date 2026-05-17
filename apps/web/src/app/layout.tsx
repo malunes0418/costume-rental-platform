@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Newsreader } from "next/font/google";
+import { Manrope, Prata } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { ConditionalNavbar } from "../components/ConditionalNavbar";
@@ -8,17 +8,16 @@ import { CartProvider } from "../lib/CartContext";
 import { AuthProvider } from "../lib/auth";
 import "./globals.css";
 
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
+const prata = Prata({
+  variable: "--font-prata",
   subsets: ["latin"],
-  weight: ["200", "300", "400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
+  weight: ["400"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -54,10 +53,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${dmSans.variable} h-full`}
+      className={`${prata.variable} ${manrope.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background font-sans text-foreground antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -69,20 +68,6 @@ export default function RootLayout({
               <ConditionalNavbar />
               <div className="flex flex-1 flex-col">{children}</div>
               <Toaster position="top-right" />
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  pointerEvents: "none",
-                  zIndex: 9999,
-                  opacity: 0.025,
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
-                  backgroundRepeat: "repeat",
-                  backgroundSize: "128px",
-                }}
-              />
             </CartProvider>
           </AuthProvider>
         </ThemeProvider>

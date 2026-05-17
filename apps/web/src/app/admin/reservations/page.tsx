@@ -1,275 +1,447 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { adminListReservations, adminUpdateReservationStatus, type AdminReservation } from "@/lib/admin";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import {
+  EyeOpenIcon,
+} from "@radix-ui/react-icons";
+
+import {
+  AdminEmptyState,
+  AdminResponsiveFilterRail,
+  AdminSectionCard,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPrimitives";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import { ExclamationTriangleIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  adminListReservations,
+  adminUpdateReservationStatus,
+  type AdminReservation,
+} from "@/lib/admin";
 
-function fmt(d?: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const FILTERS = [
+  "ALL",
+  "PENDING",
+  "APPROVED",
+  "COMPLETED",
+  "CANCELLED",
+  "REJECTED",
+  "DISPUTED",
+] as const;
+
+function formatDate(value?: string) {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function StatusChip({ status }: { status: string }) {
-  const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" || s === "COMPLETED" ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-    : s === "PENDING" ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-    : s === "REJECTED" || s === "CANCELLED" || s === "DISPUTED" ? "border-destructive/20 bg-destructive/5 text-destructive"
-    : "border-border bg-muted/50 text-muted-foreground";
-  return <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{status}</span>;
+function currency(value: number | string) {
+  return `PHP ${Number(value).toLocaleString()}`;
 }
 
-const STATUSES = ["", "PENDING", "APPROVED", "COMPLETED", "CANCELLED", "REJECTED", "DISPUTED"];
+function reservationTone(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "COMPLETED" || normalized === "APPROVED") return "success" as const;
+  if (normalized === "PENDING") return "warning" as const;
+  if (normalized === "DISPUTED" || normalized === "REJECTED" || normalized === "CANCELLED") {
+    return "danger" as const;
+  }
+  return "neutral" as const;
+}
+
+function reservationPriority(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "DISPUTED") return 0;
+  if (normalized === "PENDING") return 1;
+  if (normalized === "REJECTED" || normalized === "CANCELLED") return 2;
+  if (normalized === "APPROVED") return 3;
+  if (normalized === "COMPLETED") return 4;
+  return 5;
+}
 
 export default function AdminReservationsPage() {
-  const { user } = useAuth();
-  const [all, setAll]           = useState<AdminReservation[]>([]);
-  const [filter, setFilter]     = useState("");
-  const [loading, setLoading]   = useState(true);
-  
-  // Detailed view state
-  const [selectedRes, setSelectedRes] = useState<AdminReservation | null>(null);
-  const [actioning, setActioning] = useState(false);
+  const [reservations, setReservations] = useState<AdminReservation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
+  const [actioning, setActioning] = useState<number | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<AdminReservation | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN") return;
     adminListReservations()
-      .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
+      .then((data) => setReservations(data))
       .catch(() => toast.error("Failed to load reservations."))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, []);
 
-  const items = filter ? all.filter((r) => r.status?.toUpperCase() === filter) : all;
-  const totalRevenue = all.filter(r => r.status === "COMPLETED" || r.status === "APPROVED")
-    .reduce((s, r) => s + Number(r.total_price), 0);
+  const metrics = useMemo(() => {
+    const pending = reservations.filter(
+      (reservation) => reservation.status.toUpperCase() === "PENDING"
+    ).length;
+    const active = reservations.filter((reservation) =>
+      ["APPROVED", "COMPLETED"].includes(reservation.status.toUpperCase())
+    ).length;
+    const exceptions = reservations.filter((reservation) =>
+      ["DISPUTED", "REJECTED", "CANCELLED"].includes(reservation.status.toUpperCase())
+    ).length;
 
-  async function handleUpdateStatus(id: number, newStatus: string) {
-    if (!user) return;
-    setActioning(true);
+    return {
+      total: reservations.length,
+      pending,
+      active,
+      exceptions,
+    };
+  }, [reservations]);
+
+  const filteredReservations = useMemo(() => {
+    const scopedReservations =
+      filter === "ALL"
+        ? reservations
+        : reservations.filter((reservation) => reservation.status.toUpperCase() === filter);
+
+    return [...scopedReservations].sort((left, right) => {
+      const priorityDelta =
+        reservationPriority(left.status) - reservationPriority(right.status);
+      if (priorityDelta !== 0) return priorityDelta;
+      return (
+        new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime()
+      );
+    });
+  }, [filter, reservations]);
+
+  async function updateStatus(id: number, status: string) {
+    setActioning(id);
     try {
-      await adminUpdateReservationStatus(id, newStatus);
-      setAll((curr) => curr.map(r => r.id === id ? { ...r, status: newStatus } : r));
-      if (selectedRes?.id === id) {
-        setSelectedRes({ ...selectedRes, status: newStatus });
-      }
-      toast.success(`Reservation status updated to ${newStatus}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to update reservation status.");
+      await adminUpdateReservationStatus(id, status);
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === id ? { ...reservation, status } : reservation
+        )
+      );
+      setSelectedReservation((current) =>
+        current?.id === id ? { ...current, status } : current
+      );
+      toast.success(`Reservation marked as ${status.toLowerCase()}.`);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to update reservation.");
     } finally {
-      setActioning(false);
+      setActioning(null);
     }
   }
 
-  return (
-    <div className="p-6 md:p-10 space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Reservations
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {all.length} total · ₱{Number(totalRevenue).toLocaleString()} confirmed revenue
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilter(s)}
-              className={cn(
-                "rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
-                filter === s
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/40"
-              )}
-            >
-              {s || "All"}
-            </button>
-          ))}
-        </div>
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-56 rounded-[var(--radius-xl)]" />
+        <Skeleton className="h-[560px] rounded-[var(--radius-xl)]" />
       </div>
+    );
+  }
 
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-sm" />)}
-        </div>
-      ) : (
-        <div className="rounded-sm border border-border divide-y divide-border bg-card overflow-hidden">
-          {items.length === 0 && (
-            <p className="px-6 py-16 text-center text-sm text-muted-foreground">No reservations match this filter.</p>
-          )}
-          <table className="w-full text-left text-sm hidden md:table">
-            <thead className="border-b border-border bg-muted/50 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              <tr>
-                <th className="p-4 font-medium">Reservation</th>
-                <th className="p-4 font-medium">Customer</th>
-                <th className="p-4 font-medium">Costume Details</th>
-                <th className="p-4 font-medium">Dates</th>
-                <th className="p-4 font-medium">Price</th>
-                <th className="p-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {items.map((r) => {
-                const costume = r.items?.[0]?.Costume;
-                return (
-                  <tr key={r.id} className="transition-colors hover:bg-muted/30 group">
-                    <td className="p-4">
-                      <p className="font-playfair text-base font-semibold text-foreground">#{r.id}</p>
-                      <StatusChip status={r.status} />
-                    </td>
-                    <td className="p-4">
-                      <p className="font-semibold text-foreground">{r.User?.name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{r.User?.email || `User #${r.user_id}`}</p>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-semibold text-foreground truncate max-w-[200px]">
-                        {costume?.name || "Multiple items"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.items?.length || 0} item(s)
-                      </p>
-                    </td>
-                    <td className="p-4 text-xs text-muted-foreground">
-                      {fmt(r.start_date)} →<br/>{fmt(r.end_date)}
-                    </td>
-                    <td className="p-4 font-playfair font-semibold text-foreground">
-                      ₱{Number(r.total_price).toLocaleString()}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRes(r)}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <MagnifyingGlassIcon className="size-3.5" /> Details
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          
-          {/* Mobile view */}
-          <div className="md:hidden divide-y divide-border">
-            {items.map((r) => (
-              <div key={r.id} className="p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-playfair text-base font-semibold text-foreground">#{r.id}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{r.User?.name || `User #${r.user_id}`}</p>
-                  </div>
-                  <div className="text-right">
-                    <StatusChip status={r.status} />
-                    <p className="font-playfair font-semibold text-foreground mt-1">₱{Number(r.total_price).toLocaleString()}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRes(r)}
-                  className="w-full flex h-8 items-center justify-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted"
-                >
-                  <MagnifyingGlassIcon className="size-3.5" /> View Details
-                </button>
-              </div>
-            ))}
+  return (
+    <div className="space-y-6">
+      <AdminSectionCard
+        eyebrow="Reservation priorities"
+        title="Keep the booking queue easy to judge"
+        description="Handle disputes and pending bookings first, then use the broader reservation list for follow-through and audit."
+        actions={
+          <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+            {metrics.total} reservation{metrics.total === 1 ? "" : "s"}
+          </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Needs review
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.pending}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Bookings still waiting for resolution or approval.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Exceptions
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.exceptions}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Disputed, rejected, or cancelled reservations needing oversight.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Moving cleanly
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.active}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Reservations already approved or completed without escalation.
+            </p>
           </div>
         </div>
-      )}
+      </AdminSectionCard>
 
-      {/* Details & Dispute Modal */}
-      <Dialog open={!!selectedRes} onOpenChange={(open: boolean) => !open && setSelectedRes(null)}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="font-playfair text-2xl">Reservation #{selectedRes?.id}</DialogTitle>
-            <DialogDescription>
-              View detailed information and moderate this transaction.
-            </DialogDescription>
-          </DialogHeader>
+      <AdminSectionCard
+        eyebrow="Reservation operations"
+        title="Review bookings without opening every record"
+        description="Filter by lifecycle state, scan the key booking facts in one row, and open the detail panel only when a decision needs context."
+        actions={
+          <AdminResponsiveFilterRail
+            label="Status"
+            value={filter}
+            options={FILTERS.map((status) => ({
+              value: status,
+              label: status === "ALL" ? "All" : status,
+            }))}
+            onChange={(value) => setFilter(value as (typeof FILTERS)[number])}
+          />
+        }
+      >
+        {filteredReservations.length === 0 ? (
+          <AdminEmptyState
+            title="No reservations match this filter."
+            description="Change the current slice to review another group of reservation records."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Reservation</th>
+                  <th className="pb-3 font-medium">Customer</th>
+                  <th className="pb-3 font-medium">Booking window</th>
+                  <th className="pb-3 font-medium">Signals</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Review</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredReservations.map((reservation) => {
+                  const itemSummary = reservation.items?.length
+                    ? reservation.items
+                        .slice(0, 2)
+                        .map(
+                          (item) =>
+                            `${item.Costume?.name || `Costume #${item.costume_id}`} x${item.quantity || 1}`
+                        )
+                        .join(", ")
+                    : "No item detail returned";
 
-          {selectedRes && (
-            <div className="space-y-6 mt-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Customer</p>
-                  <p className="font-medium text-sm">{selectedRes.User?.name || `User #${selectedRes.user_id}`}</p>
-                  <p className="text-xs text-muted-foreground">{selectedRes.User?.email}</p>
+                  return (
+                    <tr key={reservation.id}>
+                      <td className="py-4">
+                        <p className="font-semibold text-foreground">Reservation #{reservation.id}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Created {formatDate(reservation.created_at)}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <p className="text-foreground">
+                          {reservation.User?.name || `User #${reservation.user_id}`}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {reservation.User?.email || "--"}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <p className="text-foreground">
+                          {formatDate(reservation.start_date)} to {formatDate(reservation.end_date)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {reservation.items?.length || 0} item
+                          {reservation.items?.length === 1 ? "" : "s"}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-1">
+                          <p className="text-foreground">{currency(reservation.total_price)}</p>
+                          <p className="text-xs text-muted-foreground">{itemSummary}</p>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-2">
+                          <AdminStatusBadge
+                            label={reservation.status}
+                            tone={reservationTone(reservation.status)}
+                          />
+                          {reservation.status.toUpperCase() === "DISPUTED" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Escalated booking requiring closer review.
+                            </p>
+                          ) : reservation.status.toUpperCase() === "PENDING" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Waiting for approval or next action.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Status already reflects a clear outcome.
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedReservation(reservation)}
+                        >
+                          <EyeOpenIcon className="size-4" />
+                          Review
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSectionCard>
+
+      <Dialog
+        open={selectedReservation !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) setSelectedReservation(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          {selectedReservation ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Reservation #{selectedReservation.id}</DialogTitle>
+                <DialogDescription>
+                  Review booking context and apply an override only when the reservation needs intervention.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Customer
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {selectedReservation.User?.name || `User #${selectedReservation.user_id}`}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedReservation.User?.email || "--"}
+                  </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
-                  <div className="pt-1"><StatusChip status={selectedRes.status} /></div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Booking window
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {formatDate(selectedReservation.start_date)} to{" "}
+                    {formatDate(selectedReservation.end_date)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Created {formatDate(selectedReservation.created_at)}
+                  </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Rental Period</p>
-                  <p className="text-sm">{fmt(selectedRes.start_date)} to {fmt(selectedRes.end_date)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Total Price</p>
-                  <p className="font-playfair text-lg font-semibold">₱{Number(selectedRes.total_price).toLocaleString()}</p>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Current status
+                  </p>
+                  <div className="mt-2">
+                    <AdminStatusBadge
+                      label={selectedReservation.status}
+                      tone={reservationTone(selectedReservation.status)}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Total {currency(selectedReservation.total_price)}
+                  </p>
                 </div>
               </div>
 
-              <div className="border border-border rounded-sm p-4 bg-muted/20">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Costume Details</p>
-                <div className="space-y-2">
-                  {selectedRes.items?.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="font-medium">{item.Costume?.name || `Item #${item.costume_id}`}</span>
-                      <span className="text-muted-foreground">₱{Number(item.price_at_reservation).toLocaleString()} / day</span>
-                    </div>
-                  ))}
+              <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      Reserved items
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Use the line items below to confirm quantities and pricing before changing the booking state.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+                    {selectedReservation.items?.length || 0} item
+                    {selectedReservation.items?.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {selectedReservation.items?.length ? (
+                    selectedReservation.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border bg-background px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {item.Costume?.name || `Costume #${item.costume_id}`}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Quantity {item.quantity || 1}
+                          </p>
+                        </div>
+                        <p className="text-sm text-foreground">
+                          {item.subtotal ? currency(item.subtotal) : "--"}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No item detail was returned for this reservation.
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="border-t border-border pt-6 space-y-4">
-                <div className="flex items-center gap-2 text-destructive">
-                  <ExclamationTriangleIcon className="size-4" />
-                  <p className="text-xs font-semibold uppercase tracking-widest">Admin Override Actions</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "COMPLETED")}
-                    disabled={actioning || selectedRes.status === "COMPLETED"}
-                    className="flex h-9 items-center rounded-sm border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-40"
+              <div className="flex flex-wrap gap-2">
+                {["APPROVED", "COMPLETED", "DISPUTED", "CANCELLED", "REJECTED"].map((status) => (
+                  <Button
+                    key={status}
+                    type="button"
+                    size="sm"
+                    variant={
+                      status === "REJECTED" || status === "CANCELLED"
+                        ? "destructive"
+                        : "outline"
+                    }
+                    disabled={
+                      actioning === selectedReservation.id ||
+                      selectedReservation.status === status
+                    }
+                    onClick={() => void updateStatus(selectedReservation.id, status)}
                   >
-                    Force Complete
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "CANCELLED")}
-                    disabled={actioning || selectedRes.status === "CANCELLED"}
-                    className="flex h-9 items-center rounded-sm border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                  >
-                    Force Cancel
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "DISPUTED")}
-                    disabled={actioning || selectedRes.status === "DISPUTED"}
-                    className="flex h-9 items-center rounded-sm border border-amber-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-40"
-                  >
-                    Flag as Disputed
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Overrides bypass the normal vendor/customer flow. Use only when necessary for dispute resolution.
-                </p>
+                    {status}
+                  </Button>
+                ))}
               </div>
-            </div>
-          )}
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

@@ -14,11 +14,18 @@ import {
 import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+
+const LOGIN_POINTS = [
+  "Review upcoming reservations",
+  "Pick up where checkout left off",
+  "Keep saved looks close at hand",
+];
 
 export default function LoginPage() {
   const { login, user, isLoading: isAuthLoading } = useAuth();
@@ -50,8 +57,8 @@ export default function LoginPage() {
     router.replace(getDefaultPostLoginPath(user));
   }, [isAuthLoading, router, user]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setIsSubmitting(true);
     try {
       const authUser = await login(email.trim(), password);
@@ -65,36 +72,63 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row">
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-r border-border bg-muted/30 px-12 py-16">
-        <div className="flex flex-1 items-center">
-          <div className="space-y-6">
-            <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
-              Your wardrobe,
-              <br />
-              elevated.
-            </p>
-            <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
-              Access your reservations, saved costumes, and booking history - all in one place.
-            </p>
+    <div className="flex flex-1 bg-background px-6 py-10 md:py-14">
+      <div className="mx-auto grid w-full max-w-[1180px] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="surface-shell flex flex-col justify-between rounded-[var(--radius-xl)] p-8 md:p-10">
+          <div>
+            <BrandLogo size="md" />
+            <div className="mt-10 max-w-2xl">
+              <div className="brand-eyebrow inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                <span className="inline-block size-1.5 rounded-full bg-gold" />
+                Customer access
+              </div>
+              <h1 className="mt-6 font-display text-4xl text-foreground md:text-5xl lg:text-6xl">
+                Log in and get straight back to the booking flow.
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground">
+                SnapCos keeps account access simple: reservations, wishlist, and checkout progress
+                stay connected in one calmer customer workspace.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {LOGIN_POINTS.map((point) => (
+                <div
+                  key={point}
+                  className="rounded-[var(--radius-lg)] border border-border bg-background/75 p-4"
+                >
+                  <p className="text-sm leading-6 text-foreground">{point}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          <BrandLogo size="sm" />
-          <span>Copyright {new Date().getFullYear()}</span>
-        </div>
-      </div>
+          <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              Premium rentals, product-grade clarity
+            </p>
+            <Link
+              href="/register"
+              className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--color-brand)] transition-colors hover:text-foreground"
+            >
+              Create account
+            </Link>
+          </div>
+        </section>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
-        <div className="w-full max-w-[400px] animate-fade-up">
-          <div className="mb-10 space-y-2">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Welcome back</h1>
-            <p className="text-sm text-muted-foreground">Log in to your account to continue.</p>
+        <section className="surface-panel rounded-[var(--radius-xl)] p-6 md:p-8">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Welcome back
+            </p>
+            <h2 className="mt-3 font-display text-3xl text-foreground">Continue with your account</h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Use Google for speed or sign in with your email and password.
+            </p>
           </div>
 
           {oauthError ? (
-            <Alert variant="destructive" className="mb-6 border-destructive/40">
+            <Alert variant="destructive" className="mt-6">
               <ExclamationTriangleIcon />
               <AlertTitle>Google sign-in failed</AlertTitle>
               <AlertDescription>{oauthError}</AlertDescription>
@@ -105,41 +139,41 @@ export default function LoginPage() {
             id="google-login-btn"
             intent="login"
             label="Continue with Google"
-            className="mb-8"
+            className="mt-6 rounded-[var(--radius-md)] py-3"
           />
 
-          <div className="relative mb-8 flex items-center gap-4">
+          <div className="relative my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              or
+            <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Or use email
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-6">
+          <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <div className="space-y-2">
               <Label
                 htmlFor="login-email"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Email
               </Label>
               <Input
                 id="login-email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 type="email"
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-[var(--radius-md)] bg-background"
               />
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="login-password"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Password
               </Label>
@@ -147,12 +181,12 @@ export default function LoginPage() {
                 <Input
                   id="login-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  placeholder="........"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                  placeholder="Enter your password"
+                  className="h-12 rounded-[var(--radius-md)] bg-background pr-12"
                 />
                 <button
                   type="button"
@@ -165,24 +199,26 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button
+            <Button
               id="login-submit-btn"
               type="submit"
+              variant="brand"
+              size="lg"
               disabled={isSubmitting}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-2 w-full text-xs font-semibold uppercase tracking-[0.24em]"
             >
               {isSubmitting ? (
                 <>
-                  <Loader className="size-3.5 animate-spin" />
-                  Logging in...
+                  <Loader className="size-4 animate-spin" />
+                  Logging in
                 </>
               ) : (
                 "Log in"
               )}
-            </button>
+            </Button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             New here?{" "}
             <Link
               href="/register"
@@ -191,7 +227,7 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
-        </div>
+        </section>
       </div>
     </div>
   );

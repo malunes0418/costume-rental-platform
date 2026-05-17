@@ -1,27 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CheckIcon } from "@radix-ui/react-icons";
+import { CreditCard } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { getMySubscription, subscribeToPlan, type Subscription } from "@/lib/vendor";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { toast } from "sonner";
-import { CheckIcon, ArrowLeftIcon as ArrowLeft } from "@radix-ui/react-icons";
-import { CreditCard } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-// ── plan details ──────────────────────────────────────────────────────────────
 
 const PLAN_FEATURES = [
   "0% commission on all rentals",
@@ -32,31 +22,92 @@ const PLAN_FEATURES = [
   "Dedicated vendor support",
 ];
 
-// ── component ─────────────────────────────────────────────────────────────────
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function SubscriptionMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function FeatureList({
+  features,
+  accent = "default",
+}: {
+  features: string[];
+  accent?: "default" | "active";
+}) {
+  const ringClass =
+    accent === "active"
+      ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
+      : "border-border text-foreground";
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {features.map((feature) => (
+        <div
+          key={feature}
+          className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border ${ringClass}`}
+            >
+              <CheckIcon className="size-3" />
+            </span>
+            <p className="text-sm leading-6 text-foreground">{feature}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
-  const router    = useRouter();
+  const router = useRouter();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [submitting, setSubmitting]     = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!user) { router.replace("/login"); return; }
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
     getMySubscription()
       .then((sub) => setSubscription(sub || null))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [user, router]);
+  }, [router, user]);
 
   async function handleSubscribe() {
     if (!user) return;
+
     setSubmitting(true);
     try {
-      const res = await subscribeToPlan("Pro Vendor");
-      setSubscription(res);
-      toast.success("Subscribed to Pro Vendor — welcome aboard.");
+      const result = await subscribeToPlan("Pro Vendor");
+      setSubscription(result);
+      toast.success("Subscribed to Pro Vendor.");
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "Failed to subscribe. Please try again.");
     } finally {
@@ -66,234 +117,202 @@ export default function SubscriptionPage() {
 
   const isActive = subscription?.status === "ACTIVE" || subscription?.status === "TRIALING";
 
-  // ── loading ────────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-16">
-        <div className="mb-16 space-y-4">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-4 w-80" />
-        </div>
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
-          <div className="lg:col-span-5 space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-4 w-full" />
-            ))}
-          </div>
-          <div className="lg:col-span-7">
-            <Skeleton className="h-64 w-full rounded-sm" />
-          </div>
+      <div className="space-y-6">
+        <Skeleton className="h-32 rounded-[var(--radius-xl)]" />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Skeleton className="h-[420px] rounded-[var(--radius-xl)]" />
+          <Skeleton className="h-[420px] rounded-[var(--radius-xl)]" />
         </div>
       </div>
     );
   }
 
-  // ── main ──────────────────────────────────────────────────────────────────
+  if (isActive) {
+    return (
+      <div className="space-y-6">
+        <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl">
+              <Badge
+                variant="outline"
+                className="border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
+              >
+                Active vendor plan
+              </Badge>
+              <h1 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-foreground md:text-4xl">
+                Pro Vendor is active.
+              </h1>
+              <p className="mt-3 text-sm leading-7 text-muted-foreground md:text-base">
+                Access is already unlocked for normal vendor operations. Keep the renewal date in
+                view and reach support only if billing changes are needed.
+              </p>
+            </div>
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-16">
+            <Link href="/vendor" className={buttonVariants({ variant: "outline" })}>
+              Back to overview
+            </Link>
+          </div>
 
-      {/* Back link */}
-      <Link
-        href="/vendor"
-        className="mb-12 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-3" />
-        Vendor Dashboard
-      </Link>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <SubscriptionMetric
+              label="Plan"
+              value={subscription?.plan_name || "Pro Vendor"}
+            />
+            <SubscriptionMetric
+              label="Status"
+              value={subscription?.status || "ACTIVE"}
+            />
+            <SubscriptionMetric
+              label="Renews"
+              value={subscription ? formatDate(subscription.end_date) : "--"}
+            />
+          </div>
+        </section>
 
-      {/* Page header */}
-      <div className="mb-16 max-w-xl animate-fade-up">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Account
-        </p>
-        <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
-          Subscription
-        </h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-          Manage your vendor plan. List costumes, accept reservations, and keep every peso.
-        </p>
-      </div>
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="surface-panel rounded-[var(--radius-xl)] p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Included right now
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+              Everything in the working plan.
+            </h2>
+            <div className="mt-6">
+              <FeatureList features={PLAN_FEATURES} accent="active" />
+            </div>
+          </div>
 
-      {/* ── Active subscription ── */}
-      {isActive ? (
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-12 animate-fade-up-delay-1">
-
-          {/* Status panel */}
-          <div className="lg:col-span-7 flex flex-col gap-8">
-            <div className="border border-border rounded-sm p-8 flex flex-col gap-8">
-              {/* Header row */}
-              <div className="flex items-start justify-between gap-4 border-b border-border pb-6">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-                    Current plan
-                  </p>
-                  <p className="font-playfair text-3xl font-semibold text-foreground">
-                    {subscription!.plan_name}
-                  </p>
-                </div>
-                <span className={cn(
-                  "shrink-0 rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest",
-                  subscription!.status === "ACTIVE"
-                    ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
-                    : "border-amber-400/40 text-amber-700 dark:text-amber-400"
-                )}>
-                  {subscription!.status}
-                </span>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Start date
-                  </p>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
-                    {formatDate(subscription!.start_date)}
-                  </p>
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Renewal date
-                  </p>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
-                    {formatDate(subscription!.end_date)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Features included */}
-              <div className="border-t border-border pt-6 space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-                  What&apos;s included
-                </p>
-                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {PLAN_FEATURES.map((f) => (
-                    <li key={f} className="flex items-start gap-3 text-sm text-muted-foreground">
-                      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border border-emerald-400/40 text-emerald-700 dark:text-emerald-400">
-                        <CheckIcon className="size-2.5" />
-                      </span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+          <aside className="surface-panel rounded-[var(--radius-xl)] p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-full border border-border bg-background text-[color:var(--color-brand)]">
+                <CreditCard className="size-4" />
+              </span>
+              <div>
+                <p className="text-lg font-semibold text-foreground">Billing snapshot</p>
+                <p className="text-sm text-muted-foreground">A short view of the current cycle.</p>
               </div>
             </div>
 
-            {/* Cancel note */}
-            <p className="text-xs text-muted-foreground border-l-2 border-border pl-4 leading-relaxed">
-              To modify or cancel your subscription, contact{" "}
-              <a href="mailto:support@snapcos.com" className="underline underline-offset-4 hover:text-foreground">
+            <div className="mt-6 space-y-3">
+              <SubscriptionMetric
+                label="Started"
+                value={subscription ? formatDate(subscription.start_date) : "--"}
+              />
+              <SubscriptionMetric
+                label="Renews"
+                value={subscription ? formatDate(subscription.end_date) : "--"}
+              />
+            </div>
+
+            <p className="mt-6 text-sm leading-6 text-muted-foreground">
+              To modify or cancel the subscription, contact{" "}
+              <a
+                href="mailto:support@snapcos.com"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
                 support@snapcos.com
               </a>
-              . Changes take effect at the end of your current billing period.
+              . Changes apply at the end of the current billing period.
+            </p>
+          </aside>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Pro Vendor
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-foreground md:text-4xl">
+              One plan. One price.
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground md:text-base">
+              Subscribe once to unlock the full vendor workspace without mixing billing noise into
+              day-to-day operations.
             </p>
           </div>
 
-          {/* Side summary */}
-          <div className="lg:col-span-5">
-            <div className="border border-border rounded-sm p-8 space-y-6 sticky top-24">
-              <div className="text-muted-foreground/20">
-                <CreditCard className="size-8" />
-              </div>
-              <div>
-                <p className="font-playfair text-2xl font-semibold text-foreground">
-                  You&apos;re all set.
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Your Pro Vendor subscription is active. You can list unlimited costumes and accept reservations with no commission fees.
-                </p>
-              </div>
-              <Link
-                href="/vendor"
-                className="inline-flex h-10 items-center rounded-sm border border-border px-6 text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-              >
-                Go to dashboard
-              </Link>
-            </div>
+          <Link href="/vendor" className={buttonVariants({ variant: "outline" })}>
+            Back to overview
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="surface-panel rounded-[var(--radius-xl)] p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Plan access
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <span className="text-5xl font-semibold tracking-[-0.04em] text-foreground">
+              PHP 29
+            </span>
+            <span className="pb-1 text-sm text-muted-foreground">per month</span>
+          </div>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+            A simple monthly plan for vendors who want predictable access and full marketplace
+            tools.
+          </p>
+
+          <div className="mt-6">
+            <FeatureList features={PLAN_FEATURES} />
           </div>
         </div>
-      ) : (
-        /* ── No subscription — upsell ── */
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-12 animate-fade-up-delay-1">
 
-          {/* Why subscribe */}
-          <div className="lg:col-span-5 flex flex-col gap-12">
-            <div className="space-y-6">
-              <h2 className="font-playfair text-3xl font-semibold text-foreground">
-                Why subscribe?
-              </h2>
-              <ul className="space-y-5">
-                {PLAN_FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-4">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
-                      <CheckIcon className="size-3" />
-                    </span>
-                    <span className="text-sm leading-relaxed text-muted-foreground">{f}</span>
-                  </li>
-                ))}
-              </ul>
+        <aside className="surface-shell rounded-[var(--radius-xl)] p-6">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-full border border-border bg-background text-[color:var(--color-brand)]">
+              <CreditCard className="size-4" />
+            </span>
+            <div>
+              <p className="text-lg font-semibold text-foreground">Activate vendor access</p>
+              <p className="text-sm text-muted-foreground">Billing stays simple and predictable.</p>
             </div>
+          </div>
 
-            <p className="text-xs leading-relaxed text-muted-foreground border-l-2 border-border pl-4">
-              No hidden fees. Cancel anytime. Your listings remain visible to renters even during brief lapses.
+          <div className="mt-6 rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Includes
+            </p>
+            <p className="mt-2 text-sm leading-6 text-foreground">
+              Full vendor publishing access, reservations flow, and plan support.
             </p>
           </div>
 
-          {/* Pricing card */}
-          <div className="lg:col-span-7">
-            <div className="border border-border rounded-sm p-8 md:p-12 flex flex-col gap-10">
-
-              {/* Price header */}
-              <div className="space-y-4 border-b border-border pb-8">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Pro Vendor
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-playfair text-6xl font-semibold tracking-tight text-foreground">
-                    ₱29
-                  </span>
-                  <span className="text-sm text-muted-foreground">/ month</span>
-                </div>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Everything you need to run a professional costume rental business on SnapCos.
-                </p>
-              </div>
-
-              {/* Feature summary */}
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {PLAN_FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
-                      <CheckIcon className="size-2.5" />
-                    </span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              <div className="flex flex-col gap-4 border-t border-border pt-8">
-                <button
-                  type="button"
-                  onClick={handleSubscribe}
-                  disabled={submitting}
-                  className="flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <CreditCard className="size-3.5" />
-                  {submitting ? "Processing…" : "Subscribe now"}
-                </button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Cancel anytime. Billing is handled securely.
-                </p>
-              </div>
-            </div>
+          <div className="mt-3 rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Terms
+            </p>
+            <p className="mt-2 text-sm leading-6 text-foreground">
+              No hidden fees. Cancel anytime. Changes apply at the end of the current billing
+              period.
+            </p>
           </div>
-        </div>
-      )}
 
+          <Button
+            type="button"
+            variant="brand"
+            size="lg"
+            className="mt-6 w-full"
+            onClick={handleSubscribe}
+            disabled={submitting}
+          >
+            <CreditCard className="size-4" />
+            {submitting ? "Processing..." : "Subscribe now"}
+          </Button>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Billing is handled securely.
+          </p>
+        </aside>
+      </section>
     </div>
   );
 }

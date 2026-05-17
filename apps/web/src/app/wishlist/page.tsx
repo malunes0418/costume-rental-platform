@@ -3,30 +3,65 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  ArrowRightIcon,
+  Cross1Icon,
+  HeartIcon,
+  ImageIcon,
+} from "@radix-ui/react-icons";
+import { toast } from "sonner";
+
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import { myWishlist, removeWishlist, type WishlistItem } from "../../lib/account";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  HeartIcon as Heart,
-  Cross1Icon as X,
-  ImageIcon,
-  ArrowRightIcon as ArrowRight,
-} from "@radix-ui/react-icons";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+function WishlistGate({
+  title,
+  description,
+  href,
+  cta,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-5xl px-6 py-16">
+      <div className="surface-shell mx-auto max-w-2xl rounded-[var(--radius-xl)] p-10 text-center md:p-12">
+        <div className="mx-auto flex max-w-lg flex-col items-center">
+          <div className="rounded-full border border-border bg-background p-4 text-muted-foreground">
+            <HeartIcon className="size-8" />
+          </div>
+          <h1 className="mt-6 font-display text-4xl text-foreground">{title}</h1>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">{description}</p>
+          <Link href={href} className={cn(buttonVariants({ variant: "brand" }), "mt-8")}>
+            {cta}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function WishlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
-  const [items, setItems]         = useState<WishlistItem[]>([]);
+  const [items, setItems] = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [removing, setRemoving]   = useState<number | null>(null);
+  const [removing, setRemoving] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!user) { setItems([]); setIsLoading(false); return; }
+    if (!user) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
     if (user.role === "ADMIN") {
       router.replace("/admin");
       return;
@@ -34,12 +69,20 @@ export default function WishlistPage() {
     let cancelled = false;
     setIsLoading(true);
     myWishlist()
-      .then((res) => { if (!cancelled) setItems(res); })
-      .catch((e: unknown) => {
-        if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load wishlist");
+      .then((res) => {
+        if (!cancelled) setItems(res);
       })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          toast.error(e instanceof ApiError ? e.message : "Failed to load wishlist");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, isAuthLoading, router]);
 
   async function handleRemove(item: WishlistItem) {
@@ -56,197 +99,189 @@ export default function WishlistPage() {
     }
   }
 
-  // ── unauthenticated ───────────────────────────────────────────────────────
-
   if (!user) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
-          <div className="text-muted-foreground/20">
-            <Heart className="mx-auto size-16" />
-          </div>
-          <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Wishlist</h1>
-            <p className="text-muted-foreground">Sign in to save and revisit your favourite costumes.</p>
-          </div>
-          <Link
-            href="/login?next=/wishlist"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
-          >
-            Log in to continue
-          </Link>
-        </div>
-      </div>
+      <WishlistGate
+        title="Save standout looks for later."
+        description="Log in to collect favourites, compare styles, and return when you are ready to book."
+        href="/login?next=/wishlist"
+        cta="Log in to continue"
+      />
     );
   }
 
   if (user.role === "ADMIN") {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
-          <div className="text-muted-foreground/20">
-            <Heart className="mx-auto size-16" />
-          </div>
-          <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Unavailable</h1>
-            <p className="text-muted-foreground">Administrators cannot use the wishlist feature.</p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
-          >
-            Return Home
-          </Link>
-        </div>
-      </div>
+      <WishlistGate
+        title="Wishlist is not available here."
+        description="Administrator accounts use the operations workspace and do not keep personal saved looks."
+        href="/"
+        cta="Return home"
+      />
     );
   }
 
-  // ── main ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-16">
-
-      {/* ── Page header ── */}
-      <div className="mb-16 flex items-end justify-between gap-6">
-        <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
-            Your account
-          </p>
-          <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
-            Wishlist
-          </h1>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
-            Costumes you&apos;ve saved for later.
-          </p>
-        </div>
-
-        {!isLoading && items.length > 0 && (
-          <p className="shrink-0 text-sm text-muted-foreground animate-fade-up-delay-2">
-            {items.length} {items.length === 1 ? "piece" : "pieces"} saved
-          </p>
-        )}
-      </div>
-
-      {/* ── Grid ── */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-4">
-              <Skeleton className="w-full aspect-[3/4] rounded-sm" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
+    <div className="mx-auto w-full max-w-[1160px] px-6 pb-24 pt-10">
+      <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <div className="brand-eyebrow inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+              <span className="inline-block size-1.5 rounded-full bg-gold" />
+              Customer utility
             </div>
-          ))}
+            <h1 className="mt-5 font-display text-4xl text-foreground md:text-5xl">Wishlist</h1>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
+              Keep track of the looks worth revisiting, then jump back into booking when the timing
+              is right.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="rounded-full border border-border bg-background px-4 py-2 font-semibold uppercase tracking-[0.22em] text-foreground">
+              {isLoading ? "--" : `${items.length} saved`}
+            </span>
+            <Link href="/" className={cn(buttonVariants({ variant: "outline" }))}>
+              Browse catalog
+            </Link>
+          </div>
         </div>
-      ) : items.length ? (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((it) => {
-            const c    = it.Costume;
-            const imgs = c?.CostumeImages || [];
-            const img  = imgs.find((i) => i.is_primary)?.image_url || imgs[0]?.image_url || "";
-            const tags = [c?.category, c?.theme, c?.size].filter(Boolean);
-            const isRemoving = removing === it.id;
+      </section>
 
-            return (
-              <article
-                key={it.id}
-                className={cn(
-                  "group flex flex-col gap-4 transition-opacity duration-300",
-                  isRemoving && "opacity-30 pointer-events-none"
-                )}
+      <section className="mt-8">
+        {isLoading ? (
+          <div className="grid gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="surface-panel flex flex-col gap-5 rounded-[var(--radius-xl)] p-5 md:flex-row md:items-center"
               >
-                {/* Image */}
-                <Link
-                  href={`/costumes/${it.costume_id}`}
-                  className="block w-full overflow-hidden rounded-sm border border-border bg-muted aspect-[3/4] relative"
+                <Skeleton className="h-48 w-full rounded-[var(--radius-lg)] md:h-28 md:w-24" />
+                <div className="flex-1 space-y-3">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-6 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : items.length ? (
+          <div className="grid gap-4">
+            {items.map((item) => {
+              const costume = item.Costume;
+              const images = costume?.CostumeImages || [];
+              const image = images.find((img) => img.is_primary)?.image_url || images[0]?.image_url || "";
+              const isRemoving = removing === item.id;
+              const tags = [costume?.category, costume?.theme, costume?.size].filter(Boolean);
+              const vendorName =
+                costume?.owner?.VendorProfile?.business_name ||
+                costume?.owner?.name ||
+                "SnapCos vendor";
+
+              return (
+                <article
+                  key={item.id}
+                  className={cn(
+                    "surface-panel flex flex-col gap-5 rounded-[var(--radius-xl)] p-5 transition-opacity md:flex-row md:items-center",
+                    isRemoving && "pointer-events-none opacity-40"
+                  )}
                 >
-                  {img ? (
-                    <img
-                      src={resolveApiAsset(img)}
-                      alt={c?.name || "Costume"}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
-                      <ImageIcon className="size-12" />
-                    </div>
-                  )}
+                  <Link
+                    href={`/costumes/${item.costume_id}`}
+                    className="block h-52 w-full overflow-hidden rounded-[var(--radius-lg)] border border-border bg-muted md:h-28 md:w-24"
+                  >
+                    {image ? (
+                      <img
+                        src={resolveApiAsset(image)}
+                        alt={costume?.name || "Costume"}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
+                        <ImageIcon className="size-8" />
+                      </div>
+                    )}
+                  </Link>
 
-                  {/* Category label overlay */}
-                  {c?.category && (
-                    <span className="absolute left-4 top-4 rounded-sm border border-border bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
-                      {c.category}
-                    </span>
-                  )}
-                </Link>
-
-                {/* Info row */}
-                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-playfair text-lg font-semibold text-foreground">
-                      {c?.name || `Costume #${it.costume_id}`}
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      {vendorName}
                     </p>
-                    {tags.length > 0 && (
-                      <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                        {tags.join(" · ")}
-                      </p>
-                    )}
-                    {c?.base_price_per_day != null && (
-                      <p className="mt-1 text-sm text-foreground">
-                        ₱{Number(c.base_price_per_day).toLocaleString()}
-                        <span className="ml-1 text-xs text-muted-foreground">/ day</span>
-                      </p>
-                    )}
+                    <h2 className="mt-2 font-display text-3xl text-foreground md:text-[2rem]">
+                      {costume?.name || `Costume #${item.costume_id}`}
+                    </h2>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {tags.length > 0 ? (
+                        tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-border bg-background px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="rounded-full border border-dashed border-border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                          Curated rental piece
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                      <span className="font-semibold text-foreground">
+                        {costume?.base_price_per_day != null
+                          ? `PHP ${Number(costume.base_price_per_day).toLocaleString()} / day`
+                          : "Pricing unavailable"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Save now, reserve when your dates are ready.
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Remove */}
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(it)}
-                    disabled={isRemoving}
-                    aria-label={`Remove ${c?.name || "costume"} from wishlist`}
-                    className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </div>
-
-                {/* View CTA */}
-                <Link
-                  href={`/costumes/${it.costume_id}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  View costume <ArrowRight className="size-3" />
-                </Link>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        /* ── Empty state ── */
-        <div className="flex flex-col items-center gap-8 border border-border rounded-sm py-32 px-12 text-center">
-          <div className="text-muted-foreground/20">
-            <Heart className="size-12" />
+                  <div className="flex flex-col gap-3 md:items-end">
+                    <Link
+                      href={`/costumes/${item.costume_id}`}
+                      className={cn(buttonVariants({ variant: "brand" }), "justify-center")}
+                    >
+                      View costume
+                      <ArrowRightIcon className="size-4" />
+                    </Link>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="justify-center md:justify-end"
+                      onClick={() => handleRemove(item)}
+                      disabled={isRemoving}
+                    >
+                      <Cross1Icon className="size-3" />
+                      Remove
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-          <div className="space-y-2">
-            <p className="font-playfair text-3xl font-semibold text-foreground">
-              Nothing saved yet.
-            </p>
-            <p className="text-muted-foreground">
-              Tap the heart on any costume to add it here.
-            </p>
+        ) : (
+          <div className="surface-panel rounded-[var(--radius-xl)] p-10 text-center md:p-14">
+            <div className="mx-auto flex max-w-lg flex-col items-center">
+              <div className="rounded-full border border-border bg-background p-4 text-muted-foreground">
+                <HeartIcon className="size-8" />
+              </div>
+              <h2 className="mt-6 font-display text-4xl text-foreground">Nothing saved yet.</h2>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                Use the heart on any costume card to keep your shortlist handy while you compare
+                styles and dates.
+              </p>
+              <Link href="/" className={cn(buttonVariants({ variant: "brand" }), "mt-8")}>
+                Browse costumes
+              </Link>
+            </div>
           </div>
-          <Link
-            href="/"
-            className="inline-flex h-12 items-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
-          >
-            Browse costumes
-          </Link>
-        </div>
-      )}
-
+        )}
+      </section>
     </div>
   );
 }

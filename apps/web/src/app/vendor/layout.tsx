@@ -1,53 +1,162 @@
 "use client";
 
-import { type ComponentType, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArchiveIcon,
   CalendarIcon,
   CardStackIcon,
-  ExitIcon,
-  HamburgerMenuIcon,
   StackIcon,
   StarIcon,
 } from "@radix-ui/react-icons";
 
-import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { AppShell, ShellHeader, type ShellNavItem } from "@/components/shell/AppShell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { getVendorProfile, type VendorProfile } from "@/lib/vendor";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: ComponentType<{ className?: string }>;
-};
-
-const BASE_NAV: NavItem[] = [
-  { href: "/vendor", label: "Overview", icon: StackIcon },
-  { href: "/vendor/inventory", label: "Inventory", icon: ArchiveIcon },
-  { href: "/vendor/subscription", label: "Subscription", icon: StarIcon },
+const BASE_NAV: ShellNavItem[] = [
+  {
+    href: "/vendor",
+    label: "Overview",
+    icon: StackIcon,
+    group: "core",
+    meta: "Health, approvals, and next actions",
+  },
+  {
+    href: "/vendor/inventory",
+    label: "Inventory",
+    icon: ArchiveIcon,
+    group: "core",
+    meta: "Listings, draft state, and publishing",
+  },
+  {
+    href: "/vendor/subscription",
+    label: "Subscription",
+    icon: StarIcon,
+    group: "core",
+    meta: "Plan, renewal, and access limits",
+  },
 ];
 
-const OPERATIONAL_NAV: NavItem[] = [
-  { href: "/vendor/reservations", label: "Reservations", icon: CalendarIcon },
-  { href: "/vendor/earnings", label: "Earnings", icon: CardStackIcon },
+const OPERATIONAL_NAV: ShellNavItem[] = [
+  {
+    href: "/vendor/reservations",
+    label: "Reservations",
+    icon: CalendarIcon,
+    group: "operations",
+    meta: "Requests, proof review, and decisions",
+  },
+  {
+    href: "/vendor/earnings",
+    label: "Earnings",
+    icon: CardStackIcon,
+    group: "operations",
+    meta: "Revenue, fees, and payout progress",
+  },
 ];
 
-function statusMeta(status: VendorProfile["vendorStatus"]) {
+const ROUTE_META = [
+  {
+    href: "/vendor/reservations",
+    title: "Reservations",
+    description: "Review incoming requests, payment evidence, and decision queues without losing context.",
+  },
+  {
+    href: "/vendor/earnings",
+    title: "Earnings",
+    description: "Keep a clean view of revenue, fees, and what still needs attention before payout.",
+  },
+  {
+    href: "/vendor/inventory",
+    title: "Inventory",
+    description: "Shape your collection, move strong drafts forward, and keep listing status obvious at a glance.",
+  },
+  {
+    href: "/vendor/subscription",
+    title: "Subscription",
+    description: "Manage plan access, billing confidence, and the limits that affect storefront momentum.",
+  },
+  {
+    href: "/vendor",
+    title: "Overview",
+    description: "Monitor collection health, approval state, and the next best operational move for your storefront.",
+  },
+];
+
+function getRouteMeta(pathname: string) {
+  return ROUTE_META.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? ROUTE_META[ROUTE_META.length - 1];
+}
+
+function statusClasses(status: VendorProfile["vendorStatus"]) {
   if (status === "APPROVED") {
-    return "border-emerald-400/40 text-emerald-700 dark:text-emerald-400";
+    return "border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   }
   if (status === "PENDING") {
-    return "border-amber-400/40 text-amber-700 dark:text-amber-400";
+    return "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300";
   }
   if (status === "REJECTED") {
-    return "border-destructive/30 text-destructive";
+    return "border-destructive/30 bg-destructive/10 text-destructive";
   }
-  return "border-border text-muted-foreground";
+  return "border-border bg-card text-muted-foreground";
+}
+
+function StatusBadge({ status }: { status: VendorProfile["vendorStatus"] }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]",
+        statusClasses(status)
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+function PendingShell({
+  children,
+  title,
+  description,
+  status,
+}: {
+  children: ReactNode;
+  title: string;
+  description: string;
+  status: VendorProfile["vendorStatus"];
+}) {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-3 md:px-4 md:py-4">
+        <div className="surface-shell flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-xl)] px-4 py-3 md:px-5">
+          <Link href="/" aria-label="SnapCos home" className="inline-flex">
+            <BrandLogo size="sm" />
+          </Link>
+          <ThemeToggle />
+        </div>
+        <ShellHeader
+          density="vendor"
+          eyebrow="Vendor workspace"
+          title={title}
+          description={description}
+          badge={<StatusBadge status={status} />}
+          actions={
+            <>
+              <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                Storefront
+              </Link>
+            </>
+          }
+        />
+        <main>{children}</main>
+      </div>
+    </div>
+  );
 }
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
@@ -57,7 +166,6 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -97,7 +205,13 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   if (loading || isAuthLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Skeleton className="h-10 w-10 rounded-sm" />
+        <div className="surface-shell flex w-full max-w-sm items-center gap-4 rounded-[var(--radius-xl)] p-5">
+          <Skeleton className="size-12 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-24 rounded-full" />
+            <Skeleton className="h-3 w-48 rounded-full" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -108,7 +222,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   const vendorStatus = profile?.vendorStatus ?? "NONE";
   const storeName = profile?.profile?.business_name || user.name || "Your atelier";
-  const isApprovedVendor = vendorStatus === "APPROVED";
+  const meta = getRouteMeta(pathname);
   const initials = (user.name || storeName)
     .split(" ")
     .map((segment) => segment[0])
@@ -121,157 +235,52 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     router.replace("/login");
   }
 
-  const Sidebar = () => (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex h-20 items-center border-b border-border px-6">
-        <div className="space-y-2">
-          <BrandLogo size="md" />
-          <p className="pl-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-            Vendor House
-          </p>
-        </div>
-      </div>
+  if (vendorStatus !== "APPROVED") {
+    const pendingTitle =
+      vendorStatus === "PENDING"
+        ? `${storeName} is under review`
+        : vendorStatus === "REJECTED"
+          ? "Your application needs revision"
+          : "Start your vendor workspace";
 
-      <div className="space-y-4 border-b border-border bg-muted/30 px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="truncate font-playfair text-2xl font-semibold text-foreground">{storeName}</p>
-            <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
-          </div>
-          <ThemeToggle />
-        </div>
-        <span
-          className={cn(
-            "inline-flex rounded-sm border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
-            statusMeta(vendorStatus)
-          )}
-        >
-          {vendorStatus}
-        </span>
-      </div>
+    const pendingDescription =
+      vendorStatus === "PENDING"
+        ? "Build private drafts and keep your collection moving while the team reviews your documents."
+        : vendorStatus === "REJECTED"
+          ? "Review the feedback, update your details, and come back with a stronger submission."
+          : "Set up your application, understand the approval gates, and prepare listings with confidence.";
 
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4" aria-label="Vendor navigation">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = href === "/vendor" ? pathname === href : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
-                isActive
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="space-y-3 border-t border-border px-4 py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold leading-none text-foreground">{storeName}</p>
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{user.email}</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            href="/"
-            className="flex h-9 items-center justify-center rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-          >
-            Storefront
-          </Link>
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <ExitIcon className="size-3" />
-            Log out
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
-
-  if (!isApprovedVendor) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-background">
-          <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5">
-            <div>
-              <Link href="/" aria-label="SnapCos home">
-                <BrandLogo size="md" />
-              </Link>
-              <p className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Vendor House
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "inline-flex rounded-sm border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
-                  statusMeta(vendorStatus)
-                )}
-              >
-                {vendorStatus}
-              </span>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-        <main>{children}</main>
-      </div>
+      <PendingShell title={pendingTitle} description={pendingDescription} status={vendorStatus}>
+        {children}
+      </PendingShell>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <div className="hidden md:flex">
-        <Sidebar />
-      </div>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div
-            className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div className="relative z-10 flex h-full">
-            <Sidebar />
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex h-16 items-center justify-between border-b border-border px-4 md:hidden">
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => setSidebarOpen(true)}
-            className="flex size-9 items-center justify-center rounded-sm border border-border text-foreground"
-          >
-            <HamburgerMenuIcon className="size-4" />
-          </button>
-          <div className="text-center">
-            <p className="font-playfair text-sm font-semibold text-foreground">{storeName}</p>
-            <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {vendorStatus}
-            </p>
-          </div>
+    <AppShell
+      density="vendor"
+      brandCaption="Vendor house"
+      eyebrow="Vendor workspace"
+      title={meta.title}
+      description={meta.description}
+      badge={<StatusBadge status={vendorStatus} />}
+      actions={
+        <>
+          <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Storefront
+          </Link>
           <ThemeToggle />
-        </div>
-
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+        </>
+      }
+      navItems={navItems}
+      pathname={pathname}
+      accountName={storeName}
+      accountEmail={user.email}
+      initials={initials}
+      onLogout={() => void handleLogout()}
+    >
+      {children}
+    </AppShell>
   );
 }

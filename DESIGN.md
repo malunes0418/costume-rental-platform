@@ -1,128 +1,255 @@
 ---
 name: SnapCos
-description: Modern costume rental marketplace merging SaaS utility with editorial minimalism
+description: Modern SaaS UI with premium costume-brand accents
+theme:
+  mode: "system"
+  priority: "light-first but fully supports dark"
 colors:
-  studio-black: "oklch(0.14 0.01 30)"
-  gallery-canvas: "oklch(0.98 0.01 30)"
-  soft-ash: "oklch(0.94 0.01 30)"
-  alert-rust: "oklch(0.55 0.22 25)"
-  border-ash: "oklch(0.85 0.01 30)"
-typography:
-  display:
-    fontFamily: "\"Playfair Display\", Georgia, serif"
-  body:
-    fontFamily: "\"DM Sans\", system-ui, sans-serif"
-rounded:
-  md: "0.5rem"
-components:
-  button-primary:
-    backgroundColor: "{colors.studio-black}"
-    textColor: "{colors.gallery-canvas}"
-    rounded: "{rounded.md}"
-    padding: "0 0.625rem"
-    height: "2rem"
-  button-secondary:
-    backgroundColor: "{colors.soft-ash}"
-    textColor: "{colors.studio-black}"
-    rounded: "{rounded.md}"
-    padding: "0 0.625rem"
-    height: "2rem"
-  button-outline:
-    backgroundColor: "transparent"
-    textColor: "{colors.studio-black}"
-    rounded: "{rounded.md}"
-    padding: "0 0.625rem"
-    height: "2rem"
+  background: "warm ivory neutral"
+  surface: "soft ash neutral"
+  text: "ink / charcoal"
+  primary-accent: "coral"
+  secondary-accent: "muted gold"
+  danger: "rust red"
+style:
+  layout: "structured SaaS"
+  brand-layer: "restrained luxury accents"
+  density: "medium"
+  borders: "crisp 1px"
+  shadows: "subtle and rare"
 ---
 
-# Design System: SnapCos
+# SnapCos Design System
 
-## 1. Overview
+## 1. Core Rule
 
-**Creative North Star: "The Curator's Studio"**
+Build SnapCos like modern SaaS.
 
-SnapCos embodies refined utilitarianism. It balances the functional robustness of a modern SaaS tool with the visual elegance of a premium editorial marketplace. The aesthetic is clean, intentional, and content-forward, ensuring that the interface recedes to let costume photography take center stage. 
+Then add premium brand cues with restraint.
 
-The system explicitly rejects SaaS landing-page clichés, heavy decorative elements, neon accents, and generic glassmorphism.
+This means:
+- structured layouts
+- predictable modules
+- clear CTA hierarchy
+- high scanability
+- limited decorative behavior
 
-**Key Characteristics:**
-- Crisp 1px borders for structure
-- Generous whitespace for breathability
-- Zero heavy shadows
-- High-contrast typography
+## 2. Visual Positioning
 
-## 2. Colors
+### What it should feel like
+- premium
+- modern
+- reliable
+- conversion-focused
+- operationally clear
 
-The palette is a warm monochrome that provides a subtle, sophisticated foundation.
+### What it should not feel like
+- magazine editorial spread
+- luxury marketing site pretending to be software
+- generic AI dashboard
+- dark neon startup template
+- over-decorated fashion brand microsite
 
-### Primary
-- **Studio Black** (oklch(0.14 0.01 30)): The anchor color. Used for primary typography, primary actions, and high-emphasis UI elements.
+## 3. Brand Translation
 
-### Neutral
-- **Gallery Canvas** (oklch(0.98 0.01 30)): The base canvas. Provides a warm, inviting backdrop that feels editorial rather than clinical white.
-- **Soft Ash** (oklch(0.94 0.01 30)): Used for secondary backgrounds, muted surfaces, and low-emphasis fills.
-- **Border Ash** (oklch(0.85 0.01 30)): Used for all structural borders and inputs.
+Use the reference image for brand cues, not layout behavior.
 
-### Semantic
-- **Alert Rust** (oklch(0.55 0.22 25)): Used strictly for destructive actions and error states.
+Keep:
+- warm ivory base
+- coral CTAs and active states
+- tiny gold highlights
+- refined premium tone
+- clean product framing
 
-### Named Rules
-**The Content-Forward Rule.** The UI must remain monochromatic to ensure that full-color costume photography provides the only true color pops on the screen.
+Reduce:
+- oversized editorial composition
+- ornamental lines and starbursts as repeated motifs
+- decorative density inside product flows
+- large serif usage across operational UI
 
-## 3. Typography
+## 4. Theme Strategy
 
-**Display Font:** Playfair Display (with Georgia, serif)
-**Body Font:** DM Sans (with system-ui, sans-serif)
+### Light Mode
+- default presentation mode
+- best for storefront browsing, comparison, and trust
+- warm neutrals should make the product feel premium instead of sterile
 
-**Character:** An elegant serif display creates an authoritative, magazine-like feel for headlines, while the clean geometric sans-serif ensures maximum legibility for dense UI data and body copy.
+### Dark Mode
+- supported across the app
+- should remain calm and product-like
+- no glow-heavy dark mode and no neon contrast tricks
+
+## 5. Typography
+
+### Direction
+- Use one distinctive display font for hero headlines only
+- Use one clean, refined sans-serif for the product UI
+- The product UI should be mostly sans-serif
+- Serif should be sparse, deliberate, and brand-facing
+
+### Rules
+- Do not use `Playfair Display`
+- Do not use `DM Sans`
+- Do not use gradient text
+- Do not use fluid type inside dashboards or dense app UI
+- Keep headings high-contrast and body copy easy to scan
 
 ### Hierarchy
-- **Display**: Reserved for hero sections and major page titles. Expresses the editorial voice.
-- **Headline**: Section headers and card titles.
-- **Body**: Primary UI text, descriptions, and functional copy.
-- **Label**: Small, often uppercase tracking, used for metadata and microcopy.
+- **Display:** shopper hero headlines only
+- **Page Title:** major screen heading
+- **Section Title:** module or page section title
+- **Body:** default UI copy
+- **Label:** small uppercase or compact metadata
 
-### Named Rules
-**The Intentional Contrast Rule.** Hierarchy is established through extreme contrast in weight and scale, rather than subtle shifts in size.
+## 6. Color System
 
-## 4. Elevation
+### Palette Roles
+- **Background:** warm ivory
+- **Surface:** pale ash / neutral tint
+- **Primary Text:** ink charcoal
+- **Secondary Text:** softened neutral
+- **Primary Accent:** coral
+- **Secondary Accent:** muted gold
+- **Danger:** rust red
 
-The system is flat-by-default. It relies entirely on crisp 1px borders and tonal layering (Gallery Canvas vs. Soft Ash) to separate surfaces, explicitly avoiding heavy drop shadows.
+### Usage Rules
+- Coral drives actions, selected states, and key emphasis
+- Gold is reserved for tiny premium highlights only
+- Most screens should remain mostly neutral
+- Do not let coral become the base surface color
+- Do not use gold as a major interface fill
 
-### Named Rules
-**The Flat-By-Default Rule.** Surfaces are flat at rest. Shadows appear only as a response to state (hover, elevation, focus) or for critical overlay context like modals, and even then must be extremely diffuse and low-opacity.
+## 7. Layout Rules
 
-## 5. Components
+### Global
+- Prefer structured page shells over expressive one-off layouts
+- Use consistent max widths and spacing rhythms
+- Favor left-aligned content over centered product UI
+- Build strong header-content-sidebar relationships
+
+### Storefront
+- Hero should be shorter and more functional
+- Search/filter layer should be immediate and strong
+- Product grid should feel stable and scalable
+- Supporting marketing content should not interrupt the main path
+
+### Detail Pages
+- Media first
+- Booking card second
+- Supporting detail third
+- Keep the purchase path obvious at all times
+
+### Vendor/Admin
+- Sidebar + content shell
+- Reusable metric cards
+- Reusable table/list patterns
+- Reusable alert and status modules
+- Strong grouping by urgency and actionability
+
+## 8. Components
 
 ### Buttons
-- **Shape:** Softly curved edges (0.5rem radius)
-- **Primary:** Solid Studio Black background with Gallery Canvas text. Precise and understated.
-- **Hover / Focus:** Slight opacity shift or muted background.
-- **Secondary / Ghost:** Soft Ash background or transparent with hover states.
+- Primary: coral fill
+- Secondary: neutral surface
+- Tertiary: ghost or text
+- Only one primary CTA per section when possible
 
-### Cards / Containers
-- **Corner Style:** 0.5rem radius
-- **Background:** Gallery Canvas or Soft Ash
-- **Shadow Strategy:** None at rest
-- **Border:** 1px solid Border Ash
+### Cards
+- Use cards where structure helps comprehension
+- Do not wrap everything in cards
+- Do not nest cards inside cards without a strong reason
 
-### Inputs / Fields
-- **Style:** 1px Border Ash stroke, Gallery Canvas background, 0.5rem radius.
-- **Focus:** Sharp border color shift to Studio Black, no soft glow.
+### Forms
+- Inputs should feel crisp, simple, and product-grade
+- Search/filter controls should look stronger than generic admin forms
+- Booking and checkout forms should be visually clearer than settings forms
 
-### Navigation
-- **Style:** Clean, text-driven links with strong active-state typography.
+### Tables and Lists
+- Vendor/admin should rely more on lists and tables than marketing blocks
+- Use spacing, typography, and small accents for hierarchy
+- Do not rely on colored stripes or decorative borders
 
-## 6. Do's and Don'ts
+### Status
+- Draft, active, flagged, pending, confirmed, canceled, paid, and overdue states must be visually consistent
+- Use color plus copy, not color alone
 
-### Do:
-- **Do** use 1px solid borders (`oklch(0.85 0.01 30)`) to separate content areas.
-- **Do** use Playfair Display exclusively for top-level hierarchy and editorial moments.
-- **Do** rely on generous whitespace rather than lines to group related items.
+## 9. Motion
 
-### Don't:
-- **Don't** use heavy drop shadows on cards or containers.
-- **Don't** use neon accents, purple gradients, or SaaS-cream aesthetics.
-- **Don't** use side-stripe borders (border-left or border-right greater than 1px as a colored accent).
-- **Don't** use glassmorphism as a default treatment.
-- **Don't** use identical card grids repeatedly without typographic breaks.
+- Use motion sparingly
+- Focus on page load, hover feedback, and state transition clarity
+- No theatrical motion systems
+- No bounce or excessive reveal choreography in dashboards
+
+## 10. Absolute Avoids
+
+- Gradient text
+- Left accent stripes on cards or alerts
+- Glassmorphism
+- Purple/cyan AI palettes
+- Heavy drop shadows
+- Dashboard pages designed like landing pages
+- Repeated "fancy" decorative symbols
+- Identical giant card grids with no information hierarchy
+
+## 11. Screen Priorities
+
+### Priority A
+- Home / discovery
+- Costume detail
+- Navbar / app shell
+- Vendor dashboard shell
+
+### Priority B
+- Inventory
+- Reservations
+- Earnings
+- Subscription
+- Wishlist
+- Customer reservations
+
+### Priority C
+- Admin pages
+- Auth pages
+- Secondary empty states and edge-case screens
+
+## 12. Rollout Plan
+
+### Step 1: Reset the system
+- Update tokens
+- Update typography rules
+- Update CTA hierarchy
+- Remove old editorial-first patterns
+
+### Step 2: Redesign the public customer path
+- Home
+- Search/filter
+- Costume detail
+- Booking surfaces
+
+### Step 3: Redesign the vendor shell
+- Sidebar
+- Overview
+- Core metrics
+- Alerts and task grouping
+
+### Step 4: Redesign vendor workflows
+- Inventory
+- Reservations
+- Earnings
+- Subscription
+
+### Step 5: Align admin
+- Reuse vendor/system patterns
+- Increase density and moderation clarity
+
+### Step 6: Final QA
+- Accessibility pass
+- Responsive pass
+- Dark mode pass
+- Visual consistency pass
+
+## 13. Final Decision
+
+Approved design line:
+
+**Modern SaaS structure with restrained premium SnapCos brand accents.**

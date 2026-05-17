@@ -15,6 +15,7 @@ import {
 import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultPostLoginPath } from "../../lib/authRedirects";
@@ -22,13 +23,13 @@ import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
 const TRUST_POINTS = [
-  "No credit card required to browse",
-  "Save and wishlist any costume",
-  "Book in minutes, cancel anytime",
+  "Browse without needing a card",
+  "Save looks and compare later",
+  "Move from wishlist to booking quickly",
 ];
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -50,8 +51,13 @@ export default function RegisterPage() {
     router.replace(query ? `/register?${query}` : "/register");
   }, [router]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (isAuthLoading || !user) return;
+    router.replace(getDefaultPostLoginPath(user));
+  }, [isAuthLoading, router, user]);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setIsSubmitting(true);
     try {
       const authUser = await register(email.trim(), password, name.trim() || undefined);
@@ -64,18 +70,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row">
-      <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
-        <div className="w-full max-w-[400px] animate-fade-up">
-          <div className="mb-10 space-y-2">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Create account</h1>
-            <p className="text-sm text-muted-foreground">
-              Join SnapCos and start renting extraordinary costumes.
+    <div className="flex flex-1 bg-background px-6 py-10 md:py-14">
+      <div className="mx-auto grid w-full max-w-[1180px] gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="surface-panel order-2 rounded-[var(--radius-xl)] p-6 md:p-8 lg:order-1">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Create account
+            </p>
+            <h1 className="mt-3 font-display text-3xl text-foreground">Join SnapCos</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Set up your customer account in a minute, then start saving and booking costumes with
+              a clearer flow.
             </p>
           </div>
 
           {oauthError ? (
-            <Alert variant="destructive" className="mb-6 border-destructive/40">
+            <Alert variant="destructive" className="mt-6">
               <ExclamationTriangleIcon />
               <AlertTitle>Google sign-in failed</AlertTitle>
               <AlertDescription>{oauthError}</AlertDescription>
@@ -85,73 +95,73 @@ export default function RegisterPage() {
           <GoogleAuthLink
             id="google-register-btn"
             intent="register"
-            label="Register with Google"
-            className="mb-8"
+            label="Continue with Google"
+            className="mt-6 rounded-[var(--radius-md)] py-3"
           />
 
-          <div className="relative mb-8 flex items-center gap-4">
+          <div className="relative my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              or
+            <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Or use email
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-6">
+          <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <div className="space-y-2">
               <Label
                 htmlFor="register-name"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
                 Full name
               </Label>
               <Input
                 id="register-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 type="text"
                 autoComplete="name"
                 placeholder="Your name"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-[var(--radius-md)] bg-background"
               />
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="register-email"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Email <span className="text-destructive">*</span>
+                Email
               </Label>
               <Input
                 id="register-email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 type="email"
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-[var(--radius-md)] bg-background"
               />
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="register-password"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Password <span className="text-destructive">*</span>
+                Password
               </Label>
               <div className="relative">
                 <Input
                   id="register-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  placeholder="........"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                  placeholder="Use at least 8 characters"
+                  className="h-12 rounded-[var(--radius-md)] bg-background pr-12"
                 />
                 <button
                   type="button"
@@ -162,39 +172,35 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Use at least 8 characters.</p>
+              <p className="text-xs text-muted-foreground">
+                Use a password you will remember for future bookings and payment follow-up.
+              </p>
             </div>
 
-            <button
+            <Button
               id="register-submit-btn"
               type="submit"
+              variant="brand"
+              size="lg"
               disabled={isSubmitting || !email.trim() || !password.trim()}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-2 w-full text-xs font-semibold uppercase tracking-[0.24em]"
             >
               {isSubmitting ? (
                 <>
-                  <Loader className="size-3.5 animate-spin" />
-                  Creating account...
+                  <Loader className="size-4 animate-spin" />
+                  Creating account
                 </>
               ) : (
                 "Create account"
               )}
-            </button>
+            </Button>
 
-            <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
-              By creating an account, you agree to our{" "}
-              <Link href="#" className="underline underline-offset-4 hover:text-foreground">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="#" className="underline underline-offset-4 hover:text-foreground">
-                Privacy Policy
-              </Link>
-              .
+            <p className="text-center text-xs leading-6 text-muted-foreground">
+              By creating an account, you agree to our Terms of Service and Privacy Policy.
             </p>
           </form>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
               href="/login"
@@ -203,40 +209,54 @@ export default function RegisterPage() {
               Log in
             </Link>
           </p>
-        </div>
-      </div>
+        </section>
 
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-l border-border bg-muted/30 px-12 py-16">
-        <div className="flex flex-1 items-center">
-          <div className="space-y-10">
-            <div className="space-y-4">
-              <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
-                Wear something
-                <br />
-                extraordinary.
-              </p>
-              <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
-                Thousands of premium costumes available for rent - from theatrical period pieces to fantasy ensembles.
+        <section className="surface-shell order-1 flex flex-col justify-between rounded-[var(--radius-xl)] p-8 md:p-10 lg:order-2">
+          <div>
+            <BrandLogo size="md" />
+            <div className="mt-10 max-w-2xl">
+              <div className="brand-eyebrow inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                <span className="inline-block size-1.5 rounded-full bg-gold" />
+                Customer onboarding
+              </div>
+              <h2 className="mt-6 font-display text-4xl text-foreground md:text-5xl lg:text-6xl">
+                Start browsing like a customer, not a guest.
+              </h2>
+              <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground">
+                A SnapCos account keeps discovery, wishlist, reservations, and payment follow-up in
+                one structured product flow.
               </p>
             </div>
 
-            <ul className="space-y-4">
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
               {TRUST_POINTS.map((point) => (
-                <li key={point} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
-                    <CheckIcon className="size-3" />
-                  </span>
-                  <span className="text-sm text-muted-foreground">{point}</span>
-                </li>
+                <div
+                  key={point}
+                  className="rounded-[var(--radius-lg)] border border-border bg-background/75 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border text-foreground">
+                      <CheckIcon className="size-3" />
+                    </span>
+                    <p className="text-sm leading-6 text-foreground">{point}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          <BrandLogo size="sm" />
-          <span>Copyright {new Date().getFullYear()}</span>
-        </div>
+          <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              Modern SaaS structure, restrained brand warmth
+            </p>
+            <Link
+              href="/login"
+              className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--color-brand)] transition-colors hover:text-foreground"
+            >
+              Already have access
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -1,99 +1,112 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
-import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
-  StackIcon,
-  CardStackIcon,
-  CalendarIcon,
   ArchiveIcon,
-  PersonIcon,
-  ExitIcon,
-  HamburgerMenuIcon,
+  CalendarIcon,
+  CardStackIcon,
+  DashboardIcon,
   LockClosedIcon,
+  PersonIcon,
+  StackIcon,
 } from "@radix-ui/react-icons";
 
-const NAV = [
-  { href: "/admin", label: "Overview", icon: StackIcon },
-  { href: "/admin/vendors", label: "Vendors", icon: CardStackIcon },
-  { href: "/admin/reservations", label: "Reservations", icon: CalendarIcon },
-  { href: "/admin/payments", label: "Payments", icon: ArchiveIcon },
-  { href: "/admin/users", label: "Users", icon: PersonIcon },
+import { AppShell, type ShellNavItem } from "@/components/shell/AppShell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonVariants } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+const NAV: ShellNavItem[] = [
+  {
+    href: "/admin",
+    label: "Overview",
+    icon: StackIcon,
+    group: "core",
+    meta: "Priority queues and platform snapshot",
+  },
+  {
+    href: "/admin/inventory",
+    label: "Inventory",
+    icon: DashboardIcon,
+    group: "operations",
+    meta: "Listing moderation, visibility, and catalog state",
+  },
+  {
+    href: "/admin/vendors",
+    label: "Vendors",
+    icon: CardStackIcon,
+    group: "governance",
+    meta: "Approvals, review notes, and account state",
+  },
+  {
+    href: "/admin/reservations",
+    label: "Reservations",
+    icon: CalendarIcon,
+    group: "operations",
+    meta: "Lifecycle review and overrides",
+  },
+  {
+    href: "/admin/payments",
+    label: "Payments",
+    icon: ArchiveIcon,
+    group: "operations",
+    meta: "Receipt verification and payout confidence",
+  },
+  {
+    href: "/admin/users",
+    label: "Users",
+    icon: PersonIcon,
+    group: "governance",
+    meta: "Roles, suspension state, and access control",
+  },
 ];
 
-type AdminSidebarProps = {
-  email?: string;
-  initials: string;
-  name?: string;
-  onLogout: () => void;
-  onNavigate: () => void;
-  pathname: string;
-};
+const ROUTE_META = [
+  {
+    href: "/admin/inventory",
+    title: "Inventory",
+    description: "Control listing visibility, moderation state, and catalog quality from one dense review surface.",
+  },
+  {
+    href: "/admin/vendors",
+    title: "Vendors",
+    description: "Triage approvals, review notes, and vendor trust states with less noise and more signal.",
+  },
+  {
+    href: "/admin/reservations",
+    title: "Reservations",
+    description: "Audit transaction flow, intervene when necessary, and keep renter-vendor decisions easy to parse.",
+  },
+  {
+    href: "/admin/payments",
+    title: "Payments",
+    description: "Review proof submissions, resolve pending states quickly, and keep financial moderation explicit.",
+  },
+  {
+    href: "/admin/users",
+    title: "Users",
+    description: "Manage roles, suspension state, and account visibility with an operational frame.",
+  },
+  {
+    href: "/admin",
+    title: "Overview",
+    description: "Review the active queues first, then scan recent platform activity and core system totals.",
+  },
+];
 
-function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }: AdminSidebarProps) {
+function getRouteMeta(pathname: string) {
+  return ROUTE_META.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? ROUTE_META[ROUTE_META.length - 1];
+}
+
+function AdminBadge() {
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex h-20 items-center justify-between gap-3 border-b border-border px-6">
-        <div className="space-y-2">
-          <BrandLogo size="md" />
-          <p className="pl-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-            Admin Console
-          </p>
-        </div>
-        <div className="flex size-8 items-center justify-center rounded-[1rem] border border-border bg-muted text-foreground">
-          <LockClosedIcon className="size-3.5" />
-        </div>
-      </div>
-
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4" aria-label="Admin navigation">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const isActive = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
-                isActive
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="space-y-3 border-t border-border px-4 py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold leading-none text-foreground">{name || "Admin"}</p>
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{email}</p>
-          </div>
-          <ThemeToggle />
-        </div>
-        <div className="flex">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <ExitIcon className="size-3" /> Log out
-          </button>
-        </div>
-      </div>
-    </aside>
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+      <LockClosedIcon className="size-3" />
+      Admin
+    </span>
   );
 }
 
@@ -101,7 +114,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, logout, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -116,6 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (isAuthLoading || !user || user.role !== "ADMIN") return null;
 
+  const meta = getRouteMeta(pathname);
   const initials = user.name
     ? user.name.split(" ").map((namePart) => namePart[0]).join("").slice(0, 2).toUpperCase()
     : "A";
@@ -126,58 +139,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <div className="hidden md:flex">
-        <AdminSidebar
-          email={user.email}
-          initials={initials}
-          name={user.name}
-          onLogout={() => void handleLogout()}
-          onNavigate={() => setSidebarOpen(false)}
-          pathname={pathname}
-        />
-      </div>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div
-            className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div className="relative z-10 flex h-full">
-            <AdminSidebar
-              email={user.email}
-              initials={initials}
-              name={user.name}
-              onLogout={() => void handleLogout()}
-              onNavigate={() => setSidebarOpen(false)}
-              pathname={pathname}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex h-16 items-center justify-between border-b border-border px-4 md:hidden">
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => setSidebarOpen(true)}
-            className="flex size-9 items-center justify-center rounded-sm border border-border text-foreground"
-          >
-            <HamburgerMenuIcon className="size-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <BrandLogo size="sm" variant="mark" />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Admin
-            </p>
-          </div>
+    <AppShell
+      density="admin"
+      brandCaption="Admin console"
+      eyebrow="Platform administration"
+      title={meta.title}
+      description={meta.description}
+      badge={<AdminBadge />}
+      actions={
+        <>
+          <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Storefront
+          </Link>
           <ThemeToggle />
-        </div>
-
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+        </>
+      }
+      navItems={NAV}
+      pathname={pathname}
+      accountName={user.name || "Admin"}
+      accountEmail={user.email}
+      initials={initials}
+      onLogout={() => void handleLogout()}
+      homeHref="/"
+      homeLabel="Storefront"
+    >
+      {children}
+    </AppShell>
   );
 }

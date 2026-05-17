@@ -1,15 +1,19 @@
 "use client";
 
+import { MoonIcon as Moon, SunIcon as Sun } from "@radix-ui/react-icons";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { MoonIcon as Moon, SunIcon as Sun } from "@radix-ui/react-icons";
+
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
+type ThemeToggleProps = {
+  className?: string;
+};
+
+export function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration mismatch — only render after client mount
   useEffect(() => setMounted(true), []);
 
   const isDark = resolvedTheme === "dark";
@@ -18,12 +22,14 @@ export function ThemeToggle() {
     setTheme(isDark ? "light" : "dark");
   }
 
-  // Render a stable placeholder before mount to avoid layout shift
   if (!mounted) {
     return (
       <div
         aria-hidden="true"
-        className="flex size-9 items-center justify-center rounded-sm border border-transparent"
+        className={cn(
+          "flex size-10 items-center justify-center rounded-full border border-transparent",
+          className
+        )}
       />
     );
   }
@@ -34,28 +40,20 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "group relative flex size-9 items-center justify-center rounded-sm border transition-colors duration-200",
-        "border-transparent text-muted-foreground",
-        "hover:border-border hover:text-foreground"
+        "group relative inline-flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-[0_1px_0_color-mix(in_oklab,white_35%,transparent)] transition-[border-color,background-color,color,transform] duration-[var(--dur-fast)] hover:border-[color:color-mix(in_oklab,var(--color-brand)_18%,var(--color-border))] hover:bg-accent hover:text-foreground dark:shadow-[0_1px_0_color-mix(in_oklab,white_7%,transparent)]",
+        className
       )}
     >
-      {/* Sun — visible in light mode */}
       <Sun
         className={cn(
           "absolute size-4 transition-all duration-300",
-          isDark
-            ? "opacity-0 scale-75 rotate-45"
-            : "opacity-100 scale-100 rotate-0"
+          isDark ? "rotate-45 scale-75 opacity-0" : "rotate-0 scale-100 opacity-100"
         )}
       />
-
-      {/* Moon — visible in dark mode */}
       <Moon
         className={cn(
           "absolute size-4 transition-all duration-300",
-          isDark
-            ? "opacity-100 scale-100 rotate-0"
-            : "opacity-0 scale-75 -rotate-45"
+          isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-45 scale-75 opacity-0"
         )}
       />
     </button>

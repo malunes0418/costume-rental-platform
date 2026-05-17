@@ -1,163 +1,335 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { adminListUsers, adminUpdateUserRole, type AdminUser } from "@/lib/admin";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { MagnifyingGlassIcon, DotsHorizontalIcon, Pencil2Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import {
+  DotsHorizontalIcon,
+  MagnifyingGlassIcon,
+} from "@radix-ui/react-icons";
 
-function fmt(d?: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+import {
+  AdminEmptyState,
+  AdminResponsiveFilterRail,
+  AdminSectionCard,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPrimitives";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  adminListUsers,
+  adminUpdateUserRole,
+  type AdminUser,
+} from "@/lib/admin";
+import { useAuth } from "@/lib/auth";
+
+const FILTERS = ["ALL", "ADMIN", "VENDOR", "USER", "SUSPENDED"] as const;
+
+function formatDate(value?: string) {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function RoleChip({ role }: { role: string }) {
-  const r = role?.toUpperCase();
-  const cls =
-    r === "ADMIN" ? "border-foreground bg-foreground text-background"
-    : r === "VENDOR" ? "border-border text-foreground"
-    : r === "SUSPENDED" ? "border-destructive/30 bg-destructive/10 text-destructive"
-    : "border-border/50 text-muted-foreground";
-  return <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{role}</span>;
+function userTone(role: string) {
+  const normalized = role.toUpperCase();
+  if (normalized === "ADMIN") return "brand" as const;
+  if (normalized === "VENDOR") return "success" as const;
+  if (normalized === "SUSPENDED") return "danger" as const;
+  return "neutral" as const;
+}
+
+function rolePriority(role: string) {
+  const normalized = role.toUpperCase();
+  if (normalized === "SUSPENDED") return 0;
+  if (normalized === "ADMIN") return 1;
+  if (normalized === "VENDOR") return 2;
+  return 3;
 }
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
-  const [all, setAll]       = useState<AdminUser[]>([]);
-  const [search, setSearch] = useState("");
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN") return;
     adminListUsers()
-      .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
+      .then((data) => setUsers(data))
       .catch(() => toast.error("Failed to load users."))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, []);
 
-  const q = search.trim().toLowerCase();
-  const items = q
-    ? all.filter((u) => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
-    : all;
+  const metrics = useMemo(() => {
+    return {
+      total: users.length,
+      admins: users.filter((entry) => entry.role.toUpperCase() === "ADMIN").length,
+      vendors: users.filter((entry) => entry.role.toUpperCase() === "VENDOR").length,
+      suspended: users.filter((entry) => entry.role.toUpperCase() === "SUSPENDED").length,
+    };
+  }, [users]);
 
-  const admins  = all.filter(u => u.role === "ADMIN").length;
-  const vendors = all.filter(u => u.role === "VENDOR").length;
-  const suspended = all.filter(u => u.role === "SUSPENDED").length;
-  const regular = all.filter(u => u.role !== "ADMIN" && u.role !== "VENDOR" && u.role !== "SUSPENDED").length;
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-  async function handleRoleChange(userId: number, newRole: string) {
-    if (!user) return;
+    return [...users]
+      .filter((entry) => {
+        const matchesFilter = filter === "ALL" ? true : entry.role.toUpperCase() === filter;
+        const matchesSearch =
+          !query ||
+          (entry.name || "").toLowerCase().includes(query) ||
+          (entry.email || "").toLowerCase().includes(query);
+
+        return matchesFilter && matchesSearch;
+      })
+      .sort((left, right) => {
+        const leftIsCurrent = left.id === user?.id ? 1 : 0;
+        const rightIsCurrent = right.id === user?.id ? 1 : 0;
+        if (leftIsCurrent !== rightIsCurrent) return rightIsCurrent - leftIsCurrent;
+
+        const roleDelta = rolePriority(left.role) - rolePriority(right.role);
+        if (roleDelta !== 0) return roleDelta;
+
+        return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime();
+      });
+  }, [filter, search, user?.id, users]);
+
+  async function updateRole(userId: number, role: string) {
     try {
-      await adminUpdateUserRole(userId, newRole);
-      setAll((curr) => curr.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      toast.success(`User role updated to ${newRole}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to update role.");
+      await adminUpdateUserRole(userId, role);
+      setUsers((current) =>
+        current.map((entry) => (entry.id === userId ? { ...entry, role } : entry))
+      );
+      toast.success(`User role updated to ${role.toLowerCase()}.`);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Role update failed.");
     }
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-56 rounded-[var(--radius-xl)]" />
+        <Skeleton className="h-[560px] rounded-[var(--radius-xl)]" />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 md:p-10 space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Users
-          </h1>
-          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            <span><span className="font-semibold text-foreground">{all.length}</span> total</span>
-            <span><span className="font-semibold text-foreground">{admins}</span> admin{admins !== 1 ? "s" : ""}</span>
-            <span><span className="font-semibold text-foreground">{vendors}</span> vendor{vendors !== 1 ? "s" : ""}</span>
-            <span><span className="font-semibold text-foreground">{regular}</span> user{regular !== 1 ? "s" : ""}</span>
-            {suspended > 0 && <span className="text-destructive"><span className="font-semibold">{suspended}</span> suspended</span>}
+    <div className="space-y-6">
+      <AdminSectionCard
+        eyebrow="Access summary"
+        title="Keep account access legible before changing roles"
+        description="Suspended accounts and admin accounts surface first, while the main table stays focused on role changes and account access decisions."
+        actions={
+          <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+            {metrics.total} account{metrics.total === 1 ? "" : "s"}
+          </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Suspended access
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.suspended}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Accounts currently blocked from normal platform access.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Admin operators
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.admins}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Accounts with the highest level of platform control.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Vendor accounts
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.vendors}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Accounts currently configured to operate as marketplace vendors.
+            </p>
           </div>
         </div>
+      </AdminSectionCard>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or email…"
-            className="pl-9 h-9 text-xs rounded-sm border-border bg-card focus-visible:ring-0 shadow-sm"
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-sm" />)}
-        </div>
-      ) : (
-        <div className="rounded-sm border border-border divide-y divide-border bg-card">
-          {items.length === 0 && (
-            <p className="px-6 py-16 text-center text-sm text-muted-foreground">No users found.</p>
-          )}
-          {items.map((u) => (
-            <div key={u.id} className="flex items-center justify-between gap-4 px-6 py-4 group transition-colors hover:bg-muted/30">
-              <div className="flex items-center gap-4 min-w-0">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
-                  {u.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "U"}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{u.name || `User #${u.id}`}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <span className="text-[10px] text-muted-foreground hidden sm:block">Joined {fmt(u.created_at)}</span>
-                <RoleChip role={u.role} />
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex size-8 items-center justify-center rounded-sm transition-colors hover:bg-muted text-muted-foreground hover:text-foreground">
-                      <DotsHorizontalIcon className="size-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel className="text-xs">Manage User</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => handleRoleChange(u.id, "USER")}
-                      disabled={u.role === "USER" || u.id === user?.id}
-                      className="text-xs cursor-pointer"
-                    >
-                      <Pencil2Icon className="mr-2 size-3.5" /> Set as User
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => handleRoleChange(u.id, "VENDOR")}
-                      disabled={u.role === "VENDOR" || u.id === user?.id}
-                      className="text-xs cursor-pointer"
-                    >
-                      <Pencil2Icon className="mr-2 size-3.5" /> Set as Vendor
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => handleRoleChange(u.id, "ADMIN")}
-                      disabled={u.role === "ADMIN" || u.id === user?.id}
-                      className="text-xs cursor-pointer"
-                    >
-                      <Pencil2Icon className="mr-2 size-3.5" /> Set as Admin
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => handleRoleChange(u.id, u.role === "SUSPENDED" ? "USER" : "SUSPENDED")}
-                      disabled={u.id === user?.id}
-                      className={`text-xs cursor-pointer ${u.role === "SUSPENDED" ? "text-emerald-600 focus:text-emerald-600" : "text-destructive focus:text-destructive"}`}
-                    >
-                      <ExclamationTriangleIcon className="mr-2 size-3.5" /> 
-                      {u.role === "SUSPENDED" ? "Remove Suspension" : "Suspend User"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+      <AdminSectionCard
+        eyebrow="Access control"
+        title="Review account roles without extra noise"
+        description="Search by name or email, filter by role, and change access from the row menu while your own admin account stays protected from accidental edits."
+        actions={
+          <>
+            <div className="relative min-w-[220px] flex-1 md:min-w-[260px] md:flex-none">
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by name or email"
+                className="h-9 pl-9"
+              />
             </div>
-          ))}
-        </div>
-      )}
+            <AdminResponsiveFilterRail
+              label="Role"
+              value={filter}
+              options={FILTERS.map((status) => ({
+                value: status,
+                label: status === "ALL" ? "All" : status,
+              }))}
+              onChange={(value) => setFilter(value as (typeof FILTERS)[number])}
+            />
+          </>
+        }
+      >
+        {filteredUsers.length === 0 ? (
+          <AdminEmptyState
+            title="No users match the current view."
+            description="Change the role filter or search query to review another group of accounts."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Account</th>
+                  <th className="pb-3 font-medium">Access</th>
+                  <th className="pb-3 font-medium">Signals</th>
+                  <th className="pb-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredUsers.map((entry) => {
+                  const initials = entry.name
+                    ? entry.name
+                        .split(" ")
+                        .map((part) => part[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    : "U";
+
+                  return (
+                    <tr key={entry.id}>
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <span className="flex size-9 items-center justify-center rounded-[var(--radius-sm)] border border-border bg-background text-xs font-semibold text-foreground">
+                            {initials}
+                          </span>
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              {entry.name || `User #${entry.id}`}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {entry.email || "--"}
+                            </p>
+                            {entry.id === user?.id ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                You are signed in with this account
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-2">
+                          <AdminStatusBadge label={entry.role} tone={userTone(entry.role)} />
+                          <p className="text-xs text-muted-foreground">
+                            {entry.role.toUpperCase() === "ADMIN"
+                              ? "Can manage platform-wide administration."
+                              : entry.role.toUpperCase() === "VENDOR"
+                                ? "Can operate as a marketplace vendor."
+                                : entry.role.toUpperCase() === "SUSPENDED"
+                                  ? "Blocked from normal account access."
+                                  : "Standard marketplace account access."}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-1">
+                          <p className="text-foreground">Joined {formatDate(entry.created_at)}</p>
+                          <p className="text-xs text-muted-foreground">Account ID #{entry.id}</p>
+                        </div>
+                      </td>
+                      <td className="py-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Manage ${entry.name || `user ${entry.id}`}`}
+                              className="inline-flex size-8 items-center justify-center rounded-[var(--radius-sm)] border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              <DotsHorizontalIcon className="size-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuLabel>Manage account</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={entry.id === user?.id || entry.role === "USER"}
+                              onClick={() => void updateRole(entry.id, "USER")}
+                            >
+                              Change role to user
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={entry.id === user?.id || entry.role === "VENDOR"}
+                              onClick={() => void updateRole(entry.id, "VENDOR")}
+                            >
+                              Change role to vendor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={entry.id === user?.id || entry.role === "ADMIN"}
+                              onClick={() => void updateRole(entry.id, "ADMIN")}
+                            >
+                              Change role to admin
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={entry.id === user?.id}
+                              onClick={() =>
+                                void updateRole(
+                                  entry.id,
+                                  entry.role === "SUSPENDED" ? "USER" : "SUSPENDED"
+                                )
+                              }
+                            >
+                              {entry.role === "SUSPENDED"
+                                ? "Restore account access"
+                                : "Suspend account access"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSectionCard>
     </div>
   );
 }

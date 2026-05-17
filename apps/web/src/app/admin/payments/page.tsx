@@ -1,183 +1,424 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { adminListPayments, adminReviewPayment, type AdminPayment } from "@/lib/admin";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { CheckIcon, Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
-import { cn } from "@/lib/utils";
-import { resolveApiAsset } from "@/lib/assets";
+import {
+  CheckIcon,
+  Cross2Icon,
+  EyeOpenIcon,
+} from "@radix-ui/react-icons";
+
+import {
+  AdminEmptyState,
+  AdminResponsiveFilterRail,
+  AdminSectionCard,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPrimitives";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { adminListPayments, adminReviewPayment, type AdminPayment } from "@/lib/admin";
+import { resolveApiAsset } from "@/lib/assets";
 
-function fmt(d?: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const FILTERS = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
+
+function formatDate(value?: string) {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function StatusChip({ status }: { status: string }) {
-  const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-    : s === "PENDING" ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-    : s === "REJECTED" ? "border-destructive/20 bg-destructive/5 text-destructive"
-    : "border-border bg-muted/50 text-muted-foreground";
-  return <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{status}</span>;
+function currency(value: number | string) {
+  return `PHP ${Number(value).toLocaleString()}`;
+}
+
+function paymentTone(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "APPROVED") return "success" as const;
+  if (normalized === "PENDING") return "warning" as const;
+  if (normalized === "REJECTED") return "danger" as const;
+  return "neutral" as const;
+}
+
+function paymentPriority(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "PENDING") return 0;
+  if (normalized === "REJECTED") return 1;
+  if (normalized === "APPROVED") return 2;
+  return 3;
 }
 
 export default function AdminPaymentsPage() {
-  const { user } = useAuth();
-  const [all, setAll]           = useState<AdminPayment[]>([]);
-  const [filter, setFilter]     = useState("");
-  const [loading, setLoading]   = useState(true);
+  const [payments, setPayments] = useState<AdminPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
   const [actioning, setActioning] = useState<number | null>(null);
-  const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<AdminPayment | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN") return;
     adminListPayments()
-      .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
+      .then((data) => setPayments(data))
       .catch(() => toast.error("Failed to load payments."))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, []);
 
-  async function handle(paymentId: number, status: "APPROVED" | "REJECTED") {
-    if (!user) return;
+  const metrics = useMemo(() => {
+    const approved = payments.filter((payment) => payment.status.toUpperCase() === "APPROVED");
+    const pending = payments.filter((payment) => payment.status.toUpperCase() === "PENDING");
+    const rejected = payments.filter((payment) => payment.status.toUpperCase() === "REJECTED");
+
+    return {
+      total: payments.length,
+      approvedAmount: approved.reduce((sum, payment) => sum + Number(payment.amount), 0),
+      pending: pending.length,
+      rejected: rejected.length,
+    };
+  }, [payments]);
+
+  const filteredPayments = useMemo(() => {
+    const scopedPayments =
+      filter === "ALL"
+        ? payments
+        : payments.filter((payment) => payment.status.toUpperCase() === filter);
+
+    return [...scopedPayments].sort((left, right) => {
+      const priorityDelta = paymentPriority(left.status) - paymentPriority(right.status);
+      if (priorityDelta !== 0) return priorityDelta;
+      return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime();
+    });
+  }, [filter, payments]);
+
+  async function reviewPayment(paymentId: number, status: "APPROVED" | "REJECTED") {
     setActioning(paymentId);
     try {
       await adminReviewPayment(paymentId, status, "");
+      setPayments((current) =>
+        current.map((payment) => (payment.id === paymentId ? { ...payment, status } : payment))
+      );
+      setSelectedPayment((current) =>
+        current?.id === paymentId ? { ...current, status } : current
+      );
       toast.success(`Payment ${status.toLowerCase()}.`);
-      setAll((ps) => ps.map((p) => p.id === paymentId ? { ...p, status } : p));
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Payment review failed.");
     } finally {
       setActioning(null);
     }
   }
 
-  const items = filter ? all.filter((p) => p.status?.toUpperCase() === filter) : all;
-  const totalApproved = all.filter(p => p.status === "APPROVED").reduce((s, p) => s + Number(p.amount), 0);
-  const pendingCount  = all.filter(p => p.status === "PENDING").length;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-56 rounded-[var(--radius-xl)]" />
+        <Skeleton className="h-[560px] rounded-[var(--radius-xl)]" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 md:p-10 space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Payments
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {all.length} total · ₱{Number(totalApproved).toLocaleString()} approved
-            {pendingCount > 0 && <span className="ml-2 font-semibold text-amber-700 dark:text-amber-400">· {pendingCount} pending</span>}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {["", "PENDING", "APPROVED", "REJECTED"].map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilter(s)}
-              className={cn(
-                "rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
-                filter === s
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
-              )}
-            >
-              {s || "All"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-sm" />)}
-        </div>
-      ) : (
-        <div className="rounded-sm border border-border divide-y divide-border bg-card">
-          {items.length === 0 && (
-            <p className="px-6 py-16 text-center text-sm text-muted-foreground">No payments match this filter.</p>
-          )}
-          {items.map((p) => (
-            <div key={p.id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-muted/30">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-playfair text-base font-semibold text-foreground">Payment #{p.id}</p>
-                  {p.proof_url && (
-                    <button
-                      type="button"
-                      onClick={() => setViewReceiptUrl(resolveApiAsset(p.proof_url!))}
-                      className="inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <ImageIcon className="size-3" /> Receipt
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Reservations #{(p.reservation_ids || []).join(', #')} · User #{p.user_id} · {fmt(p.created_at)}
-                </p>
-                {p.notes && <p className="mt-1 text-xs text-muted-foreground italic">{p.notes}</p>}
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="font-playfair text-base font-semibold text-foreground">
-                  ₱{Number(p.amount).toLocaleString()}
-                </span>
-                <StatusChip status={p.status} />
-                {p.status === "PENDING" && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={actioning === p.id}
-                      onClick={() => handle(p.id, "APPROVED")}
-                      className="flex h-8 items-center gap-1.5 rounded-sm border border-emerald-400/40 px-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
-                    >
-                      <CheckIcon className="size-3" /> Approve
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actioning === p.id}
-                      onClick={() => handle(p.id, "REJECTED")}
-                      className="flex h-8 items-center gap-1.5 rounded-sm border border-destructive/30 px-3 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                    >
-                      <Cross2Icon className="size-3" /> Reject
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Receipt Modal */}
-      <Dialog open={!!viewReceiptUrl} onOpenChange={(open: boolean) => !open && setViewReceiptUrl(null)}>
-        <DialogContent className="sm:max-w-md rounded-sm border border-border bg-background shadow-none">
-          <DialogHeader>
-            <DialogTitle className="font-playfair text-2xl font-semibold text-foreground">
-              Proof of Payment
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Review the uploaded receipt before taking action.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 overflow-hidden rounded-sm border border-border bg-muted">
-            {viewReceiptUrl && (
-              <img
-                src={viewReceiptUrl}
-                alt="Payment Receipt"
-                className="w-full h-auto object-contain max-h-[60vh]"
-                loading="lazy"
-              />
-            )}
+    <div className="space-y-6">
+      <AdminSectionCard
+        eyebrow="Payment priorities"
+        title="Review receipts before they slow the booking flow"
+        description="Handle pending payment proofs first, keep rejected submissions easy to revisit, and track approved volume without turning the page into a finance dashboard."
+        actions={
+          <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+            {metrics.total} payment{metrics.total === 1 ? "" : "s"}
           </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Needs review
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.pending}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Payment proofs still waiting for an approval or rejection.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Approved volume
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {currency(metrics.approvedAmount)}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Payment value that has already cleared review.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Rejected
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.rejected}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Submissions previously declined after review.
+            </p>
+          </div>
+        </div>
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        eyebrow="Payment moderation"
+        title="Scan evidence and decide quickly"
+        description="Filter by review state, check the amount and linked reservations in one row, and open the receipt panel only when you need closer verification."
+        actions={
+          <AdminResponsiveFilterRail
+            label="Status"
+            value={filter}
+            options={FILTERS.map((status) => ({
+              value: status,
+              label: status === "ALL" ? "All" : status,
+            }))}
+            onChange={(value) => setFilter(value as (typeof FILTERS)[number])}
+          />
+        }
+      >
+        {filteredPayments.length === 0 ? (
+          <AdminEmptyState
+            title="No payments match this filter."
+            description="Change the current state filter to review another slice of payment records."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Payment</th>
+                  <th className="pb-3 font-medium">Payer</th>
+                  <th className="pb-3 font-medium">Reservations</th>
+                  <th className="pb-3 font-medium">Signals</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredPayments.map((payment) => {
+                  const reservationLabel = (payment.reservation_ids || []).length
+                    ? payment.reservation_ids.map((id) => `#${id}`).join(", ")
+                    : "--";
+
+                  return (
+                    <tr key={payment.id}>
+                      <td className="py-4">
+                        <p className="font-semibold text-foreground">Payment #{payment.id}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Submitted {formatDate(payment.created_at)}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <p className="text-foreground">User #{payment.user_id}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {payment.proof_url ? "Receipt attached" : "No receipt attached"}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <p className="text-foreground">{reservationLabel}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {(payment.reservation_ids || []).length} linked reservation
+                          {(payment.reservation_ids || []).length === 1 ? "" : "s"}
+                        </p>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-1">
+                          <p className="text-foreground">{currency(payment.amount)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {payment.notes || "No admin note attached."}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="space-y-2">
+                          <AdminStatusBadge label={payment.status} tone={paymentTone(payment.status)} />
+                          {payment.status.toUpperCase() === "PENDING" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Waiting for a final receipt decision.
+                            </p>
+                          ) : payment.status.toUpperCase() === "REJECTED" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Previously declined after review.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Review is already complete for this submission.
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedPayment(payment)}
+                          >
+                            <EyeOpenIcon className="size-4" />
+                            Review
+                          </Button>
+                          {payment.status.toUpperCase() === "PENDING" ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={actioning === payment.id}
+                                onClick={() => void reviewPayment(payment.id, "APPROVED")}
+                              >
+                                <CheckIcon className="size-4" />
+                                Approve
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                disabled={actioning === payment.id}
+                                onClick={() => void reviewPayment(payment.id, "REJECTED")}
+                              >
+                                <Cross2Icon className="size-4" />
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSectionCard>
+
+      <Dialog
+        open={selectedPayment !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) setSelectedPayment(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          {selectedPayment ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Payment #{selectedPayment.id}</DialogTitle>
+                <DialogDescription>
+                  Confirm the payment amount, linked reservations, and receipt proof before making a final review decision.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Submission
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {currency(selectedPayment.amount)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">User #{selectedPayment.user_id}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Submitted {formatDate(selectedPayment.created_at)}
+                  </p>
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Current status
+                  </p>
+                  <div className="mt-2">
+                    <AdminStatusBadge
+                      label={selectedPayment.status}
+                      tone={paymentTone(selectedPayment.status)}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {(selectedPayment.reservation_ids || []).length} linked reservation
+                    {(selectedPayment.reservation_ids || []).length === 1 ? "" : "s"}
+                  </p>
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Receipt proof
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {selectedPayment.proof_url ? "Available" : "Missing"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedPayment.proof_url
+                      ? "Open the uploaded proof for full-size verification."
+                      : "No proof file is attached to this payment record."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Linked reservations
+                </p>
+                <p className="mt-2 text-sm text-foreground">
+                  {(selectedPayment.reservation_ids || []).map((id) => `#${id}`).join(", ") || "--"}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {selectedPayment.notes || "No admin note attached."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {selectedPayment.proof_url ? (
+                  <a
+                    href={resolveApiAsset(selectedPayment.proof_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center justify-center rounded-[var(--radius-sm)] border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Open receipt
+                  </a>
+                ) : null}
+                {selectedPayment.status.toUpperCase() === "PENDING" ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={actioning === selectedPayment.id}
+                      onClick={() => void reviewPayment(selectedPayment.id, "APPROVED")}
+                    >
+                      <CheckIcon className="size-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={actioning === selectedPayment.id}
+                      onClick={() => void reviewPayment(selectedPayment.id, "REJECTED")}
+                    >
+                      <Cross2Icon className="size-4" />
+                      Reject
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

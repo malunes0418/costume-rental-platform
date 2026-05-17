@@ -1,380 +1,344 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
-  adminListUsers,
-  adminListReservations,
-  adminListPayments,
-  adminListPendingVendors,
-  type AdminUser,
-  type AdminReservation,
-  type AdminPayment,
-  type PendingVendor,
-} from "@/lib/admin";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  PersonIcon,
-  CalendarIcon,
   ArchiveIcon,
-  CardStackIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
+  CalendarIcon,
+  PersonIcon,
 } from "@radix-ui/react-icons";
 
-// ── helpers ────────────────────────────────────────────────────────────────────
+import {
+  AdminEmptyState,
+  AdminSectionCard,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPrimitives";
+import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  adminListPayments,
+  adminListPendingVendors,
+  adminListReservations,
+  adminListUsers,
+  type AdminPayment,
+  type AdminReservation,
+  type AdminUser,
+  type PendingVendor,
+} from "@/lib/admin";
+import { cn } from "@/lib/utils";
 
-function fmt(d?: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function formatDate(value?: string) {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
-function currency(n: number | string) {
-  return `₱${Number(n).toLocaleString()}`;
+function currency(value: number | string) {
+  return `PHP ${Number(value).toLocaleString()}`;
 }
 
-// ── components ─────────────────────────────────────────────────────────────────
-
-function StatusChip({ status }: { status: string }) {
-  const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
-      ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-      : s === "PENDING"
-      ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-      : s === "REJECTED" || s === "CANCELLED"
-      ? "border-destructive/20 bg-destructive/5 text-destructive"
-      : "border-border bg-muted/50 text-muted-foreground";
-
-  return (
-    <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>
-      {status}
-    </span>
-  );
-}
-
-function KpiCard({
-  label, value, icon: Icon, sub, trend,
-}: {
+type ActivityItem = {
+  id: string;
   label: string;
-  value: string | number;
-  icon: React.ElementType;
-  sub?: string;
-  trend?: { dir: "up" | "down"; text: string };
-}) {
-  return (
-    <div className="flex flex-col gap-5 rounded-sm border border-border bg-card p-6">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
-          {label}
-        </p>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border">
-          <Icon className="size-3.5 text-muted-foreground" />
-        </div>
-      </div>
-      <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground leading-none">
-        {value}
-      </p>
-      {(sub || trend) && (
-        <div className="flex items-center gap-2 mt-auto">
-          {trend && (
-            <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${
-              trend.dir === "up" ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-            }`}>
-              {trend.dir === "up"
-                ? <ArrowUpIcon className="size-2.5" />
-                : <ArrowDownIcon className="size-2.5" />}
-              {trend.text}
-            </span>
-          )}
-          {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
-        </div>
-      )}
-    </div>
-  );
-}
+  detail: string;
+  amount?: string;
+  date?: string;
+  tone: "success" | "warning" | "danger" | "neutral";
+  status: string;
+  href: string;
+};
 
-// ── mini bar chart (pure CSS) ──────────────────────────────────────────────────
-
-function MiniBarChart({ data, label }: { data: number[]; label: string }) {
-  const max = Math.max(...data, 1);
-  const days = ["M", "T", "W", "T", "F", "S", "S"];
-  return (
-    <div>
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
-      <div className="flex items-end gap-1 h-16">
-        {data.map((v, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              className="w-full rounded-sm bg-foreground/80 transition-all duration-300"
-              style={{ height: `${(v / max) * 52}px`, minHeight: v > 0 ? "4px" : "0" }}
-            />
-            <span className="text-[8px] text-muted-foreground">{days[i]}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── page ───────────────────────────────────────────────────────────────────────
+type QueueItem = {
+  label: string;
+  value: number;
+  detail: string;
+  href: string;
+  cta: string;
+  icon: typeof PersonIcon;
+  tone: "success" | "warning" | "danger";
+};
 
 export default function AdminOverviewPage() {
-  const { user } = useAuth();
-
-  const [users, setUsers]                   = useState<AdminUser[]>([]);
-  const [reservations, setReservations]     = useState<AdminReservation[]>([]);
-  const [payments, setPayments]             = useState<AdminPayment[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [reservations, setReservations] = useState<AdminReservation[]>([]);
+  const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [pendingVendors, setPendingVendors] = useState<PendingVendor[]>([]);
-  const [loading, setLoading]               = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN") return;
-    Promise.allSettled([
+    Promise.all([
       adminListUsers(),
       adminListReservations(),
       adminListPayments(),
       adminListPendingVendors(),
-    ]).then(([u, r, p, v]) => {
-      const safe = <T,>(res: PromiseSettledResult<T>, fallback: T): T =>
-        res.status === "fulfilled" ? res.value : fallback;
+    ])
+      .then(([userData, reservationData, paymentData, vendorData]) => {
+        setUsers(userData);
+        setReservations(reservationData);
+        setPayments(paymentData);
+        setPendingVendors(vendorData);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-      const arr = <T,>(val: T) =>
-        Array.isArray(val) ? val : ((val as any)?.data ?? []);
+  const metrics = useMemo(() => {
+    const approvedPayments = payments.filter((payment) => payment.status === "APPROVED");
+    const pendingPayments = payments.filter((payment) => payment.status === "PENDING");
+    const disputedReservations = reservations.filter((reservation) =>
+      ["DISPUTED", "REJECTED", "CANCELLED"].includes(reservation.status.toUpperCase())
+    );
+    const approvedReservations = reservations.filter((reservation) =>
+      ["APPROVED", "COMPLETED"].includes(reservation.status.toUpperCase())
+    );
 
-      setUsers(arr(safe(u, [])));
-      setReservations(arr(safe(r, [])));
-      setPayments(arr(safe(p, [])));
-      setPendingVendors(arr(safe(v, [])));
-    }).finally(() => setLoading(false));
-  }, [user]);
+    return {
+      totalRevenue: approvedPayments.reduce((sum, payment) => sum + Number(payment.amount), 0),
+      pendingPayments: pendingPayments.length,
+      pendingVendors: pendingVendors.length,
+      disputedReservations: disputedReservations.length,
+      reservationsNeedingAttention: reservations.filter((reservation) =>
+        ["PENDING", "DISPUTED"].includes(reservation.status.toUpperCase())
+      ).length,
+      approvedReservations: approvedReservations.length,
+    };
+  }, [payments, pendingVendors.length, reservations]);
+  const reviewedPayments = useMemo(
+    () => payments.filter((payment) => payment.status !== "PENDING").length,
+    [payments]
+  );
+  const openQueueCount = useMemo(
+    () =>
+      metrics.pendingVendors + metrics.pendingPayments + metrics.reservationsNeedingAttention,
+    [metrics.pendingPayments, metrics.pendingVendors, metrics.reservationsNeedingAttention]
+  );
+  const queueItems = useMemo<QueueItem[]>(
+    () => [
+      {
+        label: "Vendor applications",
+        value: metrics.pendingVendors,
+        detail: "New storefronts waiting for approval or rejection.",
+        href: "/admin/vendors",
+        cta: "Review vendors",
+        icon: PersonIcon,
+        tone: metrics.pendingVendors > 0 ? "warning" : "success",
+      },
+      {
+        label: "Payment proofs",
+        value: metrics.pendingPayments,
+        detail: "Receipts still waiting for a payment decision.",
+        href: "/admin/payments",
+        cta: "Review payments",
+        icon: ArchiveIcon,
+        tone: metrics.pendingPayments > 0 ? "warning" : "success",
+      },
+      {
+        label: "Reservation issues",
+        value: metrics.reservationsNeedingAttention,
+        detail: "Pending or disputed reservations that may block fulfillment.",
+        href: "/admin/reservations",
+        cta: "Review reservations",
+        icon: CalendarIcon,
+        tone: metrics.disputedReservations > 0 ? "danger" : "warning",
+      },
+    ],
+    [
+      metrics.disputedReservations,
+      metrics.pendingPayments,
+      metrics.pendingVendors,
+      metrics.reservationsNeedingAttention,
+    ]
+  );
 
-  // ── derived analytics ──────────────────────────────────────────────────────
+  const activities = useMemo<ActivityItem[]>(() => {
+    const reservationActivity = reservations.slice(0, 5).map((reservation) => ({
+      id: `reservation-${reservation.id}`,
+      label: `Reservation #${reservation.id}`,
+      detail: `${formatDate(reservation.start_date)} to ${formatDate(reservation.end_date)}`,
+      amount: currency(reservation.total_price),
+      date: reservation.created_at,
+      tone:
+        reservation.status.toUpperCase() === "DISPUTED"
+          ? ("danger" as const)
+          : reservation.status.toUpperCase() === "PENDING"
+            ? ("warning" as const)
+            : ("neutral" as const),
+      status: reservation.status,
+      href: "/admin/reservations",
+    }));
 
-  const totalRevenue    = payments.filter((p) => p.status === "APPROVED").reduce((s, p) => s + Number(p.amount), 0);
-  const pendingPayments = payments.filter((p) => p.status === "PENDING").length;
-  const pendingCount    = pendingVendors.length;
+    const paymentActivity = payments.slice(0, 5).map((payment) => ({
+      id: `payment-${payment.id}`,
+      label: `Payment #${payment.id}`,
+      detail: `Reservations #${payment.reservation_ids.join(", #") || payment.id}`,
+      amount: currency(payment.amount),
+      date: payment.created_at,
+      tone:
+        payment.status.toUpperCase() === "APPROVED"
+          ? ("success" as const)
+          : payment.status.toUpperCase() === "PENDING"
+            ? ("warning" as const)
+            : ("danger" as const),
+      status: payment.status,
+      href: "/admin/payments",
+    }));
 
-  // Reservations per day of week (last 7 buckets)
-  const byDay = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    return reservations.filter((r) => r.created_at?.slice(0, 10) === key).length;
-  });
-
-  // Payment amounts per day (last 7)
-  const revByDay = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    return payments
-      .filter((p) => p.status === "APPROVED" && p.created_at?.slice(0, 10) === key)
-      .reduce((s, p) => s + Number(p.amount), 0);
-  });
-
-  // Status breakdown
-  const statusGroups = reservations.reduce<Record<string, number>>((acc, r) => {
-    acc[r.status] = (acc[r.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const recentActivity = [
-    ...reservations.slice(-4).map((r) => ({
-      id: `res-${r.id}`,
-      label: `Reservation #${r.id}`,
-      sub: `${fmt(r.start_date)} → ${fmt(r.end_date)}`,
-      amount: currency(r.total_price),
-      status: r.status,
-      date: r.created_at,
-    })),
-    ...payments.slice(-4).map((p) => ({
-      id: `pay-${p.id}`,
-      label: `Payment #${p.id}`,
-      sub: `Reservations #${(p.reservation_ids || []).join(', #')}`,
-      amount: currency(p.amount),
-      status: p.status,
-      date: p.created_at,
-    })),
-  ]
-    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
-    .slice(0, 8);
-
-  // ── skeleton ───────────────────────────────────────────────────────────────
+    return [...reservationActivity, ...paymentActivity]
+      .sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())
+      .slice(0, 8);
+  }, [payments, reservations]);
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-9 w-48" />
-        </div>
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-sm" />)}
-        </div>
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <Skeleton className="h-48 col-span-2 rounded-sm" />
-          <Skeleton className="h-48 rounded-sm" />
+      <div className="space-y-6">
+        <Skeleton className="h-72 rounded-[var(--radius-xl)]" />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+          <Skeleton className="h-80 rounded-[var(--radius-xl)]" />
+          <Skeleton className="h-80 rounded-[var(--radius-xl)]" />
         </div>
       </div>
     );
   }
 
-  // ── render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="p-6 md:p-10 space-y-10">
-
-      {/* Header */}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Platform overview
-        </p>
-        <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-          Overview
-        </h1>
-      </div>
-
-      {/* ── KPI row ── */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiCard
-          label="Total revenue"
-          value={currency(totalRevenue)}
-          icon={ArchiveIcon}
-          sub="approved payments"
-        />
-        <KpiCard
-          label="Reservations"
-          value={reservations.length}
-          icon={CalendarIcon}
-          sub="all time"
-        />
-        <KpiCard
-          label="Users"
-          value={users.length}
-          icon={PersonIcon}
-          sub="registered accounts"
-        />
-        <KpiCard
-          label="Action required"
-          value={pendingCount + pendingPayments}
-          icon={CardStackIcon}
-          sub={`${pendingCount} vendors · ${pendingPayments} payments`}
-          trend={pendingCount + pendingPayments > 0 ? { dir: "up", text: "needs review" } : undefined}
-        />
-      </div>
-
-      {/* ── Charts row ── */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-
-        {/* Reservations trend */}
-        <div className="xl:col-span-2 rounded-sm border border-border bg-card p-6 space-y-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">7-day activity</p>
-              <p className="mt-1 font-playfair text-2xl font-semibold text-foreground">Reservations vs Revenue</p>
-            </div>
+    <div className="space-y-6">
+      <AdminSectionCard
+        eyebrow="Priority queues"
+        title="What needs review now"
+        description="Focus first on the queues that can block vendor onboarding, payment confirmation, or reservation progress."
+        actions={
+          <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+            {openQueueCount} open item{openQueueCount === 1 ? "" : "s"}
           </div>
-          <div className="grid grid-cols-2 gap-6">
-            <MiniBarChart data={byDay} label="Reservations" />
-            <MiniBarChart data={revByDay} label="Revenue (₱)" />
-          </div>
-        </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          {queueItems.map((item) => {
+            const Icon = item.icon;
 
-        {/* Status breakdown */}
-        <div className="rounded-sm border border-border bg-card p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Reservation status
-          </p>
-          <p className="mt-1 font-playfair text-2xl font-semibold text-foreground mb-6">
-            Breakdown
-          </p>
-          {Object.keys(statusGroups).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No data.</p>
-          ) : (
-            <div className="space-y-3">
-              {Object.entries(statusGroups).map(([status, count]) => {
-                const pct = Math.round((count / reservations.length) * 100);
-                return (
-                  <div key={status}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {status}
-                      </span>
-                      <span className="text-xs font-semibold text-foreground">{pct}%</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-foreground transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+            return (
+              <div
+                key={item.label}
+                className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      {item.label}
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+                      {item.value}
+                    </p>
                   </div>
-                );
-              })}
+                  <span className="flex size-9 items-center justify-center rounded-[var(--radius-sm)] border border-border bg-background text-muted-foreground">
+                    <Icon className="size-4" />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <AdminStatusBadge
+                    label={item.value > 0 ? "Needs review" : "Clear"}
+                    tone={item.tone}
+                  />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.detail}</p>
+                <Link
+                  href={item.href}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4")}
+                >
+                  {item.cta}
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </AdminSectionCard>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <AdminSectionCard
+          eyebrow="Recent activity"
+          title="Latest records"
+          description="Recent reservations and payments, ordered by the newest activity first."
+        >
+          {activities.length === 0 ? (
+            <AdminEmptyState
+              title="No recent activity."
+              description="Reservations and payments will appear here once the platform has more operational movement."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  <tr>
+                    <th className="pb-3 font-medium">Record</th>
+                    <th className="pb-3 font-medium">Detail</th>
+                    <th className="pb-3 font-medium">Amount</th>
+                    <th className="pb-3 font-medium">Date</th>
+                    <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium text-right">Open</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {activities.map((activity) => (
+                    <tr key={activity.id}>
+                      <td className="py-3 font-semibold text-foreground">{activity.label}</td>
+                      <td className="py-3 text-muted-foreground">{activity.detail}</td>
+                      <td className="py-3 text-foreground">{activity.amount || "--"}</td>
+                      <td className="py-3 text-muted-foreground">{formatDate(activity.date)}</td>
+                      <td className="py-3">
+                        <AdminStatusBadge label={activity.status} tone={activity.tone} />
+                      </td>
+                      <td className="py-3 text-right">
+                        <Link
+                          href={activity.href}
+                          className={buttonVariants({ variant: "ghost", size: "sm" })}
+                        >
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-      </div>
+        </AdminSectionCard>
 
-      {/* ── Recent activity ── */}
-      <div className="rounded-sm border border-border bg-card">
-        <div className="border-b border-border px-6 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Recent activity
-          </p>
-          <p className="mt-0.5 font-playfair text-xl font-semibold text-foreground">
-            Latest transactions
-          </p>
-        </div>
-        <div className="divide-y divide-border">
-          {recentActivity.length === 0 && (
-            <p className="px-6 py-10 text-sm text-muted-foreground text-center">No activity yet.</p>
-          )}
-          {recentActivity.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-4 px-6 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.sub}</p>
+        <AdminSectionCard eyebrow="Snapshot" title="Platform at a glance" dense>
+          <div className="space-y-3">
+            <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 px-4 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Approved revenue
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-foreground">
+                {currency(metrics.totalRevenue)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Revenue from approved payments currently visible to the platform.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between rounded-[var(--radius-lg)] border border-border bg-background/70 px-4 py-3">
+                <span className="text-muted-foreground">Approved reservations</span>
+                <span className="font-semibold text-foreground">{metrics.approvedReservations}</span>
               </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <span className="font-playfair text-sm font-semibold text-foreground">{item.amount}</span>
-                <StatusChip status={item.status} />
-                <span className="text-[10px] text-muted-foreground hidden sm:block">{fmt(item.date)}</span>
+              <div className="flex items-center justify-between rounded-[var(--radius-lg)] border border-border bg-background/70 px-4 py-3">
+                <span className="text-muted-foreground">Reviewed payments</span>
+                <span className="font-semibold text-foreground">{reviewedPayments}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-[var(--radius-lg)] border border-border bg-background/70 px-4 py-3">
+                <span className="text-muted-foreground">Registered users</span>
+                <span className="font-semibold text-foreground">{users.length}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-[var(--radius-lg)] border border-border bg-background/70 px-4 py-3">
+                <span className="text-muted-foreground">Disputed reservations</span>
+                <span className="font-semibold text-foreground">{metrics.disputedReservations}</span>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Pending alerts ── */}
-      {(pendingCount > 0 || pendingPayments > 0) && (
-        <div className="rounded-sm border border-amber-400/30 bg-amber-50/50 dark:bg-amber-900/10 p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
-            Action required
-          </p>
-          <p className="mt-1 font-playfair text-xl font-semibold text-foreground">
-            {pendingCount + pendingPayments} item{pendingCount + pendingPayments !== 1 ? "s" : ""} need your attention
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {pendingCount > 0 && (
-              <a
-                href="/admin/vendors"
-                className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-5 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
-              >
-                Review {pendingCount} vendor{pendingCount !== 1 ? "s" : ""}
-              </a>
-            )}
-            {pendingPayments > 0 && (
-              <a
-                href="/admin/payments"
-                className="inline-flex h-9 items-center rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-              >
-                Review {pendingPayments} payment{pendingPayments !== 1 ? "s" : ""}
-              </a>
-            )}
           </div>
-        </div>
-      )}
-
+        </AdminSectionCard>
+      </div>
     </div>
   );
 }

@@ -1,199 +1,494 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { adminListPendingVendors, adminListAllVendors, adminApproveVendor, adminRejectVendor, type PendingVendor } from "@/lib/admin";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  CheckIcon,
+  Cross2Icon,
+  EyeOpenIcon,
+} from "@radix-ui/react-icons";
+
+import {
+  AdminEmptyState,
+  AdminResponsiveFilterRail,
+  AdminSectionCard,
+  AdminStatusBadge,
+} from "@/components/admin/AdminPrimitives";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
-import { cn } from "@/lib/utils";
+import {
+  adminApproveVendor,
+  adminListAllVendors,
+  adminListPendingVendors,
+  adminRejectVendor,
+  type PendingVendor,
+} from "@/lib/admin";
 import { resolveApiAsset } from "@/lib/assets";
 
-function fmt(d?: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const FILTERS = ["ALL", "APPROVED", "PENDING", "REJECTED"] as const;
+
+function formatDate(value?: string) {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function vendorTone(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "APPROVED") return "success" as const;
+  if (normalized === "PENDING") return "warning" as const;
+  if (normalized === "REJECTED") return "danger" as const;
+  return "neutral" as const;
+}
+
+function vendorPriority(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === "PENDING") return 0;
+  if (normalized === "REJECTED") return 1;
+  if (normalized === "APPROVED") return 2;
+  return 3;
 }
 
 export default function AdminVendorsPage() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"PENDING" | "ALL">("PENDING");
-  
-  const [pendingVendors, setPendingVendors]     = useState<PendingVendor[]>([]);
-  const [allVendors, setAllVendors]             = useState<PendingVendor[]>([]);
-  
-  const [loading, setLoading]     = useState(true);
+  const [pendingVendors, setPendingVendors] = useState<PendingVendor[]>([]);
+  const [allVendors, setAllVendors] = useState<PendingVendor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<number | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<PendingVendor | null>(null);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN") return;
-    
-    setLoading(true);
-    
-    if (activeTab === "PENDING") {
-      adminListPendingVendors()
-        .then((v) => setPendingVendors(Array.isArray(v) ? v : (v as any)?.data || []))
-        .catch(() => toast.error("Failed to load pending vendors."))
-        .finally(() => setLoading(false));
-    } else {
-      adminListAllVendors()
-        .then((v) => setAllVendors(Array.isArray(v) ? v : (v as any)?.data || []))
-        .catch(() => toast.error("Failed to load active vendors."))
-        .finally(() => setLoading(false));
-    }
-  }, [user, activeTab]);
+    Promise.all([adminListPendingVendors(), adminListAllVendors()])
+      .then(([pending, all]) => {
+        setPendingVendors(pending);
+        setAllVendors(all);
+      })
+      .catch(() => toast.error("Failed to load vendor records."))
+      .finally(() => setLoading(false));
+  }, []);
 
-  async function handle(userId: number, action: "approve" | "reject") {
-    if (!user) return;
+  const metrics = useMemo(() => {
+    const approved = allVendors.filter(
+      (vendor) => vendor.status.toUpperCase() === "APPROVED"
+    ).length;
+    const rejected = allVendors.filter(
+      (vendor) => vendor.status.toUpperCase() === "REJECTED"
+    ).length;
+
+    return {
+      pending: pendingVendors.length,
+      approved,
+      rejected,
+      total: allVendors.length,
+    };
+  }, [allVendors, pendingVendors.length]);
+
+  const filteredVendors = useMemo(() => {
+    const scopedVendors =
+      filter === "ALL"
+        ? allVendors
+        : allVendors.filter((vendor) => vendor.status.toUpperCase() === filter);
+
+    return [...scopedVendors].sort((left, right) => {
+      const priorityDelta = vendorPriority(left.status) - vendorPriority(right.status);
+      if (priorityDelta !== 0) return priorityDelta;
+      return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime();
+    });
+  }, [allVendors, filter]);
+
+  async function reviewVendor(userId: number, action: "approve" | "reject") {
     setActioning(userId);
     try {
-      if (action === "approve") { await adminApproveVendor(userId); toast.success("Vendor approved."); }
-      else { await adminRejectVendor(userId); toast.success("Vendor rejected."); }
-      setPendingVendors((vs) => vs.filter((v) => v.user_id !== userId));
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed.");
+      if (action === "approve") {
+        await adminApproveVendor(userId);
+      } else {
+        await adminRejectVendor(userId);
+      }
+
+      setPendingVendors((current) => current.filter((vendor) => vendor.user_id !== userId));
+      const nextStatus = action === "approve" ? "APPROVED" : "REJECTED";
+      setAllVendors((current) => {
+        const existing = current.some((vendor) => vendor.user_id === userId);
+        if (existing) {
+          return current.map((vendor) =>
+            vendor.user_id === userId ? { ...vendor, status: nextStatus } : vendor
+          );
+        }
+
+        const pendingRecord = pendingVendors.find((vendor) => vendor.user_id === userId);
+        return pendingRecord ? [{ ...pendingRecord, status: nextStatus }, ...current] : current;
+      });
+      setSelectedVendor((current) =>
+        current?.user_id === userId ? { ...current, status: nextStatus } : current
+      );
+
+      toast.success(action === "approve" ? "Vendor approved." : "Vendor rejected.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Vendor review failed.");
     } finally {
       setActioning(null);
     }
   }
 
-  return (
-    <div className="p-6 md:p-10 space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Vendors
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage vendor applications and oversee active stores.
-          </p>
-        </div>
-        
-        <div className="flex gap-2 p-1 border border-border bg-muted/30 rounded-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab("PENDING")}
-            className={cn(
-              "px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest rounded-sm transition-colors",
-              activeTab === "PENDING" ? "bg-background shadow-sm border border-border text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Pending
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("ALL")}
-            className={cn(
-              "px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest rounded-sm transition-colors",
-              activeTab === "ALL" ? "bg-background shadow-sm border border-border text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            All Vendors
-          </button>
-        </div>
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-56 rounded-[var(--radius-xl)]" />
+        <Skeleton className="h-[360px] rounded-[var(--radius-xl)]" />
+        <Skeleton className="h-[360px] rounded-[var(--radius-xl)]" />
       </div>
+    );
+  }
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-sm" />)}
+  return (
+    <div className="space-y-6">
+      <AdminSectionCard
+        eyebrow="Approval summary"
+        title="Decide which vendor applications can go live"
+        description="Start with pending applications, confirm identity evidence, and keep reviewed accounts easy to scan after a decision is made."
+        actions={
+          <div className="rounded-full border border-border bg-background px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-foreground">
+            {metrics.total} vendor record{metrics.total === 1 ? "" : "s"}
+          </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Needs review
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.pending}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Applications still waiting for an approval or rejection decision.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Approved
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.approved}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Vendor accounts currently cleared to list and operate.
+            </p>
+          </div>
+
+          <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Rejected
+            </p>
+            <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              {metrics.rejected}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Applications previously declined after admin review.
+            </p>
+          </div>
         </div>
-      ) : activeTab === "PENDING" ? (
-        pendingVendors.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 border border-border bg-card rounded-sm py-28 text-center">
-            <CheckIcon className="size-10 text-muted-foreground/20" />
-            <p className="font-playfair text-3xl font-semibold text-foreground">All clear.</p>
-            <p className="text-sm text-muted-foreground">No pending applications.</p>
-          </div>
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        eyebrow="Approval queue"
+        title="Pending vendor applications"
+        description="Each row shows who applied, when they applied, and whether identity proof is attached before you open the full review panel."
+      >
+        {pendingVendors.length === 0 ? (
+          <AdminEmptyState
+            title="No vendor applications are waiting."
+            description="New submissions will appear here when a vendor finishes the application flow."
+          />
         ) : (
-          <div className="rounded-sm border border-border divide-y divide-border bg-card">
-            {pendingVendors.map((v) => (
-              <div key={v.id} className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-muted/30">
-                <div>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
-                    {v.store_name || v.business_name || `Vendor Application #${v.id}`}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Vendor</th>
+                  <th className="pb-3 font-medium">Applicant</th>
+                  <th className="pb-3 font-medium">Key checks</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pendingVendors.map((vendor) => (
+                  <tr key={vendor.id}>
+                    <td className="py-4">
+                      <p className="font-semibold text-foreground">
+                        {vendor.store_name || vendor.business_name || `Vendor #${vendor.id}`}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {vendor.bio || "No business summary provided."}
+                      </p>
+                    </td>
+                    <td className="py-4">
+                      <p className="text-foreground">
+                        {vendor.User?.name || `User #${vendor.user_id}`}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {vendor.User?.email || "--"}
+                      </p>
+                    </td>
+                    <td className="py-4">
+                      <div className="space-y-1">
+                        <p className="text-foreground">Applied {formatDate(vendor.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {vendor.id_document_url ? "ID document attached" : "No ID document attached"}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="space-y-2">
+                        <AdminStatusBadge label={vendor.status} tone={vendorTone(vendor.status)} />
+                        <p className="text-xs text-muted-foreground">
+                          Waiting for approval or rejection.
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedVendor(vendor)}
+                        >
+                          <EyeOpenIcon className="size-4" />
+                          Review
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={actioning === vendor.user_id}
+                          onClick={() => void reviewVendor(vendor.user_id, "approve")}
+                        >
+                          <CheckIcon className="size-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={actioning === vendor.user_id}
+                          onClick={() => void reviewVendor(vendor.user_id, "reject")}
+                        >
+                          <Cross2Icon className="size-4" />
+                          Reject
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        eyebrow="Vendor directory"
+        title="Vendor account directory"
+        description="Use this directory to check the current state of every vendor account after the application has already been reviewed."
+        actions={
+          <AdminResponsiveFilterRail
+            label="Status"
+            value={filter}
+            options={FILTERS.map((status) => ({
+              value: status,
+              label: status === "ALL" ? "All" : status,
+            }))}
+            onChange={(value) => setFilter(value as (typeof FILTERS)[number])}
+          />
+        }
+      >
+        {filteredVendors.length === 0 ? (
+          <AdminEmptyState
+            title="No vendor records match this filter."
+            description="Change the current state filter to review another slice of vendor accounts."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b border-border text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Vendor</th>
+                  <th className="pb-3 font-medium">Owner</th>
+                  <th className="pb-3 font-medium">History</th>
+                  <th className="pb-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredVendors.map((vendor) => (
+                  <tr key={vendor.id}>
+                    <td className="py-4">
+                      <p className="font-semibold text-foreground">
+                        {vendor.store_name || vendor.business_name || `Vendor #${vendor.id}`}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">User #{vendor.user_id}</p>
+                    </td>
+                    <td className="py-4">
+                      <p className="text-foreground">{vendor.User?.name || "--"}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {vendor.User?.email || "--"}
+                      </p>
+                    </td>
+                    <td className="py-4">
+                      <div className="space-y-1">
+                        <p className="text-foreground">Created {formatDate(vendor.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {vendor.review_note || "No review note saved."}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      <div className="space-y-2">
+                        <AdminStatusBadge label={vendor.status} tone={vendorTone(vendor.status)} />
+                        <p className="text-xs text-muted-foreground">
+                          {vendor.status.toUpperCase() === "APPROVED"
+                            ? "Can publish and operate on the marketplace."
+                            : vendor.status.toUpperCase() === "REJECTED"
+                              ? "Application was declined after review."
+                              : "Application is still waiting on a decision."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminSectionCard>
+
+      <Dialog
+        open={selectedVendor !== null}
+        onOpenChange={(open: boolean) => {
+          if (!open) setSelectedVendor(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          {selectedVendor ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedVendor.store_name ||
+                    selectedVendor.business_name ||
+                    `Vendor #${selectedVendor.id}`}
+                </DialogTitle>
+                <DialogDescription>
+                  Review the applicant, business summary, and ID document before making a final approval decision.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Applicant
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {v.User?.name && <><span className="text-foreground font-semibold">{v.User.name}</span> · </>}
-                    {v.User?.email || `User #${v.user_id}`}
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {selectedVendor.User?.name || `User #${selectedVendor.user_id}`}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Applied {fmt(v.created_at)}</p>
-                  {v.bio ? (
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{v.bio}</p>
-                  ) : null}
-                  {v.id_document_url ? (
-                    <a
-                      href={resolveApiAsset(v.id_document_url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex text-[10px] font-semibold uppercase tracking-widest text-foreground underline underline-offset-4"
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedVendor.User?.email || "--"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Applied {formatDate(selectedVendor.created_at)}
+                  </p>
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Current state
+                  </p>
+                  <div className="mt-2">
+                    <AdminStatusBadge
+                      label={selectedVendor.status}
+                      tone={vendorTone(selectedVendor.status)}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {selectedVendor.review_note || "No admin review note has been saved."}
+                  </p>
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Identity proof
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {selectedVendor.id_document_url ? "Available" : "Missing"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedVendor.id_document_url
+                      ? "Open the attached ID document to verify identity details."
+                      : "No ID document is attached to this application."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Business summary
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {selectedVendor.bio || "No business summary was provided with this application."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {selectedVendor.id_document_url ? (
+                  <a
+                    href={resolveApiAsset(selectedVendor.id_document_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center justify-center rounded-[var(--radius-sm)] border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Open ID document
+                  </a>
+                ) : null}
+                {selectedVendor.status.toUpperCase() === "PENDING" ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={actioning === selectedVendor.user_id}
+                      onClick={() => void reviewVendor(selectedVendor.user_id, "approve")}
                     >
-                      Open ID document
-                    </a>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    disabled={actioning === v.user_id}
-                    onClick={() => handle(v.user_id, "approve")}
-                    className="flex h-9 items-center gap-1.5 rounded-sm border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
-                  >
-                    <CheckIcon className="size-3" /> Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actioning === v.user_id}
-                    onClick={() => handle(v.user_id, "reject")}
-                    className="flex h-9 items-center gap-1.5 rounded-sm border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                  >
-                    <Cross2Icon className="size-3" /> Reject
-                  </button>
-                </div>
+                      <CheckIcon className="size-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={actioning === selectedVendor.user_id}
+                      onClick={() => void reviewVendor(selectedVendor.user_id, "reject")}
+                    >
+                      <Cross2Icon className="size-4" />
+                      Reject
+                    </Button>
+                  </>
+                ) : null}
               </div>
-            ))}
-          </div>
-        )
-      ) : (
-        allVendors.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 border border-border bg-card rounded-sm py-28 text-center">
-            <p className="font-playfair text-3xl font-semibold text-foreground">No vendors yet.</p>
-            <p className="text-sm text-muted-foreground">Approve some applications first.</p>
-          </div>
-        ) : (
-          <div className="rounded-sm border border-border divide-y divide-border bg-card">
-            {allVendors.map((v) => (
-              <div key={v.id} className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-muted/30">
-                <div>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
-                    {v.store_name || v.business_name || `Vendor #${v.id}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {v.User?.name && <><span className="text-foreground font-semibold">{v.User.name}</span> · </>}
-                    {v.User?.email || `User #${v.user_id}`}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Joined {fmt(v.created_at)}</p>
-                  {v.review_note ? (
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                      Review note: {v.review_note}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={cn(
-                    "inline-flex rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
-                    v.status === "APPROVED" ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400" :
-                    v.status === "PENDING" ? "border-amber-400/40 text-amber-700 dark:text-amber-400" :
-                    "border-destructive/30 text-destructive"
-                  )}>
-                    {v.status}
-                  </span>
-                  {/* Action menu for active vendors can be added here in the future */}
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      )}
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

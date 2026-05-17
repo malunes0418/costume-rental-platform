@@ -1,13 +1,24 @@
 import { apiFetch } from "./api";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
 export type AdminUser = {
   id: number;
   name?: string;
   email?: string;
   role: string;
   created_at?: string;
+};
+
+export type AdminReservationItem = {
+  id: number;
+  costume_id: number;
+  quantity?: number;
+  subtotal?: number;
+  price_at_reservation?: number;
+  Costume?: {
+    id: number;
+    name?: string;
+    owner_id?: number | null;
+  };
 };
 
 export type AdminReservation = {
@@ -19,7 +30,7 @@ export type AdminReservation = {
   total_price: number;
   currency?: string;
   created_at?: string;
-  items?: any[];
+  items?: AdminReservationItem[];
   User?: { name?: string; email?: string };
 };
 
@@ -38,9 +49,19 @@ export type AdminInventoryItem = {
   id: number;
   name: string;
   category?: string;
+  size?: string;
+  theme?: string;
   stock: number;
   base_price_per_day: number;
   status?: string;
+  owner_id?: number | null;
+  owner?: {
+    id: number;
+    name?: string | null;
+    VendorProfile?: {
+      business_name?: string | null;
+    };
+  };
 };
 
 export type PendingVendor = {
@@ -56,8 +77,6 @@ export type PendingVendor = {
   created_at?: string;
   User?: { name?: string; email?: string };
 };
-
-// ── API functions ──────────────────────────────────────────────────────────────
 
 export function adminListUsers() {
   return apiFetch<AdminUser[]>("/api/admin/users");
@@ -102,7 +121,7 @@ export function adminRejectVendor(userId: number, review_note?: string) {
 export function adminReviewPayment(
   paymentId: number,
   status: "APPROVED" | "REJECTED",
-  notes: string,
+  notes: string
 ) {
   return apiFetch<{ success: boolean }>("/api/admin/payments/review", {
     method: "POST",
@@ -111,7 +130,10 @@ export function adminReviewPayment(
   });
 }
 
-export function adminUpdateCostumeStatus(costumeId: number, status: "ACTIVE" | "HIDDEN" | "FLAGGED") {
+export function adminUpdateCostumeStatus(
+  costumeId: number,
+  status: "ACTIVE" | "HIDDEN" | "FLAGGED"
+) {
   return apiFetch<{ success: boolean }>(`/api/admin/costumes/${costumeId}/status`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -134,4 +156,3 @@ export function adminUpdateUserRole(userId: number, role: string) {
     body: JSON.stringify({ role }),
   });
 }
-

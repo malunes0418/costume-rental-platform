@@ -1,9 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ApiError } from "../../../lib/api";
+import { format } from "date-fns";
+import {
+  CalendarIcon,
+  ChevronLeftIcon,
+  ExclamationTriangleIcon as AlertCircle,
+  ImageIcon,
+  StarFilledIcon,
+} from "@radix-ui/react-icons";
+import { toast } from "sonner";
+
+import { ImageGallery } from "../../../components/shadix-ui/image-gallery";
+import { WishlistButton } from "../../../components/WishlistButton";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
+import { Button } from "../../../components/ui/button";
+import { Calendar } from "../../../components/ui/calendar";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
+import { Skeleton } from "../../../components/ui/skeleton";
+import { useCart } from "../../../lib/CartContext";
+import { apiFetch, ApiError } from "../../../lib/api";
 import { resolveApiAsset } from "../../../lib/assets";
+import { useAuth } from "../../../lib/auth";
 import {
   getAvailability,
   getCostume,
@@ -12,33 +34,22 @@ import {
   type Reservation,
   type Review,
 } from "../../../lib/costumes";
-import { useAuth } from "../../../lib/auth";
-import { useCart } from "../../../lib/CartContext";
-import { apiFetch } from "../../../lib/api";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-
-import { toast } from "sonner";
-import { Skeleton } from "../../../components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
-import { ExclamationTriangleIcon as AlertCircle, CalendarIcon, ImageIcon } from "@radix-ui/react-icons";
-import { format } from "date-fns";
 import { cn } from "../../../lib/utils";
-import { Calendar } from "../../../components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
-import { ImageGallery } from "../../../components/shadix-ui/image-gallery";
 
-
-
-function fmtMoney(n: number) {
-  return `₱${Number(n).toFixed(0)}`;
+function fmtMoney(value: number) {
+  return `PHP ${Number(value).toFixed(0)}`;
 }
 
 function daysBetween(start: Date, end: Date) {
-  const ms = end.getTime() - start.getTime();
-  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  const milliseconds = end.getTime() - start.getTime();
+  return Math.max(0, Math.ceil(milliseconds / (1000 * 60 * 60 * 24)));
 }
+
+const BOOKING_NOTES = [
+  "Availability is checked against existing reservations.",
+  "Reserve now adds the item and opens your cart immediately.",
+  "Payment proof is uploaded after cart checkout.",
+];
 
 export default function CostumeDetailPage() {
   const params = useParams<{ id: string }>();
@@ -53,11 +64,9 @@ export default function CostumeDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [availability, setAvailability] = useState<Reservation[] | null>(null);
-
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
@@ -67,28 +76,20 @@ export default function CostumeDetailPage() {
     }
   }, [user, isAuthLoading, router]);
 
-
-
-  const images = data?.costume.CostumeImages || [];
-  const isOwnCostume = !!user && data?.costume.owner_id === user.id;
-
-  const nights = useMemo(() => (startDate && endDate ? daysBetween(startDate, endDate) : 0), [startDate, endDate]);
-  const price = useMemo(() => (data ? nights * Number(data.costume.base_price_per_day) * quantity : 0), [data, nights, quantity]);
-
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     setError(null);
 
     Promise.all([getCostume(id), listCostumeReviews(id)])
-      .then(([detail, reviews]) => {
+      .then(([detail, fetchedReviews]) => {
         if (cancelled) return;
         setData(detail);
-        setReviews(reviews);
+        setReviews(fetchedReviews);
       })
-      .catch((e: unknown) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setError(e instanceof ApiError ? e.message : "Failed to load costume");
+        setError(err instanceof ApiError ? err.message : "Failed to load costume");
       })
       .finally(() => {
         if (cancelled) return;
@@ -106,16 +107,16 @@ export default function CostumeDetailPage() {
     const quantityParam = searchParams.get("quantity");
 
     if (startDateParam) {
-      const parsed = new Date(startDateParam);
-      if (!Number.isNaN(parsed.getTime())) {
-        setStartDate(parsed);
+      const parsedStart = new Date(startDateParam);
+      if (!Number.isNaN(parsedStart.getTime())) {
+        setStartDate(parsedStart);
       }
     }
 
     if (endDateParam) {
-      const parsed = new Date(endDateParam);
-      if (!Number.isNaN(parsed.getTime())) {
-        setEndDate(parsed);
+      const parsedEnd = new Date(endDateParam);
+      if (!Number.isNaN(parsedEnd.getTime())) {
+        setEndDate(parsedEnd);
       }
     }
 
@@ -127,22 +128,49 @@ export default function CostumeDetailPage() {
     }
   }, [searchParams]);
 
+  const costume = data?.costume;
+  const images = costume?.CostumeImages || [];
+  const isOwnCostume = !!user && costume?.owner_id === user.id;
+  const invalidDateRange = Boolean(startDate && endDate && endDate <= startDate);
+  const nights = useMemo(
+    () => (startDate && endDate && !invalidDateRange ? daysBetween(startDate, endDate) : 0),
+    [endDate, invalidDateRange, startDate]
+  );
+  const price = useMemo(
+    () => (costume ? nights * Number(costume.base_price_per_day) * quantity : 0),
+    [costume, nights, quantity]
+  );
+  const detailBadges = [costume?.category, costume?.theme, costume?.size, costume?.gender].filter(
+    Boolean
+  );
+  const vendorName =
+    costume?.owner?.VendorProfile?.business_name || costume?.owner?.name || "SnapCos vendor";
+
   async function checkAvailability() {
     setAvailability(null);
     if (!startDate || !endDate) {
       toast.error("Choose dates to check availability.");
       return;
     }
+    if (invalidDateRange) {
+      toast.error("End date must be later than the start date.");
+      return;
+    }
+
     try {
-      const res = await getAvailability(id, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
-      setAvailability(res);
-      if (res.length === 0) {
-        toast.success("Available! No overlapping reservations.");
+      const result = await getAvailability(
+        id,
+        format(startDate, "yyyy-MM-dd"),
+        format(endDate, "yyyy-MM-dd")
+      );
+      setAvailability(result);
+      if (result.length === 0) {
+        toast.success("These dates are available.");
       } else {
         toast.error("These dates overlap an existing reservation.");
       }
-    } catch (e: unknown) {
-      toast.error(e instanceof ApiError ? e.message : "Availability check failed");
+    } catch (err: unknown) {
+      toast.error(err instanceof ApiError ? err.message : "Availability check failed");
     }
   }
 
@@ -159,24 +187,27 @@ export default function CostumeDetailPage() {
       toast.error("Please choose dates first.");
       return;
     }
+    if (invalidDateRange) {
+      toast.error("End date must be later than the start date.");
+      return;
+    }
+
     try {
       await apiFetch("/api/reservations/cart", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ 
-          costumeId: id, 
-          quantity, 
-          startDate: format(startDate, "yyyy-MM-dd"), 
-          endDate: format(endDate, "yyyy-MM-dd") 
+        body: JSON.stringify({
+          costumeId: id,
+          quantity,
+          startDate: format(startDate, "yyyy-MM-dd"),
+          endDate: format(endDate, "yyyy-MM-dd"),
         }),
       });
       triggerRefresh();
       toast.success(openDrawer ? "Added to cart." : "Costume added to cart.");
-      if (openDrawer) {
-        openCart();
-      }
-    } catch (e: unknown) {
-      toast.error(e instanceof ApiError ? e.message : "Failed to add to cart");
+      if (openDrawer) openCart();
+    } catch (err: unknown) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to add to cart");
     }
   }
 
@@ -186,15 +217,15 @@ export default function CostumeDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-10">
-        <Skeleton className="h-[420px] w-full" />
+      <div className="mx-auto w-full max-w-7xl px-6 py-10">
+        <Skeleton className="h-[560px] w-full rounded-[var(--radius-xl)]" />
       </div>
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !costume) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-10">
+      <div className="mx-auto w-full max-w-7xl px-6 py-10">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
@@ -206,216 +237,391 @@ export default function CostumeDetailPage() {
 
   return (
     <div className="flex-1 bg-background">
-      <div className="mx-auto w-full max-w-7xl px-4 md:px-8 pb-24 pt-12">
-        <div className="flex flex-col gap-12">
-          
-          {/* Header */}
-          <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-4">
-            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
-              {[data.costume.category, data.costume.theme, data.costume.size].filter(Boolean).join(" · ") || "Costume"}
-            </div>
-            <h1 className="font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-7xl animate-fade-up-delay-1">
-              {data.costume.name}
-            </h1>
-            <div className="text-sm font-medium text-muted-foreground animate-fade-up-delay-2 flex items-center justify-center gap-2">
-              <span>{data.avgRating ? `${data.avgRating.toFixed(1)} ★` : "New"}</span>
-              <span>·</span>
-              <span className="underline decoration-border underline-offset-4">{data.ratingCount} reviews</span>
-            </div>
-            {isOwnCostume ? (
-              <div className="animate-fade-up-delay-2 inline-flex items-center rounded-sm border border-foreground/15 bg-foreground px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-background">
-                Your listing
-              </div>
-            ) : null}
-          </div>
+      <div className="mx-auto w-full max-w-[1280px] px-6 pb-24 pt-8 md:pt-10">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeftIcon className="size-4" />
+          Back to discovery
+        </Link>
 
-          {/* Shadix UI Photo Grid */}
-          <div className="w-full animate-fade-up-delay-3">
-            {images.length === 0 ? (
-              <div className="flex h-[600px] w-full items-center justify-center rounded-md bg-muted text-muted-foreground border border-border">
-                <ImageIcon className="h-12 w-12 opacity-20" />
-              </div>
-            ) : (
-              <ImageGallery 
-                images={images.map(img => ({
-                  src: resolveApiAsset(img.image_url),
-                  alt: data.costume.name
-                }))} 
-                lazyLoading={true}
-              />
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-16 lg:grid-cols-12 mt-8 animate-fade-up-delay-3">
-            {/* Left Col: Description & Reviews */}
-            <div className={cn(
-              "flex flex-col gap-16",
-              user?.role === "ADMIN" ? "lg:col-span-12 xl:col-span-12" : "lg:col-span-7 xl:col-span-8"
-            )}>
-              <section className="space-y-6">
-                <h2 className="font-playfair text-3xl font-semibold text-foreground">About this piece</h2>
-                {data.costume.description ? (
-                  <div className="prose prose-neutral text-muted-foreground leading-relaxed text-lg max-w-none">
-                    <p className="whitespace-pre-line">{data.costume.description}</p>
+        <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,420px)] lg:items-start">
+          <div className="space-y-8">
+            <section className="surface-shell rounded-[var(--radius-xl)] p-7 md:p-8">
+              <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                <div className="max-w-3xl">
+                  <div className="brand-eyebrow inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                    <span className="inline-block size-1.5 rounded-full bg-gold" />
+                    Costume detail
                   </div>
-                ) : (
-                  <p className="text-muted-foreground italic">No description provided.</p>
-                )}
-              </section>
 
-              <hr className="border-border" />
+                  <h1 className="mt-5 font-display text-4xl text-foreground md:text-5xl">
+                    {costume.name}
+                  </h1>
 
-              <section className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-playfair text-3xl font-semibold text-foreground">Reviews</h2>
-                  <div className="text-xl font-medium text-foreground">{data.avgRating ? `${data.avgRating.toFixed(1)} ★` : ""}</div>
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+                    Review the look, confirm your dates, and book with a clearer pricing and
+                    reservation flow.
+                  </p>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {detailBadges.length > 0 ? (
+                      detailBadges.map((badge) => (
+                        <span
+                          key={badge}
+                          className="rounded-full border border-border bg-background/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
+                        >
+                          {badge}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full border border-border bg-background/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        Curated rental piece
+                      </span>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="space-y-8">
-                  {reviews.length ? (
-                    reviews.map((r) => (
-                      <div key={r.id} className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium text-foreground">{r.User?.name || "Guest"}</div>
-                          <div className="text-sm font-medium text-muted-foreground">{r.rating} ★</div>
-                        </div>
-                        {r.comment ? (
-                          <p className="text-base text-muted-foreground leading-relaxed">{r.comment}</p>
-                        ) : null}
-                      </div>
-                    ))
+
+                <div className="flex flex-col items-start gap-3 md:items-end">
+                  <div className="rounded-[var(--radius-lg)] border border-border bg-background/75 px-4 py-3 text-sm">
+                    <div className="flex items-center gap-2 text-foreground">
+                      <StarFilledIcon className="size-4 text-[color:var(--color-gold)]" />
+                      <span className="font-semibold">
+                        {data.avgRating ? data.avgRating.toFixed(1) : "New"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {data.avgRating ? `${data.ratingCount} reviews` : "No reviews yet"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {!isOwnCostume ? (
+                      <WishlistButton
+                        costumeId={costume.id}
+                        ownerId={costume.owner_id}
+                        size="md"
+                        className="size-10 rounded-full"
+                      />
+                    ) : null}
+                    {isOwnCostume ? (
+                      <span className="rounded-full border border-foreground/15 bg-foreground px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-background">
+                        Your listing
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-4 md:grid-cols-3">
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Daily rate
+                  </p>
+                  <p className="mt-2 font-display text-3xl text-foreground">
+                    {fmtMoney(Number(costume.base_price_per_day))}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Vendor
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">{vendorName}</p>
+                </div>
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Booking path
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">Dates to cart to pay</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-[var(--radius-xl)] border border-border bg-background/70">
+              {images.length === 0 ? (
+                <div className="flex h-[520px] w-full items-center justify-center bg-muted text-muted-foreground">
+                  <ImageIcon className="h-12 w-12 opacity-20" />
+                </div>
+              ) : (
+                <ImageGallery
+                  images={images.map((img) => ({
+                    src: resolveApiAsset(img.image_url),
+                    alt: costume.name,
+                  }))}
+                  lazyLoading
+                />
+              )}
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="surface-panel rounded-[var(--radius-xl)] p-7">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  About the costume
+                </p>
+                <h2 className="mt-3 font-display text-3xl text-foreground">
+                  Summary and styling notes
+                </h2>
+                <div className="mt-5 space-y-4 text-sm leading-7 text-muted-foreground">
+                  {costume.description ? (
+                    <p className="whitespace-pre-line">{costume.description}</p>
                   ) : (
-                    <p className="text-muted-foreground italic">This costume does not have any reviews yet.</p>
+                    <p>No description provided yet.</p>
                   )}
                 </div>
-              </section>
-            </div>
+              </div>
 
-            {/* Right Col: Reservation */}
-            {user?.role !== "ADMIN" && (
-              <div className="lg:col-span-5 xl:col-span-4">
-                <div className="sticky top-24 border border-border bg-card shadow-none rounded-md p-8 flex flex-col gap-8">
-                <div className="flex items-baseline justify-between border-b border-border pb-6">
-                  <div className="font-playfair text-4xl font-semibold tracking-tight text-foreground">
-                    {fmtMoney(Number(data.costume.base_price_per_day))}
+              <div className="surface-panel rounded-[var(--radius-xl)] p-6">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  Quick details
+                </p>
+                <dl className="mt-5 space-y-4 text-sm">
+                  <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+                    <dt className="text-muted-foreground">Category</dt>
+                    <dd className="font-medium text-foreground">{costume.category || "Not listed"}</dd>
                   </div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">per day</div>
-                </div>
-                
-                <div className="space-y-6">
-                  {isOwnCostume ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Your listing</AlertTitle>
-                      <AlertDescription>You cannot add your own costume to your cart.</AlertDescription>
-                    </Alert>
-                  ) : null}
+                  <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+                    <dt className="text-muted-foreground">Theme</dt>
+                    <dd className="font-medium text-foreground">{costume.theme || "Not listed"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+                    <dt className="text-muted-foreground">Size</dt>
+                    <dd className="font-medium text-foreground">{costume.size || "Not listed"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-muted-foreground">Gender fit</dt>
+                    <dd className="font-medium text-foreground">{costume.gender || "Flexible"}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Start Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full justify-start text-left font-normal px-3",
-                              !startDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {startDate ? format(startDate, "MMM d, yyyy") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={startDate}
-                            onSelect={setStartDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+            <section className="surface-panel rounded-[var(--radius-xl)] p-7">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                    Reviews and trust
+                  </p>
+                  <h2 className="mt-3 font-display text-3xl text-foreground">What renters said</h2>
+                </div>
+                {data.avgRating ? (
+                  <p className="text-sm text-muted-foreground">
+                    Average rating <span className="font-semibold text-foreground">{data.avgRating.toFixed(1)}</span>
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {reviews.length ? (
+                  reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="rounded-[var(--radius-lg)] border border-border bg-background/75 p-5"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {review.User?.name || "Guest renter"}
+                          </p>
+                          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                            Rating {review.rating}/5
+                          </p>
+                        </div>
+                        {review.created_at ? (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        {review.comment || "No written review was provided."}
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">End Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full justify-start text-left font-normal px-3",
-                              !endDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {endDate ? format(endDate, "MMM d, yyyy") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={endDate}
-                            onSelect={setEndDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[var(--radius-lg)] border border-dashed border-border bg-background/60 p-6">
+                    <p className="font-medium text-foreground">No reviews yet</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      This listing is ready to book, but it does not have customer feedback yet.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          <aside className="lg:sticky lg:top-24">
+            <div className="surface-shell rounded-[var(--radius-xl)] p-6 md:p-7">
+              <div className="border-b border-border pb-6">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  Booking
+                </p>
+                <div className="mt-3 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="font-display text-4xl text-foreground">
+                      {fmtMoney(Number(costume.base_price_per_day))}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">per day, before checkout</p>
+                  </div>
+                  <span className="rounded-full border border-border bg-background px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Secure reservation flow
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-5">
+                {isOwnCostume ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Your listing</AlertTitle>
+                    <AlertDescription>
+                      You cannot add your own costume to your cart.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {invalidDateRange ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Check your dates</AlertTitle>
+                    <AlertDescription>
+                      Your end date needs to come after the start date.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {availability ? (
+                  <div
+                    className={cn(
+                      "rounded-[var(--radius-lg)] border px-4 py-3 text-sm",
+                      availability.length === 0
+                        ? "border-[color:color-mix(in_oklab,var(--color-gold)_24%,var(--color-border))] bg-[color:color-mix(in_oklab,var(--color-gold)_8%,var(--color-background))] text-foreground"
+                        : "border-border bg-background/70 text-muted-foreground"
+                    )}
+                  >
+                    {availability.length === 0
+                      ? "These dates are currently available."
+                      : "Selected dates overlap an existing reservation."}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      Start date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-12 w-full justify-start px-3 text-left font-normal",
+                            !startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {startDate ? format(startDate, "MMM d, yyyy") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Quantity</Label>
-                    <Input
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                      type="number"
-                      min={1}
-                    />
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      End date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-12 w-full justify-start px-3 text-left font-normal",
+                            !endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {endDate ? format(endDate, "MMM d, yyyy") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+                      </PopoverContent>
+                    </Popover>
                   </div>
+                </div>
 
-                  <div className="flex flex-col gap-3 pt-2">
-                    <Button
-                      variant="outline"
-                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold"
-                      onClick={checkAvailability}
-                      disabled={isOwnCostume}
-                    >
-                      Check Availability
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold"
-                      onClick={() => addToCart(false)}
-                      disabled={isOwnCostume}
-                    >
-                      Add to Cart
-                    </Button>
-                    <Button
-                      className="w-full h-12 text-sm uppercase tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                      onClick={() => addToCart(true)}
-                      disabled={isOwnCostume}
-                    >
-                      Reserve Now
-                    </Button>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                    Quantity
+                  </Label>
+                  <Input
+                    value={quantity}
+                    onChange={(event) => setQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    type="number"
+                    min={1}
+                    className="h-12"
+                  />
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Rental days</span>
+                    <span className="font-semibold text-foreground">{nights || "--"}</span>
                   </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Estimated total</span>
+                    <span className="font-semibold text-foreground">
+                      {nights > 0 ? fmtMoney(price) : "--"}
+                    </span>
+                  </div>
+                </div>
 
-                  {nights > 0 ? (
-                    <div className="mt-6 rounded-md bg-muted/50 border border-border p-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {fmtMoney(Number(data.costume.base_price_per_day))} × {nights} days × {quantity}
-                        </span>
-                        <span className="font-semibold text-foreground">{fmtMoney(price)}</span>
-                      </div>
-                    </div>
-                  ) : null}
+                <div className="flex flex-col gap-3">
+                  <Button
+                    variant="brandOutline"
+                    className="h-12 w-full text-xs font-semibold uppercase tracking-[0.24em]"
+                    onClick={checkAvailability}
+                    disabled={isOwnCostume}
+                  >
+                    Check availability
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 w-full text-xs font-semibold uppercase tracking-[0.24em]"
+                    onClick={() => addToCart(false)}
+                    disabled={isOwnCostume}
+                  >
+                    Add to cart
+                  </Button>
+                  <Button
+                    variant="brand"
+                    className="h-12 w-full text-xs font-semibold uppercase tracking-[0.24em]"
+                    onClick={() => addToCart(true)}
+                    disabled={isOwnCostume}
+                  >
+                    Reserve now
+                  </Button>
+                </div>
+
+                <div className="rounded-[var(--radius-lg)] border border-border bg-background/70 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                    Booking notes
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {BOOKING_NOTES.map((note) => (
+                      <li key={note} className="flex gap-2">
+                        <span className="mt-2 inline-block size-1.5 rounded-full bg-[color:var(--color-brand)]" />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
-            )}
-          </div>
-
+          </aside>
         </div>
       </div>
     </div>
