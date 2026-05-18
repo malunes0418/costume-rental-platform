@@ -10,3 +10,12 @@ export interface CostumeStatusUpdateRequest {
 export interface MessageCreateRequest {
   content: string;
 }
+
+export interface VendorReservationSurchargeRequest {
+  amount: number | string;
+  note: string;
+}
+
+export interface VendorReservationLifecycleUpdateRequest {
+  status: string;
+}

@@ -7,25 +7,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CardStackIcon } from "@radix-ui/react-icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  ACTIVE_VENDOR_EARNING_STATUSES,
+  getReservationStatusMeta
+} from "@/lib/reservationStatus";
 
 export default function VendorEarningsPage() {
   const { user } = useAuth();
-  const [reservations, setReservations] = useState<any[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     async function fetchEarnings() {
       try {
-        const reservations = await listVendorReservations();
-        setReservations(reservations as any[]);
+        const value = await listVendorReservations();
+        setReservations(value);
       } catch {
         // silent
       } finally {
         setLoading(false);
       }
     }
-    fetchEarnings();
+    void fetchEarnings();
   }, [user]);
 
   if (loading) {
@@ -35,80 +39,88 @@ export default function VendorEarningsPage() {
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-10 w-64" />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-10">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 w-full rounded-sm" />
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-32 w-full rounded-sm" />
           ))}
         </div>
       </div>
     );
   }
 
-  // Calculate metrics
-  // Assume platform takes 10% fee
-  const PLATFORM_FEE_RATE = 0.10;
-  
-  const completedReservations = reservations.filter(r => r.status === "COMPLETED");
-  const pendingReservations = reservations.filter(r => r.status === "APPROVED");
-  
-  const totalRevenueGross = completedReservations.reduce((sum, r) => sum + Number(r.total_price), 0);
+  const PLATFORM_FEE_RATE = 0.1;
+  const surchargeTotal = (reservation: Reservation) =>
+    (reservation.adjustments || [])
+      .filter((adjustment) => adjustment.status === "PAID")
+      .reduce((sum, adjustment) => sum + Number(adjustment.amount), 0);
+  const grossTotal = (reservation: Reservation) => Number(reservation.total_price) + surchargeTotal(reservation);
+
+  const completedReservations = reservations.filter((reservation) => reservation.status === "COMPLETED");
+  const pendingReservations = reservations.filter((reservation) =>
+    ACTIVE_VENDOR_EARNING_STATUSES.includes(reservation.status)
+  );
+  const awaitingSurchargeReservations = reservations.filter((reservation) => reservation.status === "AWAITING_SURCHARGE_PAYMENT");
+
+  const totalRevenueGross = completedReservations.reduce((sum, reservation) => sum + grossTotal(reservation), 0);
   const totalRevenueNet = totalRevenueGross * (1 - PLATFORM_FEE_RATE);
-  
-  const pendingBalanceGross = pendingReservations.reduce((sum, r) => sum + Number(r.total_price), 0);
+
+  const pendingBalanceGross = pendingReservations.reduce((sum, reservation) => sum + grossTotal(reservation), 0);
   const pendingBalanceNet = pendingBalanceGross * (1 - PLATFORM_FEE_RATE);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-10">
       <div className="mb-10">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
+        <p className="animate-fade-up text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Financials
         </p>
-        <h1 className="font-playfair text-4xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-5xl">
+        <h1 className="animate-fade-up-delay-1 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
           Earnings
         </h1>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-12">
+      <div className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-5 rounded-sm border border-border bg-card p-6">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
+            <p className="leading-tight text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               Cleared Revenue
             </p>
           </div>
-          <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground leading-none">
+          <p className="font-playfair text-4xl font-semibold leading-none tracking-tight text-foreground">
             ₱{totalRevenueNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-muted-foreground mt-auto pt-2">
+          <p className="mt-auto pt-2 text-xs text-muted-foreground">
             From {completedReservations.length} completed orders
           </p>
         </div>
 
         <div className="flex flex-col gap-5 rounded-sm border border-border bg-card p-6">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
-              Pending Balance
+            <p className="leading-tight text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              In Fulfillment
             </p>
           </div>
-          <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground leading-none">
+          <p className="font-playfair text-4xl font-semibold leading-none tracking-tight text-foreground">
             ₱{pendingBalanceNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-muted-foreground mt-auto pt-2">
-            Releasing upon completion
+          <p className="mt-auto pt-2 text-xs text-muted-foreground">
+            Includes any approved supplemental surcharge payments
           </p>
         </div>
-        
-        <div className="flex flex-col gap-5 rounded-sm border border-emerald-400/30 bg-emerald-50 dark:bg-emerald-900/10 p-6">
+
+        <div className="flex flex-col gap-5 rounded-sm border border-orange-400/30 bg-orange-50 p-6 dark:bg-orange-900/10">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 leading-tight">
-              Next Payout
+            <p className="leading-tight text-[10px] font-semibold uppercase tracking-widest text-orange-700 dark:text-orange-400">
+              Awaiting Surcharge
             </p>
           </div>
-          <p className="font-playfair text-4xl font-semibold tracking-tight text-emerald-900 dark:text-emerald-300 leading-none">
-            ₱0.00
+          <p className="font-playfair text-4xl font-semibold leading-none tracking-tight text-orange-900 dark:text-orange-300">
+            ₱{awaitingSurchargeReservations.reduce((sum, reservation) => sum + Number(reservation.total_price), 0).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}
           </p>
-          <p className="text-xs text-emerald-700 dark:text-emerald-500 mt-auto pt-2">
-            No payouts scheduled
+          <p className="mt-auto pt-2 text-xs text-orange-700 dark:text-orange-400">
+            {awaitingSurchargeReservations.length} reservation{awaitingSurchargeReservations.length === 1 ? "" : "s"} paused until supplemental payment clears
           </p>
         </div>
       </div>
@@ -120,7 +132,7 @@ export default function VendorEarningsPage() {
       </div>
 
       {reservations.length === 0 ? (
-        <div className="flex flex-col items-center gap-8 border border-border rounded-sm py-24 px-12 text-center bg-card">
+        <div className="flex flex-col items-center gap-8 rounded-sm border border-border bg-card px-12 py-24 text-center">
           <div className="text-muted-foreground/20">
             <CardStackIcon className="size-12" />
           </div>
@@ -129,7 +141,7 @@ export default function VendorEarningsPage() {
               No transactions yet.
             </p>
             <p className="text-muted-foreground">
-              When users rent your costumes and complete payment, earnings will appear here.
+              When users rent your costumes and clear review, earnings will appear here.
             </p>
           </div>
         </div>
@@ -141,6 +153,8 @@ export default function VendorEarningsPage() {
                 <th className="p-4 font-medium">Order ID</th>
                 <th className="p-4 font-medium">Date</th>
                 <th className="p-4 font-medium">Costume</th>
+                <th className="p-4 font-medium">Base</th>
+                <th className="p-4 font-medium">Surcharge</th>
                 <th className="p-4 font-medium">Gross</th>
                 <th className="p-4 font-medium">Fee (10%)</th>
                 <th className="p-4 font-medium">Net Earned</th>
@@ -148,41 +162,54 @@ export default function VendorEarningsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {reservations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((res) => {
-                const costumeName = res.Costume?.name || `Costume #${res.costume_id}`;
-                const gross = Number(res.total_price);
-                const fee = gross * PLATFORM_FEE_RATE;
-                const net = gross - fee;
-                
-                return (
-                  <tr key={res.id} className="transition-colors hover:bg-muted/30">
-                    <td className="p-4 text-xs text-muted-foreground">#{res.id}</td>
-                    <td className="p-4 text-xs text-muted-foreground">
-                      {format(new Date(res.created_at), "MMM d, yyyy")}
-                    </td>
-                    <td className="p-4 font-playfair font-semibold truncate max-w-[200px]">{costumeName}</td>
-                    <td className="p-4 text-muted-foreground">
-                      ₱{gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-muted-foreground">
-                      -₱{fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 font-semibold text-foreground">
-                      ₱{net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className={cn(
-                        "inline-flex rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
-                        res.status === "COMPLETED" ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10" :
-                        res.status === "APPROVED" ? "border-amber-400/40 text-amber-700 dark:text-amber-400" :
-                        "border-muted text-muted-foreground"
-                      )}>
-                        {res.status === "COMPLETED" ? "Cleared" : res.status === "APPROVED" ? "Pending" : res.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {reservations
+                .slice()
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .map((reservation) => {
+                  const firstItem = reservation.items?.[0];
+                  const costumeName = firstItem?.Costume?.name || `Costume #${firstItem?.costume_id || reservation.id}`;
+                  const baseAmount = Number(reservation.total_price);
+                  const surchargeAmount = surchargeTotal(reservation);
+                  const gross = grossTotal(reservation);
+                  const fee = gross * PLATFORM_FEE_RATE;
+                  const net = gross - fee;
+                  const statusMeta = getReservationStatusMeta(reservation.status);
+
+                  return (
+                    <tr key={reservation.id} className="transition-colors hover:bg-muted/30">
+                      <td className="p-4 text-xs text-muted-foreground">#{reservation.id}</td>
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {format(new Date(reservation.created_at), "MMM d, yyyy")}
+                      </td>
+                      <td className="max-w-[220px] truncate p-4 font-playfair font-semibold">{costumeName}</td>
+                      <td className="p-4 text-muted-foreground">
+                        ₱{baseAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        ₱{surchargeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        ₱{gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        -₱{fee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4 font-semibold text-foreground">
+                        ₱{net.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4 text-right">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
+                            statusMeta.className
+                          )}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

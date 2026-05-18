@@ -45,6 +45,7 @@ app.use("/api/notifications", routes.notifications);
 app.use("/api/wishlist", routes.wishlist);
 app.use("/api/vendors", routes.vendor);
 app.use("/api/admin", routes.admin);
+app.use("/api/account", routes.account);
 app.use("/api/subscriptions", routes.subscriptions);
 
 app.use(errorMiddleware);

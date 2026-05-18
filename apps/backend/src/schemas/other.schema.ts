@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { registry } from '../config/openapi';
+import { reservationFulfillmentSelectionSchema } from './fulfillment.schema';
 
 // --- WISHLIST ---
 registry.registerPath({
@@ -93,8 +94,18 @@ registry.registerPath({
           schema: z.object({
             name: z.string(),
             description: z.string().optional(),
-            dailyRate: z.number(),
-          }), // Partial shape for brevity
+            pricing_mode: z.enum(["PER_DAY", "PACKAGE"]).optional(),
+            base_price_per_day: z.number().nullable().optional(),
+            package_price: z.number().nullable().optional(),
+            package_included_days: z.number().nullable().optional(),
+            package_unused_day_discount: z.number().nullable().optional(),
+            package_extra_day_charge: z.number().nullable().optional(),
+            images: z.array(z.string()).optional(),
+            fulfillment_override: z.object({
+              outbound_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"]),
+              return_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"])
+            }).nullable().optional()
+          }),
         },
       },
     },
@@ -149,6 +160,57 @@ registry.registerPath({
   security: [{ bearerAuth: [] }],
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: { description: 'Reservation rejected' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/surcharge',
+  tags: ['Vendor'],
+  summary: 'Request an outside-area surcharge for a reservation',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            amount: z.union([z.number(), z.string()]),
+            note: z.string().min(1)
+          })
+        }
+      }
+    }
+  },
+  responses: { 200: { description: 'Surcharge requested' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/lifecycle',
+  tags: ['Vendor'],
+  summary: 'Advance a reservation through the fulfillment lifecycle',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            status: z.enum([
+              "OUTBOUND_SCHEDULED",
+              "OUTBOUND_IN_PROGRESS",
+              "WITH_RENTER",
+              "RETURN_SCHEDULED",
+              "RETURN_IN_PROGRESS",
+              "RETURNED",
+              "COMPLETED"
+            ])
+          })
+        }
+      }
+    }
+  },
+  responses: { 200: { description: 'Reservation lifecycle advanced' } },
 });
 
 registry.registerPath({
@@ -229,7 +291,13 @@ registry.registerPath({
     body: {
       content: {
         'application/json': {
-          schema: z.object({ costumeId: z.number(), startDate: z.string(), endDate: z.string() }),
+          schema: z.object({
+            costumeId: z.number(),
+            quantity: z.number().optional().default(1),
+            startDate: z.string(),
+            endDate: z.string(),
+            fulfillment: reservationFulfillmentSelectionSchema
+          }),
         },
       },
     },
@@ -272,6 +340,20 @@ registry.registerPath({
   tags: ['Payments'],
   summary: 'Upload payment proof',
   security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'multipart/form-data': {
+          schema: z.object({
+            reservationIds: z.union([z.string(), z.array(z.number())]).optional(),
+            reservationAdjustmentId: z.union([z.string(), z.number()]).optional(),
+            amount: z.union([z.string(), z.number()]).optional(),
+            proof: z.any()
+          })
+        }
+      }
+    }
+  },
   responses: { 200: { description: 'Proof uploaded' } },
 });
 

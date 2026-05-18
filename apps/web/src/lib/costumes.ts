@@ -1,4 +1,6 @@
 import { apiFetch } from "./api";
+import type { EffectiveCostumeFulfillment, CostumeFulfillmentOverride } from "./fulfillment";
+import type { PricingMode } from "./pricing";
 
 export type CostumeImage = {
   id: number;
@@ -15,7 +17,12 @@ export type Costume = {
   size?: string | null;
   gender?: string | null;
   theme?: string | null;
-  base_price_per_day: number;
+  pricing_mode: PricingMode;
+  base_price_per_day?: number | null;
+  package_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   owner_id?: number | null;
   status?: "DRAFT" | "ACTIVE" | "HIDDEN" | "FLAGGED";
   owner?: {
@@ -27,7 +34,9 @@ export type Costume = {
   };
   is_active?: boolean;
   created_at?: string;
+  updated_at?: string;
   CostumeImages?: CostumeImage[];
+  fulfillmentOverride?: CostumeFulfillmentOverride | null;
 };
 
 export type PaginatedResult<T> = {
@@ -53,6 +62,7 @@ export type CostumeDetailResponse = {
   costume: Costume;
   ratingCount: number;
   avgRating: number | null;
+  effective_fulfillment: EffectiveCostumeFulfillment;
 };
 
 export type Review = {

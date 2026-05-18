@@ -1,12 +1,16 @@
+import type { ReservationFulfillmentSelectionRequest } from "./fulfillment.dto";
 import type { CostumeAttributes } from "../models/Costume";
+import type { ReservationAdjustmentAttributes } from "../models/ReservationAdjustment";
+import type { ReservationFulfillmentAttributes } from "../models/ReservationFulfillment";
 import type { ReservationAttributes } from "../models/Reservation";
 import type { ReservationItemAttributes } from "../models/ReservationItem";
 
 export interface AddToCartRequest {
   costumeId: number;
-  quantity: number;
+  quantity?: number;
   startDate: string;
   endDate: string;
+  fulfillment: ReservationFulfillmentSelectionRequest;
 }
 
 export interface CheckoutRequest {
@@ -23,6 +27,8 @@ export interface ReservationItemWithCostume extends ReservationItemAttributes {
 
 export interface ReservationWithItems extends ReservationAttributes {
   items?: ReservationItemWithCostume[];
+  fulfillment?: ReservationFulfillmentAttributes | null;
+  adjustments?: ReservationAdjustmentAttributes[];
 }
 
 export interface AddToCartResponse {

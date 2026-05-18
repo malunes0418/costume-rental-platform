@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { resolveApiAsset } from "../lib/assets";
 import type { Costume } from "../lib/costumes";
+import { getCostumePricingSummary } from "../lib/pricing";
 import { useAuth } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageIcon } from "@radix-ui/react-icons";
@@ -25,7 +26,7 @@ interface CostumeCardProps {
 export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
   const { user } = useAuth();
   const img = primaryImage(costume);
-  const price = Number(costume.base_price_per_day).toLocaleString();
+  const pricingSummary = getCostumePricingSummary(costume);
   const tags = [costume.theme, costume.size].filter(Boolean);
   const initialSaved = savedIds ? savedIds.has(costume.id) : false;
   const isOwnCostume = !!user && costume.owner_id === user.id;
@@ -88,8 +89,10 @@ export function CostumeCard({ costume, savedIds }: CostumeCardProps) {
         </Link>
 
         <div className="shrink-0 text-right">
-          <p className="font-playfair text-lg font-semibold text-foreground">{"\u20B1"}{price}</p>
-          <p className="text-[10px] text-muted-foreground">/ day</p>
+          <p className="font-playfair text-lg font-semibold text-foreground">
+            {"\u20B1"}{pricingSummary.amount.toLocaleString()}
+          </p>
+          <p className="text-[10px] text-muted-foreground">{pricingSummary.label}</p>
         </div>
       </div>
     </article>

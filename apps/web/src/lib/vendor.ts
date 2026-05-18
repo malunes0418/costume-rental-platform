@@ -1,4 +1,18 @@
 import { apiFetch } from "./api";
+import type {
+  CostumeFulfillmentOverride,
+  CostumeFulfillmentOverrideInput,
+  ReservationAdjustment,
+  ReservationFulfillment,
+  VendorFulfillmentSettings,
+  VendorFulfillmentSettingsInput
+} from "./fulfillment";
+import type { PricingMode } from "./pricing";
+import type {
+  PaymentStatus,
+  ReservationStatus,
+  VendorReservationStatus
+} from "./reservationStatus";
 
 export type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 export type VendorBlockingReason =
@@ -42,7 +56,12 @@ export type VendorCostume = {
   size?: string | null;
   gender?: string | null;
   theme?: string | null;
-  base_price_per_day: number;
+  pricing_mode: PricingMode;
+  base_price_per_day?: number | null;
+  package_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   deposit_amount: number;
   stock: number;
   is_active: boolean;
@@ -56,6 +75,7 @@ export type VendorCostume = {
     image_url: string;
     is_primary: boolean;
   }>;
+  fulfillmentOverride?: CostumeFulfillmentOverride | null;
 };
 
 export type VendorCostumePayload = {
@@ -65,10 +85,16 @@ export type VendorCostumePayload = {
   size?: string;
   gender?: string;
   theme?: string;
-  base_price_per_day: number;
+  pricing_mode: PricingMode;
+  base_price_per_day?: number | null;
+  package_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   deposit_amount?: number;
   stock?: number;
   images: string[];
+  fulfillment_override?: CostumeFulfillmentOverrideInput | null;
 };
 
 export type DeleteVendorCostumeResult = {
@@ -90,7 +116,10 @@ export type ReservationPayment = {
   reservation_ids: number[];
   user_id: number;
   amount: number;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: PaymentStatus;
+  payment_purpose: "INITIAL_RESERVATION" | "RESERVATION_ADJUSTMENT";
+  reservation_adjustment_id?: number | null;
+  reservationAdjustment?: ReservationAdjustment | null;
   proof_url?: string | null;
   notes?: string | null;
   created_at?: string;
@@ -108,6 +137,11 @@ export type ReservationItem = {
   costume_id: number;
   quantity: number;
   price_per_day: number;
+  pricing_mode: PricingMode;
+  package_base_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   subtotal: number;
   Costume?: {
     id: number;
@@ -122,13 +156,20 @@ export type Reservation = {
   start_date: string;
   end_date: string;
   total_price: number;
-  status: "CART" | "PENDING_PAYMENT" | "PAID" | "CANCELLED";
-  vendor_status: "PENDING_VENDOR" | "CONFIRMED" | "REJECTED_BY_VENDOR";
+  status: ReservationStatus;
+  vendor_status: VendorReservationStatus;
   currency?: string;
   created_at: string;
   User?: ReservationCustomer;
   items?: ReservationItem[];
   payments?: ReservationPayment[];
+  fulfillment?: ReservationFulfillment | null;
+  adjustments?: ReservationAdjustment[];
+};
+
+export type VendorReservationSurchargePayload = {
+  amount: number | string;
+  note: string;
 };
 
 export function applyForVendor(payload: VendorApplicationPayload) {
@@ -197,6 +238,18 @@ export function listVendorReservations() {
   return apiFetch<Reservation[]>("/api/vendors/reservations");
 }
 
+export function getVendorFulfillmentSettings() {
+  return apiFetch<VendorFulfillmentSettings | null>("/api/vendors/fulfillment-settings");
+}
+
+export function updateVendorFulfillmentSettings(payload: VendorFulfillmentSettingsInput) {
+  return apiFetch<VendorFulfillmentSettings>("/api/vendors/fulfillment-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
 export function approveReservation(id: number) {
   return apiFetch<Reservation>(`/api/vendors/reservations/${id}/approve`, {
     method: "POST"
@@ -206,6 +259,22 @@ export function approveReservation(id: number) {
 export function rejectReservation(id: number) {
   return apiFetch<Reservation>(`/api/vendors/reservations/${id}/reject`, {
     method: "POST"
+  });
+}
+
+export function requestReservationSurcharge(id: number, payload: VendorReservationSurchargePayload) {
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/surcharge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function advanceReservationLifecycle(id: number, status: ReservationStatus) {
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/lifecycle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status })
   });
 }
 

@@ -4,83 +4,82 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  CalendarIcon as CalendarDays,
+  ExternalLinkIcon as ExternalLink,
+  IdCardIcon as CreditCard,
+  ImageIcon,
+  UploadIcon as Upload
+} from "@radix-ui/react-icons";
+
+import { SavedLocationFields } from "@/components/SavedLocationFields";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
+import { useCart } from "../../lib/CartContext";
 import {
+  createSavedLocation,
+  deleteSavedLocation,
+  listSavedLocations,
   myPayments,
   myReservations,
+  uploadReservationAdjustmentPayment,
+  updateSavedLocation,
   type Payment,
-  type ReservationWithItems,
+  type ReservationWithItems
 } from "../../lib/account";
-import { useCart } from "../../lib/CartContext";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  CalendarIcon as CalendarDays,
-  IdCardIcon as CreditCard,
-  UploadIcon as Upload,
-  ExternalLinkIcon as ExternalLink,
-  ImageIcon,
-} from "@radix-ui/react-icons";
+  FULFILLMENT_METHOD_LABELS,
+  formatLocationSummary,
+  type ReservationAdjustment,
+  type SavedLocation,
+  type SavedLocationInput
+} from "@/lib/fulfillment";
+import { countRentalDaysInclusive } from "../../lib/pricing";
+import {
+  PAYMENT_PURPOSE_LABELS,
+  getPaymentStatusMeta,
+  getReservationStatusMeta
+} from "../../lib/reservationStatus";
 import { cn } from "@/lib/utils";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+const OPERATION_TIMELINE = [
+  "CONFIRMED",
+  "OUTBOUND_SCHEDULED",
+  "OUTBOUND_IN_PROGRESS",
+  "WITH_RENTER",
+  "RETURN_SCHEDULED",
+  "RETURN_IN_PROGRESS",
+  "RETURNED",
+  "COMPLETED"
+] as const;
 
-function primaryImage(res: ReservationWithItems) {
-  const item = res.items?.[0];
-  const imgs = item?.Costume?.CostumeImages || [];
-  return imgs.find((i) => i.is_primary)?.image_url || imgs[0]?.image_url || "";
+function primaryImage(reservation: ReservationWithItems) {
+  const item = reservation.items?.[0];
+  const images = item?.Costume?.CostumeImages || [];
+  return images.find((image) => image.is_primary)?.image_url || images[0]?.image_url || "";
 }
 
-function formatDate(d: string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", {
+function formatDate(value: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
+    year: "numeric"
   });
 }
 
-function daysBetween(start: string, end: string) {
-  if (!start || !end) return 0;
-  return Math.max(
-    1,
-    Math.ceil(
-      (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)
-    )
-  );
-}
-
-// ── status display ────────────────────────────────────────────────────────────
-
-const STATUS_LABEL: Record<string, string> = {
-  CART:            "In Cart",
-  PENDING_PAYMENT: "Pending Payment",
-  PAID:            "Approved",
-  CANCELLED:       "Cancelled",
-};
-
-const STATUS_CLASS: Record<string, string> = {
-  CART:            "text-muted-foreground border-border",
-  PENDING_PAYMENT: "text-amber-600 border-amber-400/40 dark:text-amber-400",
-  PAID:            "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
-  CANCELLED:       "text-destructive border-destructive/30",
-};
-
 function resolveReservationStatus(reservation: ReservationWithItems, payments: Payment[]) {
-  const hasReceipt = payments.some((payment) => Boolean(payment.proof_url));
+  const pendingReceipt = payments.some(
+    (payment) => payment.status === "PENDING" && Boolean(payment.proof_url)
+  );
 
-  if (reservation.status === "PENDING_PAYMENT" && reservation.vendor_status === "PENDING_VENDOR" && hasReceipt) {
-    return {
-      label: "Under Review",
-      className: "text-amber-600 border-amber-400/40 dark:text-amber-400",
-    };
+  if (reservation.status === "PENDING_PAYMENT" && pendingReceipt) {
+    return getPaymentStatusMeta("PENDING");
   }
 
-  return {
-    label: STATUS_LABEL[reservation.status] || reservation.status,
-    className: STATUS_CLASS[reservation.status] || "text-muted-foreground border-border",
-  };
+  return getReservationStatusMeta(reservation.status);
 }
 
 function buildReserveAgainHref(reservation: ReservationWithItems) {
@@ -90,115 +89,282 @@ function buildReserveAgainHref(reservation: ReservationWithItems) {
   const params = new URLSearchParams();
   params.set("startDate", reservation.start_date);
   params.set("endDate", reservation.end_date);
-  params.set("quantity", String(reservation.items?.[0]?.quantity || 1));
 
   return `/costumes/${costumeId}?${params.toString()}`;
 }
 
 function resolvePaymentHistoryStatus(payment: Payment, reservation: ReservationWithItems) {
-  if (reservation.status === "PAID") {
+  if (reservation.status === "REJECTED_BY_VENDOR") {
     return {
-      label: "APPROVED",
-      className: "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
+      label: "Vendor Declined",
+      className: "text-destructive border-destructive/30"
     };
   }
 
-  if (reservation.status === "CANCELLED" || reservation.vendor_status === "REJECTED_BY_VENDOR") {
+  if (reservation.status === "CANCELLED") {
     return {
-      label: "REJECTED",
-      className: "text-destructive border-destructive/30",
+      label: "Cancelled",
+      className: "text-destructive border-destructive/30"
     };
   }
 
-  if (payment.status === "APPROVED") {
+  if (payment.status === "APPROVED" && reservation.status === "PENDING_VENDOR_REVIEW") {
     return {
-      label: "APPROVED",
-      className: "text-emerald-700 border-emerald-400/40 dark:text-emerald-400",
+      label: "Awaiting Vendor Review",
+      className: "text-amber-700 border-amber-400/40 dark:text-amber-400"
     };
   }
 
-  if (payment.status === "REJECTED") {
-    return {
-      label: "REJECTED",
-      className: "text-destructive border-destructive/30",
-    };
-  }
-
-  if (reservation.vendor_status === "PENDING_VENDOR" && payment.proof_url) {
-    return {
-      label: "UNDER REVIEW",
-      className: "text-amber-700 border-amber-400/40 dark:text-amber-400",
-    };
-  }
-
-  return {
-    label: "PENDING",
-    className: "text-muted-foreground border-border",
-  };
+  return getPaymentStatusMeta(payment.status);
 }
 
 function hasActivePaymentForReservation(payments: Payment[]) {
   return payments.some((payment) => payment.status !== "REJECTED");
 }
 
-// ── component ─────────────────────────────────────────────────────────────────
+function hasActivePaymentForAdjustment(adjustmentId: number, payments: Payment[]) {
+  return payments.some(
+    (payment) =>
+      payment.reservation_adjustment_id === adjustmentId &&
+      (payment.status === "PENDING" || payment.status === "APPROVED")
+  );
+}
+
+function getPendingAdjustment(reservation: ReservationWithItems) {
+  return reservation.adjustments?.find((adjustment) => adjustment.status === "PENDING") ?? null;
+}
+
+function getPaidAdjustmentTotal(reservation: ReservationWithItems) {
+  return (reservation.adjustments || [])
+    .filter((adjustment) => adjustment.status === "PAID")
+    .reduce((sum, adjustment) => sum + Number(adjustment.amount), 0);
+}
+
+function timelineForReservation(reservation: ReservationWithItems) {
+  const includesSurcharge =
+    reservation.status === "AWAITING_SURCHARGE_PAYMENT" || (reservation.adjustments?.length || 0) > 0;
+
+  const preface = includesSurcharge
+    ? ["PENDING_PAYMENT", "PENDING_VENDOR_REVIEW", "AWAITING_SURCHARGE_PAYMENT"]
+    : ["PENDING_PAYMENT", "PENDING_VENDOR_REVIEW"];
+
+  return [...preface, ...OPERATION_TIMELINE];
+}
+
+function timelineStepState(reservation: ReservationWithItems, step: string) {
+  const timeline = timelineForReservation(reservation);
+  const currentIndex = timeline.indexOf(reservation.status);
+  const stepIndex = timeline.indexOf(step as (typeof timeline)[number]);
+  if (reservation.status === step) return "current";
+  if (currentIndex >= 0 && stepIndex >= 0 && stepIndex < currentIndex) return "complete";
+  return "upcoming";
+}
+
+function emptyLocationDraft(): SavedLocationInput {
+  return {
+    label: "",
+    contact_name: "",
+    phone_number: "",
+    address_line_1: "",
+    address_line_2: "",
+    barangay: "",
+    city: "",
+    province: "",
+    postal_code: "",
+    country: "Philippines",
+    area: "",
+    notes: "",
+    is_default: false
+  };
+}
+
+function reservationFulfillmentSummary(reservation: ReservationWithItems) {
+  const fulfillment = reservation.fulfillment;
+  if (!fulfillment) return null;
+
+  return `${FULFILLMENT_METHOD_LABELS[fulfillment.outbound_method]} outbound / ${FULFILLMENT_METHOD_LABELS[fulfillment.return_method]} return`;
+}
 
 export default function ReservationsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { openCart, refreshKey } = useCart();
   const router = useRouter();
-  const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
-  const [payments, setPayments]         = useState<Payment[]>([]);
-  const [isLoading, setIsLoading]       = useState(true);
 
-  // Build a map from reservationId → payments[] using the new reservation_ids array
+  const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [locationDraft, setLocationDraft] = useState<SavedLocationInput>(() => emptyLocationDraft());
+  const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+  const [deletingLocationId, setDeletingLocationId] = useState<number | null>(null);
+  const [adjustmentFiles, setAdjustmentFiles] = useState<Record<number, File | null>>({});
+  const [uploadingAdjustmentId, setUploadingAdjustmentId] = useState<number | null>(null);
+
   const paymentsByReservation = useMemo(() => {
-    const m = new Map<number, Payment[]>();
-    for (const p of payments) {
-      const ids: number[] = p.reservation_ids || [];
-      for (const rid of ids) {
-        const arr = m.get(rid) || [];
-        arr.push(p);
-        m.set(rid, arr);
+    const map = new Map<number, Payment[]>();
+
+    for (const payment of payments) {
+      for (const reservationId of payment.reservation_ids || []) {
+        const existing = map.get(reservationId) || [];
+        existing.push(payment);
+        map.set(reservationId, existing);
       }
     }
-    return m;
+
+    return map;
   }, [payments]);
 
   const pendingPaymentReservations = useMemo(
     () =>
       reservations.filter((reservation) => {
         if (reservation.status !== "PENDING_PAYMENT") return false;
-        const reservationPayments = paymentsByReservation.get(reservation.id) || [];
-        return !hasActivePaymentForReservation(reservationPayments);
+        return !hasActivePaymentForReservation(paymentsByReservation.get(reservation.id) || []);
       }),
     [paymentsByReservation, reservations]
   );
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!user) { setReservations([]); setPayments([]); setIsLoading(false); return; }
+    if (!user) {
+      setReservations([]);
+      setPayments([]);
+      setSavedLocations([]);
+      setIsLoading(false);
+      return;
+    }
     if (user.role === "ADMIN") {
       router.replace("/admin");
       return;
     }
+
     let cancelled = false;
     setIsLoading(true);
-    Promise.all([myReservations(), myPayments()])
-      .then(([r, p]) => { if (!cancelled) { setReservations(r); setPayments(p); } })
-      .catch((e: unknown) => {
-        if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load reservations");
+
+    Promise.all([myReservations(), myPayments(), listSavedLocations()])
+      .then(([nextReservations, nextPayments, nextLocations]) => {
+        if (cancelled) return;
+        setReservations(nextReservations);
+        setPayments(nextPayments);
+        setSavedLocations(nextLocations);
       })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          toast.error(error instanceof ApiError ? error.message : "Failed to load reservations");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, isAuthLoading, router, refreshKey]);
 
-  // ── unauthenticated state ──────────────────────────────────────────────────
+  async function handleSaveLocation() {
+    if (
+      !locationDraft.label.trim() ||
+      !locationDraft.contact_name.trim() ||
+      !locationDraft.phone_number.trim() ||
+      !locationDraft.address_line_1.trim() ||
+      !locationDraft.city.trim()
+    ) {
+      toast.error("Please complete the label, contact, phone, address, and city.");
+      return;
+    }
+
+    setIsSavingLocation(true);
+    try {
+      const saved = editingLocationId
+        ? await updateSavedLocation(editingLocationId, locationDraft)
+        : await createSavedLocation(locationDraft);
+
+      const nextLocations = editingLocationId
+        ? savedLocations.map((location) => (location.id === editingLocationId ? saved : location))
+        : [saved, ...savedLocations.filter((location) => location.id !== saved.id)];
+
+      setSavedLocations(
+        saved.is_default
+          ? nextLocations.map((location) => ({ ...location, is_default: location.id === saved.id }))
+          : nextLocations
+      );
+      setLocationDraft(emptyLocationDraft());
+      setEditingLocationId(null);
+      toast.success(editingLocationId ? "Location updated." : "Location saved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save location.");
+    } finally {
+      setIsSavingLocation(false);
+    }
+  }
+
+  function handleEditLocation(location: SavedLocation) {
+    setEditingLocationId(location.id);
+    setLocationDraft({
+      label: location.label,
+      contact_name: location.contact_name,
+      phone_number: location.phone_number,
+      address_line_1: location.address_line_1,
+      address_line_2: location.address_line_2 || "",
+      barangay: location.barangay || "",
+      city: location.city,
+      province: location.province || "",
+      postal_code: location.postal_code || "",
+      country: location.country || "Philippines",
+      area: location.area || "",
+      notes: location.notes || "",
+      is_default: location.is_default
+    });
+  }
+
+  async function handleDeleteLocation(locationId: number) {
+    setDeletingLocationId(locationId);
+    try {
+      await deleteSavedLocation(locationId);
+      setSavedLocations((current) => current.filter((location) => location.id !== locationId));
+
+      if (editingLocationId === locationId) {
+        setEditingLocationId(null);
+        setLocationDraft(emptyLocationDraft());
+      }
+
+      toast.success("Location removed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete location.");
+    } finally {
+      setDeletingLocationId(null);
+    }
+  }
+
+  async function handleUploadAdjustmentPayment(reservation: ReservationWithItems, adjustment: ReservationAdjustment) {
+    const file = adjustmentFiles[adjustment.id];
+    if (!file) {
+      toast.error("Choose a receipt file for this surcharge request.");
+      return;
+    }
+
+    setUploadingAdjustmentId(adjustment.id);
+    try {
+      await uploadReservationAdjustmentPayment(adjustment.id, file);
+      const [nextReservations, nextPayments] = await Promise.all([myReservations(), myPayments()]);
+      setReservations(nextReservations);
+      setPayments(nextPayments);
+      setAdjustmentFiles((current) => ({ ...current, [adjustment.id]: null }));
+      toast.success(`Supplemental payment submitted for reservation #${reservation.id}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to upload the supplemental payment.");
+    } finally {
+      setUploadingAdjustmentId(null);
+    }
+  }
 
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
           <div className="text-muted-foreground/20">
             <CalendarDays className="mx-auto size-16" />
           </div>
@@ -220,7 +386,7 @@ export default function ReservationsPage() {
   if (user.role === "ADMIN") {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
           <div className="text-muted-foreground/20">
             <CalendarDays className="mx-auto size-16" />
           </div>
@@ -239,12 +405,8 @@ export default function ReservationsPage() {
     );
   }
 
-  // ── main render ────────────────────────────────────────────────────────────
-
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-16">
-
-      {/* ── Page header ── */}
       <div className="mb-16 max-w-xl">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
           Your account
@@ -253,18 +415,16 @@ export default function ReservationsPage() {
           Reservations
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
-          Review your bookings, complete checkout, and upload payment proof.
+          Review your bookings, follow the fulfillment lifecycle, and keep delivery-ready locations close at hand.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-16 lg:grid-cols-12">
-
-        {/* ── Reservations list ── */}
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-0">
           {isLoading ? (
             <div className="flex flex-col divide-y divide-border border-t border-border">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex gap-6 py-8">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="flex gap-6 py-8">
                   <Skeleton className="size-24 shrink-0 rounded-sm" />
                   <div className="flex-1 space-y-3">
                     <Skeleton className="h-4 w-1/2" />
@@ -274,26 +434,29 @@ export default function ReservationsPage() {
                 </div>
               ))}
             </div>
-          ) : reservations.length ? (
-            <div className="divide-y divide-border border-t border-b border-border">
-              {reservations.map((r) => {
-                const img   = primaryImage(r);
-                const first = r.items?.[0];
-                const title = first?.Costume?.name || `Reservation #${r.id}`;
-                const pay   = paymentsByReservation.get(r.id) || [];
-                const days  = daysBetween(r.start_date, r.end_date);
-                const status = resolveReservationStatus(r, pay);
-                const reserveAgainHref = buildReserveAgainHref(r);
-                const canContinuePayment = r.status === "PENDING_PAYMENT" && !hasActivePaymentForReservation(pay);
+          ) : reservations.length > 0 ? (
+            <div className="divide-y divide-border border-y border-border">
+              {reservations.map((reservation) => {
+                const image = primaryImage(reservation);
+                const firstItem = reservation.items?.[0];
+                const title = firstItem?.Costume?.name || `Reservation #${reservation.id}`;
+                const reservationPayments = paymentsByReservation.get(reservation.id) || [];
+                const days = countRentalDaysInclusive(reservation.start_date, reservation.end_date);
+                const status = resolveReservationStatus(reservation, reservationPayments);
+                const reserveAgainHref = buildReserveAgainHref(reservation);
+                const canContinuePayment =
+                  reservation.status === "PENDING_PAYMENT" &&
+                  !hasActivePaymentForReservation(reservationPayments);
+                const fulfillmentLine = reservationFulfillmentSummary(reservation);
+                const pendingAdjustment = getPendingAdjustment(reservation);
+                const paidSurchargeTotal = getPaidAdjustmentTotal(reservation);
 
                 return (
-                  <article key={r.id} className="flex flex-col gap-6 py-10 sm:flex-row sm:gap-8">
-
-                    {/* Thumbnail */}
+                  <article key={reservation.id} className="flex flex-col gap-6 py-10 sm:flex-row sm:gap-8">
                     <div className="size-24 shrink-0 overflow-hidden rounded-sm border border-border bg-muted sm:size-28">
-                      {img ? (
+                      {image ? (
                         <img
-                          src={resolveApiAsset(img)}
+                          src={resolveApiAsset(image)}
                           alt={title}
                           className="h-full w-full object-cover"
                           loading="lazy"
@@ -305,23 +468,29 @@ export default function ReservationsPage() {
                       )}
                     </div>
 
-                    {/* Details */}
-                    <div className="flex-1 min-w-0 flex flex-col gap-4">
+                    <div className="flex min-w-0 flex-1 flex-col gap-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="font-playfair text-xl font-semibold text-foreground truncate">
-                            {title}
-                          </p>
+                          <p className="truncate font-playfair text-xl font-semibold text-foreground">{title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatDate(r.start_date)} → {formatDate(r.end_date)}
+                            {formatDate(reservation.start_date)} to {formatDate(reservation.end_date)}
                             {days > 0 && ` · ${days} day${days !== 1 ? "s" : ""}`}
                           </p>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            ₱{Number(r.total_price).toLocaleString()}
+                          {fulfillmentLine ? (
+                            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+                              {fulfillmentLine}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            PHP {(Number(reservation.total_price) + paidSurchargeTotal).toLocaleString()}
                           </p>
+                          {paidSurchargeTotal > 0 ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Includes PHP {paidSurchargeTotal.toLocaleString()} in settled surcharge payments
+                            </p>
+                          ) : null}
                         </div>
 
-                        {/* Status pill */}
                         <span
                           className={cn(
                             "shrink-0 rounded-sm border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest",
@@ -332,9 +501,8 @@ export default function ReservationsPage() {
                         </span>
                       </div>
 
-                      {/* Actions */}
                       <div className="flex flex-wrap items-center gap-3">
-                        {r.status === "CART" && (
+                        {reservation.status === "CART" ? (
                           <button
                             type="button"
                             onClick={openCart}
@@ -343,8 +511,9 @@ export default function ReservationsPage() {
                             <CreditCard className="size-3.5" />
                             Continue in Cart
                           </button>
-                        )}
-                        {canContinuePayment && (
+                        ) : null}
+
+                        {canContinuePayment ? (
                           <button
                             type="button"
                             onClick={openCart}
@@ -353,73 +522,151 @@ export default function ReservationsPage() {
                             <Upload className="size-3.5" />
                             Continue Payment
                           </button>
-                        )}
-                        {first?.costume_id && (
+                        ) : null}
+
+                        {firstItem?.costume_id ? (
                           <Link
-                            href={`/costumes/${first.costume_id}`}
+                            href={`/costumes/${firstItem.costume_id}`}
                             className="inline-flex h-9 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                           >
                             View costume
                           </Link>
-                        )}
-                        {r.status === "CANCELLED" && reserveAgainHref && (
+                        ) : null}
+
+                        {reservation.status === "CANCELLED" && reserveAgainHref ? (
                           <Link
                             href={reserveAgainHref}
                             className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
                           >
                             Change dates & reserve again
                           </Link>
-                        )}
+                        ) : null}
                       </div>
 
-                      {/* Payment history */}
-                      {pay.length > 0 && (
-                        <div className="border border-border rounded-sm p-4 space-y-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                      <div className="grid gap-2 sm:grid-cols-4">
+                        {timelineForReservation(reservation).map((step) => {
+                          const meta = getReservationStatusMeta(step as any);
+                          const state = timelineStepState(reservation, step);
+                          return (
+                            <div
+                              key={step}
+                              className={cn(
+                                "rounded-sm border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest",
+                                state === "current" && "border-foreground bg-foreground text-background",
+                                state === "complete" && "border-emerald-400/30 text-emerald-700 dark:text-emerald-400",
+                                state === "upcoming" && "border-border text-muted-foreground"
+                              )}
+                            >
+                              {meta.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {pendingAdjustment ? (
+                        <div className="space-y-4 rounded-sm border border-orange-400/30 bg-orange-50/50 p-4 dark:bg-orange-900/10">
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-700 dark:text-orange-400">
+                              Supplemental payment requested
+                            </p>
+                            <p className="text-sm text-foreground">
+                              PHP {Number(pendingAdjustment.amount).toLocaleString()}
+                            </p>
+                            {pendingAdjustment.note ? (
+                              <p className="text-sm leading-7 text-muted-foreground">{pendingAdjustment.note}</p>
+                            ) : null}
+                          </div>
+
+                          {hasActivePaymentForAdjustment(pendingAdjustment.id, reservationPayments) ? (
+                            <p className="text-xs text-muted-foreground">
+                              A supplemental receipt has already been submitted for review.
+                            </p>
+                          ) : (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={(event) =>
+                                  setAdjustmentFiles((current) => ({
+                                    ...current,
+                                    [pendingAdjustment.id]: event.target.files?.[0] || null
+                                  }))
+                                }
+                                className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void handleUploadAdjustmentPayment(reservation, pendingAdjustment)}
+                                disabled={uploadingAdjustmentId === pendingAdjustment.id}
+                                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                              >
+                                {uploadingAdjustmentId === pendingAdjustment.id ? "Uploading..." : "Upload Supplemental Proof"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {reservationPayments.length > 0 ? (
+                        <div className="space-y-2 rounded-sm border border-border p-4">
+                          <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                             Payment history
                           </p>
-                          {pay.map((p) => (
-                            <div key={p.id} className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3">
-                                <span className={cn(
-                                  "text-[10px] font-semibold uppercase tracking-widest border rounded-sm px-2 py-0.5",
-                                  resolvePaymentHistoryStatus(p, r).className
-                                )}>
-                                  {resolvePaymentHistoryStatus(p, r).label}
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                  ₱{Number(p.amount).toLocaleString()}
-                                </span>
+                          {reservationPayments.map((payment) => {
+                            const paymentStatus = resolvePaymentHistoryStatus(payment, reservation);
+                            return (
+                              <div key={payment.id} className="space-y-2">
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="flex items-center gap-3">
+                                    <span
+                                      className={cn(
+                                        "rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest",
+                                        paymentStatus.className
+                                      )}
+                                    >
+                                      {paymentStatus.label}
+                                    </span>
+                                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                      {PAYMENT_PURPOSE_LABELS[payment.payment_purpose]}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      PHP {Number(payment.amount).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {payment.proof_url ? (
+                                    <a
+                                      href={resolveApiAsset(payment.proof_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                                    >
+                                      View proof <ExternalLink className="size-3" />
+                                    </a>
+                                  ) : null}
+                                </div>
+                                {payment.reservationAdjustment?.note ? (
+                                  <p className="pt-1 text-xs leading-6 text-muted-foreground">
+                                    {payment.reservationAdjustment.note}
+                                  </p>
+                                ) : null}
                               </div>
-                              <a
-                                href={resolveApiAsset(p.proof_url)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-                              >
-                                View proof <ExternalLink className="size-3" />
-                              </a>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </article>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-8 border border-border rounded-sm py-24 px-12 text-center">
+            <div className="flex flex-col items-center gap-8 rounded-sm border border-border px-12 py-24 text-center">
               <div className="text-muted-foreground/20">
                 <CalendarDays className="size-12" />
               </div>
               <div className="space-y-2">
-                <p className="font-playfair text-3xl font-semibold text-foreground">
-                  No reservations yet.
-                </p>
-                <p className="text-muted-foreground">
-                  Start browsing and find a costume to book.
-                </p>
+                <p className="font-playfair text-3xl font-semibold text-foreground">No reservations yet.</p>
+                <p className="text-muted-foreground">Start browsing and find a costume to book.</p>
               </div>
               <Link
                 href="/"
@@ -431,47 +678,141 @@ export default function ReservationsPage() {
           )}
         </div>
 
-        {/* ── Upload sidebar ── */}
         <div className="lg:col-span-5 xl:col-span-4">
-          <div className="sticky top-24 flex flex-col gap-8 border border-border rounded-sm p-8">
-            <div className="border-b border-border pb-6">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Payment
-              </p>
-              <h2 className="mt-3 font-playfair text-2xl font-semibold text-foreground">
-                Upload Proof
-              </h2>
+          <div className="sticky top-24 flex flex-col gap-10 rounded-sm border border-border p-8">
+            <section className="border-b border-border pb-8">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Payment</p>
+              <h2 className="mt-3 font-playfair text-2xl font-semibold text-foreground">Upload Proof</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Upload your payment receipt for any reservation in{" "}
-                <span className="font-semibold text-foreground">Pending Payment</span> status.
+                Upload your payment receipt for any reservation still waiting on base payment. Supplemental surcharge receipts are handled directly inside the reservation timeline.
               </p>
-            </div>
 
-            <div className="flex flex-col gap-5">
-              {pendingPaymentReservations.length > 0 ? (
-                <>
-                  <p className="text-sm text-foreground mb-2">
-                    You have <strong>{pendingPaymentReservations.length}</strong> reservation{pendingPaymentReservations.length > 1 ? "s" : ""} awaiting payment. You can submit one proof of payment for your entire cart.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={openCart}
-                    className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
-                  >
-                    <Upload className="size-3.5" />
-                    Complete Payment in Cart
-                  </button>
-                </>
+              <div className="mt-6 flex flex-col gap-5">
+                {pendingPaymentReservations.length > 0 ? (
+                  <>
+                    <p className="text-sm text-foreground">
+                      You have <strong>{pendingPaymentReservations.length}</strong> reservation
+                      {pendingPaymentReservations.length > 1 ? "s" : ""} awaiting payment. You can submit one proof of
+                      payment for your entire cart.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={openCart}
+                      className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                    >
+                      <Upload className="size-3.5" />
+                      Complete Payment in Cart
+                    </button>
+                  </>
+                ) : (
+                  <div className="rounded-sm border-2 border-dashed border-border py-8 text-center">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">All set</p>
+                    <p className="text-sm text-muted-foreground">You don&apos;t have any pending payments right now.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Delivery book
+                </p>
+                <h2 className="font-playfair text-2xl font-semibold text-foreground">Saved locations</h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Keep your preferred handoff addresses ready so delivery reservations stay quick, clear, and consistent.
+                </p>
+              </div>
+
+              {savedLocations.length > 0 ? (
+                <div className="divide-y divide-border border-y border-border">
+                  {savedLocations.map((location) => (
+                    <article key={location.id} className="space-y-3 py-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-playfair text-xl font-semibold text-foreground">{location.label}</p>
+                            {location.is_default ? (
+                              <span className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                Default
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm leading-7 text-muted-foreground">
+                            {formatLocationSummary(location)}
+                          </p>
+                          <p className="text-xs leading-6 text-muted-foreground">
+                            {location.contact_name} · {location.phone_number}
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleEditLocation(location)}
+                            className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteLocation(location.id)}
+                            disabled={deletingLocationId === location.id}
+                            className="text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:opacity-80 disabled:opacity-40"
+                          >
+                            {deletingLocationId === location.id ? "Removing" : "Delete"}
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               ) : (
-                <div className="py-8 text-center border-2 border-dashed border-border rounded-sm">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">All set</p>
-                  <p className="text-sm text-muted-foreground">You don&apos;t have any pending payments right now.</p>
+                <div className="rounded-sm border border-dashed border-border px-5 py-6 text-sm leading-7 text-muted-foreground">
+                  No saved locations yet. Add one here or create one during a reservation when delivery is selected.
                 </div>
               )}
-            </div>
+
+              <div className="space-y-5 border-t border-border pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {editingLocationId ? "Editing location" : "Add a new location"}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                      Delivery reservations require a valid location. You can also mark one as the default for faster
+                      selection.
+                    </p>
+                  </div>
+
+                  {editingLocationId ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingLocationId(null);
+                        setLocationDraft(emptyLocationDraft());
+                      }}
+                      className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Cancel edit
+                    </button>
+                  ) : null}
+                </div>
+
+                <SavedLocationFields value={locationDraft} onChange={setLocationDraft} />
+
+                <button
+                  type="button"
+                  onClick={() => void handleSaveLocation()}
+                  disabled={isSavingLocation}
+                  className="flex h-11 w-full items-center justify-center rounded-sm bg-foreground text-[10px] font-semibold uppercase tracking-[0.24em] text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                >
+                  {isSavingLocation ? "Saving..." : editingLocationId ? "Save location changes" : "Save location"}
+                </button>
+              </div>
+            </section>
           </div>
         </div>
-
       </div>
     </div>
   );

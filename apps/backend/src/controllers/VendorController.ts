@@ -119,6 +119,26 @@ export class VendorController {
     }
   }
 
+  async requestReservationSurcharge(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.requestReservationSurcharge(vendorId, Number(req.params.id), req.body);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async advanceReservationLifecycle(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.transitionReservationLifecycle(vendorId, Number(req.params.id), req.body);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
   async listMessages(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;

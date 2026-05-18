@@ -12,6 +12,7 @@ import {
   type AdminPayment,
   type PendingVendor,
 } from "@/lib/admin";
+import { getReservationStatusMeta, isReservationStatus } from "@/lib/reservationStatus";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PersonIcon,
@@ -37,14 +38,15 @@ function currency(n: number | string) {
 
 function StatusChip({ status }: { status: string }) {
   const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
-      ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-      : s === "PENDING"
-      ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-      : s === "REJECTED" || s === "CANCELLED"
-      ? "border-destructive/20 bg-destructive/5 text-destructive"
-      : "border-border bg-muted/50 text-muted-foreground";
+  const cls = isReservationStatus(s)
+    ? getReservationStatusMeta(s).className
+    : s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
+    ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+    : s === "PENDING"
+    ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+    : s === "REJECTED" || s === "CANCELLED"
+    ? "border-destructive/20 bg-destructive/5 text-destructive"
+    : "border-border bg-muted/50 text-muted-foreground";
 
   return (
     <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>

@@ -1,4 +1,11 @@
 import { apiFetch } from "./api";
+import type { ReservationAdjustment, ReservationFulfillment } from "./fulfillment";
+import type { PricingMode } from "./pricing";
+import type {
+  PaymentStatus,
+  ReservationStatus,
+  VendorReservationStatus
+} from "./reservationStatus";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -13,13 +20,17 @@ export type AdminUser = {
 export type AdminReservation = {
   id: number;
   user_id: number;
-  status: string;
+  status: ReservationStatus;
+  vendor_status?: VendorReservationStatus;
   start_date: string;
   end_date: string;
   total_price: number;
   currency?: string;
   created_at?: string;
   items?: any[];
+  fulfillment?: ReservationFulfillment | null;
+  adjustments?: ReservationAdjustment[];
+  payments?: AdminPayment[];
   User?: { name?: string; email?: string };
 };
 
@@ -29,7 +40,10 @@ export type AdminPayment = {
   user_id: number;
   amount: number;
   proof_url?: string;
-  status: string;
+  status: PaymentStatus;
+  payment_purpose: "INITIAL_RESERVATION" | "RESERVATION_ADJUSTMENT";
+  reservation_adjustment_id?: number | null;
+  reservationAdjustment?: ReservationAdjustment | null;
   notes?: string;
   created_at?: string;
 };
@@ -39,7 +53,12 @@ export type AdminInventoryItem = {
   name: string;
   category?: string;
   stock: number;
-  base_price_per_day: number;
+  pricing_mode: PricingMode;
+  base_price_per_day?: number | null;
+  package_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   status?: string;
 };
 
@@ -119,7 +138,7 @@ export function adminUpdateCostumeStatus(costumeId: number, status: "ACTIVE" | "
   });
 }
 
-export function adminUpdateReservationStatus(reservationId: number, status: string) {
+export function adminUpdateReservationStatus(reservationId: number, status: ReservationStatus) {
   return apiFetch<{ success: boolean }>(`/api/admin/reservations/${reservationId}/status`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },

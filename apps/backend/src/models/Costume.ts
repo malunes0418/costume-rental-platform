@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from "../config/db";
+import type { PricingMode } from "../utils/pricing";
 
 export interface CostumeAttributes {
   id: number;
@@ -9,7 +10,12 @@ export interface CostumeAttributes {
   size?: string | null;
   gender?: string | null;
   theme?: string | null;
-  base_price_per_day: number;
+  pricing_mode: PricingMode;
+  base_price_per_day?: number | null;
+  package_price?: number | null;
+  package_included_days?: number | null;
+  package_unused_day_discount?: number | null;
+  package_extra_day_charge?: number | null;
   deposit_amount: number;
   stock: number;
   is_active: boolean;
@@ -19,7 +25,21 @@ export interface CostumeAttributes {
   updated_at?: Date;
 }
 
-export interface CostumeCreationAttributes extends Optional<CostumeAttributes, "id" | "deposit_amount" | "stock" | "is_active" | "status"> {}
+export interface CostumeCreationAttributes
+  extends Optional<
+    CostumeAttributes,
+    | "id"
+    | "pricing_mode"
+    | "base_price_per_day"
+    | "package_price"
+    | "package_included_days"
+    | "package_unused_day_discount"
+    | "package_extra_day_charge"
+    | "deposit_amount"
+    | "stock"
+    | "is_active"
+    | "status"
+  > {}
 
 export class Costume extends Model<CostumeAttributes, CostumeCreationAttributes> implements CostumeAttributes {
   public id!: number;
@@ -29,7 +49,12 @@ export class Costume extends Model<CostumeAttributes, CostumeCreationAttributes>
   public size!: string | null;
   public gender!: string | null;
   public theme!: string | null;
-  public base_price_per_day!: number;
+  public pricing_mode!: PricingMode;
+  public base_price_per_day!: number | null;
+  public package_price!: number | null;
+  public package_included_days!: number | null;
+  public package_unused_day_discount!: number | null;
+  public package_extra_day_charge!: number | null;
   public deposit_amount!: number;
   public stock!: number;
   public is_active!: boolean;
@@ -48,7 +73,12 @@ Costume.init(
     size: { type: DataTypes.STRING(50), allowNull: true },
     gender: { type: DataTypes.STRING(50), allowNull: true },
     theme: { type: DataTypes.STRING(100), allowNull: true },
-    base_price_per_day: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    pricing_mode: { type: DataTypes.ENUM("PER_DAY", "PACKAGE"), allowNull: false, defaultValue: "PER_DAY" },
+    base_price_per_day: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    package_price: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    package_included_days: { type: DataTypes.INTEGER, allowNull: true },
+    package_unused_day_discount: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    package_extra_day_charge: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
     deposit_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     stock: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     is_active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

@@ -22,7 +22,6 @@ export type AdminReservationRow = ReservationWithItems & { User?: UserPublic };
 export type AdminListReservationsResponse = AdminReservationRow[];
 
 export interface AdminPaymentRow extends PaymentAttributes {
-  Reservation?: ReservationAttributes;
   User?: UserPublic;
 }
 

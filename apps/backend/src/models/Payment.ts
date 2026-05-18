@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from "../config/db";
+import type { PaymentPurpose } from "../domain/fulfillment";
 
 export type PaymentStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -9,6 +10,8 @@ export interface PaymentAttributes {
   user_id: number;
   amount: number;
   status: PaymentStatus;
+  payment_purpose: PaymentPurpose;
+  reservation_adjustment_id?: number | null;
   proof_url?: string | null;
   notes?: string | null;
   created_at?: Date;
@@ -23,6 +26,8 @@ export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes>
   public user_id!: number;
   public amount!: number;
   public status!: PaymentStatus;
+  public payment_purpose!: PaymentPurpose;
+  public reservation_adjustment_id!: number | null;
   public proof_url!: string | null;
   public notes!: string | null;
   public created_at!: Date;
@@ -36,6 +41,12 @@ Payment.init(
     user_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     status: { type: DataTypes.ENUM("PENDING", "APPROVED", "REJECTED"), allowNull: false, defaultValue: "PENDING" },
+    payment_purpose: {
+      type: DataTypes.ENUM("INITIAL_RESERVATION", "RESERVATION_ADJUSTMENT"),
+      allowNull: false,
+      defaultValue: "INITIAL_RESERVATION"
+    },
+    reservation_adjustment_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     proof_url: { type: DataTypes.STRING(500), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },

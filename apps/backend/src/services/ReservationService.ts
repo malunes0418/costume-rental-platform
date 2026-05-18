@@ -1,17 +1,35 @@
 import type { Request } from "express";
 import { Op } from "sequelize";
 import type { AddToCartRequest, CheckoutRequest, CostumeAvailabilityQuery } from "../dto";
+import {
+  deriveVendorReservationStatus,
+  isBlockingReservationStatus,
+  RESERVATION_STATUSES
+} from "../domain/reservationLifecycle";
 import { Reservation } from "../models/Reservation";
 import { ReservationItem } from "../models/ReservationItem";
 import { Costume } from "../models/Costume";
 import { Payment } from "../models/Payment";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
+import { CostumeImage } from "../models/CostumeImage";
 import { NotificationService } from "./NotificationService";
 import { countDaysInclusive } from "../utils/dateUtils";
+import { calculateReservationPrice } from "../utils/pricing";
+import { FulfillmentService } from "./FulfillmentService";
 
 export class ReservationService {
   private notificationService = new NotificationService();
+  private fulfillmentService = new FulfillmentService();
+
+  private normalizeReservationQuantity(quantity: unknown) {
+    const parsed = Number(quantity);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return 1;
+    }
+
+    return parsed;
+  }
 
   private assertBookableCostume(costume: Costume | null): asserts costume is Costume {
     if (!costume || !costume.is_active || costume.status !== "ACTIVE") {
@@ -21,7 +39,27 @@ export class ReservationService {
 
   private async loadReservationWithItems(reservationId: number) {
     return Reservation.findByPk(reservationId, {
-      include: [{ model: ReservationItem, as: "items", include: [Costume] }]
+      include: [
+        {
+          model: ReservationItem,
+          as: "items",
+          include: [
+            {
+              model: Costume,
+              include: [
+                CostumeImage,
+                {
+                  association: "owner",
+                  attributes: ["id", "name"],
+                  include: [{ model: VendorProfile, attributes: ["business_name"] }]
+                }
+              ]
+            }
+          ]
+        },
+        { association: "fulfillment" },
+        { association: "adjustments" }
+      ]
     });
   }
 
@@ -41,6 +79,7 @@ export class ReservationService {
   }
 
   async getAvailability(costumeId: number, startDate: Date, endDate: Date) {
+    const blockingStatuses = RESERVATION_STATUSES.filter((status) => isBlockingReservationStatus(status));
     const reservations = await Reservation.findAll({
       include: [
         {
@@ -50,7 +89,7 @@ export class ReservationService {
         }
       ],
       where: {
-        status: { [Op.in]: ["PENDING_PAYMENT", "PAID"] },
+        status: { [Op.in]: blockingStatuses },
         [Op.or]: [
           { start_date: { [Op.between]: [startDate, endDate] } },
           { end_date: { [Op.between]: [startDate, endDate] } },
@@ -82,9 +121,9 @@ export class ReservationService {
   }
 
   async addToCart(userId: number, body: AddToCartRequest) {
-    const { costumeId, quantity, startDate, endDate } = body;
+    const { costumeId, quantity, startDate, endDate, fulfillment } = body;
     const costumeIdNum = Number(costumeId);
-    const qty = Number(quantity);
+    const qty = this.normalizeReservationQuantity(quantity);
     const start = new Date(startDate);
     const end = new Date(endDate);
     const costume = await Costume.findByPk(costumeIdNum);
@@ -93,12 +132,30 @@ export class ReservationService {
       throw new Error("You cannot add your own costume to your cart");
     }
 
-    const buyer = await User.findByPk(userId);
-
     await this.validateAvailability(costumeIdNum, start, end, qty);
     const days = countDaysInclusive(start, end);
-    const pricePerDay = Number(costume.base_price_per_day);
-    const subtotal = pricePerDay * days * qty;
+    const pricing = calculateReservationPrice(
+      {
+        pricing_mode: costume.pricing_mode,
+        base_price_per_day: costume.base_price_per_day,
+        package_price: costume.package_price,
+        package_included_days: costume.package_included_days,
+        package_unused_day_discount: costume.package_unused_day_discount,
+        package_extra_day_charge: costume.package_extra_day_charge
+      },
+      days,
+      qty
+    );
+    const subtotal = pricing.subtotal;
+    const preparedFulfillment = await this.fulfillmentService.prepareReservationFulfillment({
+      userId,
+      costume,
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+      selection: fulfillment
+    });
+    const totalWithFulfillment =
+      subtotal + Number(preparedFulfillment.outbound_fee) + Number(preparedFulfillment.return_fee);
 
     const existingReservation = await Reservation.findOne({
       where: { user_id: userId, status: "CART" },
@@ -118,7 +175,7 @@ export class ReservationService {
     if (reservation) {
       reservation.start_date = start.toISOString().slice(0, 10);
       reservation.end_date = end.toISOString().slice(0, 10);
-      reservation.total_price = subtotal;
+      reservation.total_price = totalWithFulfillment;
       await reservation.save();
 
       const existingItem = ((reservation as any).items || [])[0] as ReservationItem | undefined;
@@ -127,7 +184,12 @@ export class ReservationService {
       }
 
       existingItem.quantity = qty;
-      existingItem.price_per_day = pricePerDay;
+      existingItem.price_per_day = pricing.pricePerDaySnapshot;
+      existingItem.pricing_mode = pricing.pricingMode;
+      existingItem.package_base_price = pricing.packageBasePrice;
+      existingItem.package_included_days = pricing.packageIncludedDays;
+      existingItem.package_unused_day_discount = pricing.packageUnusedDayDiscount;
+      existingItem.package_extra_day_charge = pricing.packageExtraDayCharge;
       existingItem.subtotal = subtotal;
       await existingItem.save();
       item = existingItem;
@@ -135,9 +197,10 @@ export class ReservationService {
       reservation = await Reservation.create({
         user_id: userId,
         status: "CART",
+        vendor_status: "NOT_REQUIRED",
         start_date: start.toISOString().slice(0, 10),
         end_date: end.toISOString().slice(0, 10),
-        total_price: subtotal,
+        total_price: totalWithFulfillment,
         currency: "PHP"
       });
 
@@ -145,23 +208,21 @@ export class ReservationService {
         reservation_id: reservation.id,
         costume_id: costumeIdNum,
         quantity: qty,
-        price_per_day: pricePerDay,
+        price_per_day: pricing.pricePerDaySnapshot,
+        pricing_mode: pricing.pricingMode,
+        package_base_price: pricing.packageBasePrice,
+        package_included_days: pricing.packageIncludedDays,
+        package_unused_day_discount: pricing.packageUnusedDayDiscount,
+        package_extra_day_charge: pricing.packageExtraDayCharge,
         subtotal
       });
     }
 
+    await this.fulfillmentService.upsertReservationFulfillment(reservation.id, preparedFulfillment);
+
     const hydratedReservation = await this.loadReservationWithItems(reservation.id);
     if (!hydratedReservation) {
       throw new Error("Reservation not found after update");
-    }
-
-    if (costume.owner_id) {
-      await this.notificationService.create(
-        Number(costume.owner_id),
-        "COSTUME_ADDED_TO_CART",
-        "Costume added to cart",
-        `${this.buyerLabel(buyer)} added ${costume.name} to their cart for ${start.toISOString().slice(0, 10)} to ${end.toISOString().slice(0, 10)}.`
-      );
     }
 
     return { reservation: hydratedReservation, item };
@@ -172,13 +233,19 @@ export class ReservationService {
     const buyer = await User.findByPk(userId);
     const reservation = await Reservation.findOne({
       where: { id: Number(reservationId), user_id: userId },
-      include: [{ model: ReservationItem, as: "items", include: [Costume] }]
+      include: [
+        { model: ReservationItem, as: "items", include: [Costume] },
+        { association: "fulfillment" }
+      ]
     });
     if (!reservation) {
       throw new Error("Reservation not found");
     }
     if (reservation.status !== "CART") {
       throw new Error("Reservation not in cart status");
+    }
+    if (!(reservation as any).fulfillment) {
+      throw new Error("Fulfillment selection is required before checkout");
     }
     const start = new Date(reservation.start_date);
     const end = new Date(reservation.end_date);
@@ -187,6 +254,7 @@ export class ReservationService {
       await this.validateAvailability(item.costume_id, start, end, item.quantity);
     }
     reservation.status = "PENDING_PAYMENT";
+    reservation.vendor_status = deriveVendorReservationStatus("PENDING_PAYMENT", reservation.vendor_status);
     await reservation.save();
 
     const reservationItems = (reservation as any).items as Array<ReservationItem & { Costume?: Costume }>;
@@ -206,18 +274,27 @@ export class ReservationService {
   async listUserReservations(userId: number) {
     return Reservation.findAll({
       where: { user_id: userId },
-      include: [{
-        model: ReservationItem,
-        as: "items",
-        include: [{
-          model: Costume,
-          include: [{
-            association: "owner",
-            attributes: ["id", "name"],
-            include: [{ model: VendorProfile, attributes: ["business_name"] }]
-          }]
-        }]
-      }],
+      include: [
+        {
+          model: ReservationItem,
+          as: "items",
+          include: [
+            {
+              model: Costume,
+              include: [
+                CostumeImage,
+                {
+                  association: "owner",
+                  attributes: ["id", "name"],
+                  include: [{ model: VendorProfile, attributes: ["business_name"] }]
+                }
+              ]
+            }
+          ]
+        },
+        { association: "fulfillment" },
+        { association: "adjustments" }
+      ],
       order: [["created_at", "DESC"]]
     });
   }

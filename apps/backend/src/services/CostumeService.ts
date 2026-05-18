@@ -1,12 +1,16 @@
 import type { Request } from "express";
-import { Op } from "sequelize";
+import { Op, literal } from "sequelize";
 import type { CostumeListQuery } from "../dto";
 import { Costume } from "../models/Costume";
 import { CostumeImage } from "../models/CostumeImage";
 import { Review } from "../models/Review";
+import { VendorProfile } from "../models/VendorProfile";
 import { getPagination } from "../utils/pagination";
+import { FulfillmentService } from "./FulfillmentService";
 
 export class CostumeService {
+  private fulfillmentService = new FulfillmentService();
+
   private costumeListQueryFromRequestQuery(q: Request["query"]): CostumeListQuery {
     const { q: search, category, size, gender, theme, ownerId, sort, page, pageSize } = q;
     const str = (v: unknown) => (typeof v === "string" ? v : undefined);
@@ -40,8 +44,11 @@ export class CostumeService {
     if (query.ownerId !== undefined) where.owner_id = query.ownerId;
     const { offset, limit, page, pageSize } = getPagination(query.page, query.pageSize);
     const order: any[] = [];
-    if (query.sort === "price_asc") order.push(["base_price_per_day", "ASC"]);
-    else if (query.sort === "price_desc") order.push(["base_price_per_day", "DESC"]);
+    if (query.sort === "price_asc") {
+      order.push([literal("CASE WHEN pricing_mode = 'PACKAGE' THEN package_price ELSE base_price_per_day END"), "ASC"]);
+    } else if (query.sort === "price_desc") {
+      order.push([literal("CASE WHEN pricing_mode = 'PACKAGE' THEN package_price ELSE base_price_per_day END"), "DESC"]);
+    }
     else order.push(["created_at", "DESC"]);
     const { rows, count } = await Costume.findAndCountAll({
       where,
@@ -60,7 +67,15 @@ export class CostumeService {
   async getById(id: number) {
     const costume = await Costume.findOne({
       where: { id, is_active: true, status: "ACTIVE" },
-      include: [CostumeImage]
+      include: [
+        CostumeImage,
+        {
+          association: "owner",
+          attributes: ["id", "name"],
+          include: [{ model: VendorProfile, attributes: ["business_name"] }]
+        },
+        { association: "fulfillmentOverride" }
+      ]
     });
     if (!costume) {
       throw new Error("Costume not found");
@@ -69,6 +84,7 @@ export class CostumeService {
     const ratingCount = reviews.length;
     const ratingSum = reviews.reduce((s, r) => s + r.rating, 0);
     const avgRating = ratingCount > 0 ? ratingSum / ratingCount : null;
-    return { costume, ratingCount, avgRating };
+    const effective_fulfillment = await this.fulfillmentService.getEffectiveCostumeFulfillment(costume);
+    return { costume, ratingCount, avgRating, effective_fulfillment };
   }
 }
