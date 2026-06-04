@@ -26,6 +26,7 @@ const openApiDocument = generateOpenApiDocument();
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 app.use("/api/auth", routes.auth);
+app.use("/api/health", routes.health);
 
 // Public browse routes (Airbnb-like guest experience).
 app.use("/api/costumes", routes.costumes);

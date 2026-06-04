@@ -329,6 +329,19 @@
         }
       }
     },
+    "/health": {
+      "head": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Public health check",
+        "responses": {
+          "204": {
+            "description": "Service is healthy"
+          }
+        }
+      }
+    },
     "/costumes": {
       "get": {
         "tags": [

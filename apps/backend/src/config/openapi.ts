@@ -7,6 +7,7 @@ extendZodWithOpenApi(z);
 export const registry = new OpenAPIRegistry();
 
 import '../schemas/auth.schema';
+import '../schemas/health.schema';
 import '../schemas/costume.schema';
 import '../schemas/other.schema';
 

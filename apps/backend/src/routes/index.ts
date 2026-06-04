@@ -1,4 +1,5 @@
 import auth from "./authRoutes";
+import health from "./healthRoutes";
 import costumes from "./costumeRoutes";
 import reservations from "./reservationRoutes";
 import payments from "./paymentRoutes";
@@ -12,6 +13,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 
 export default {
   auth,
+  health,
   costumes,
   reservations,
   payments,
