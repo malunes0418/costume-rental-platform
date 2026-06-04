@@ -25,6 +25,10 @@ app.use("/uploads", express.static(env.fileUploadDir));
 const openApiDocument = generateOpenApiDocument();
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
+app.head("/health", (_req, res) => {
+  res.sendStatus(204);
+});
+
 app.use("/api/auth", routes.auth);
 app.use("/api/health", routes.health);
 
