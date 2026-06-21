@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { registry } from '../config/openapi';
+import { reservationFulfillmentSelectionSchema } from './fulfillment.schema';
 
 // --- WISHLIST ---
 registry.registerPath({
@@ -93,8 +94,18 @@ registry.registerPath({
           schema: z.object({
             name: z.string(),
             description: z.string().optional(),
-            dailyRate: z.number(),
-          }), // Partial shape for brevity
+            pricing_mode: z.enum(["PER_DAY", "PACKAGE"]).optional(),
+            base_price_per_day: z.number().nullable().optional(),
+            package_price: z.number().nullable().optional(),
+            package_included_days: z.number().nullable().optional(),
+            package_unused_day_discount: z.number().nullable().optional(),
+            package_extra_day_charge: z.number().nullable().optional(),
+            images: z.array(z.string()).optional(),
+            fulfillment_override: z.object({
+              outbound_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"]),
+              return_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"])
+            }).nullable().optional()
+          }),
         },
       },
     },
@@ -149,6 +160,115 @@ registry.registerPath({
   security: [{ bearerAuth: [] }],
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: { description: 'Reservation rejected' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/surcharge',
+  tags: ['Vendor'],
+  summary: 'Request an outside-area surcharge for a reservation',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            amount: z.union([z.number(), z.string()]),
+            note: z.string().min(1)
+          })
+        }
+      }
+    }
+  },
+  responses: { 200: { description: 'Surcharge requested' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/dispatch',
+  tags: ['Vendor'],
+  summary: 'Dispatch costume to renter (optional photo proof)',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Reservation dispatched' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/confirm-return',
+  tags: ['Vendor'],
+  summary: 'Confirm costume return from renter (optional photo proof)',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Return confirmed' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/complete',
+  tags: ['Vendor'],
+  summary: 'Complete rental after return',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Reservation completed' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/reservations/{id}/adjustments/{adjustmentId}/waive',
+  tags: ['Vendor'],
+  summary: 'Waive a pending outside-area surcharge',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string(), adjustmentId: z.string() })
+  },
+  responses: { 200: { description: 'Surcharge waived' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/reservations/{id}/confirm-received',
+  tags: ['Reservations'],
+  summary: 'Renter confirms costume receipt (photo required)',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Receipt confirmed' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/reservations/{id}/initiate-return',
+  tags: ['Reservations'],
+  summary: 'Renter initiates return (photo required)',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Return initiated' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/reservations/{id}/cancel',
+  tags: ['Reservations'],
+  summary: 'Renter cancels unpaid reservation',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Reservation cancelled' } },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/reservations/{id}/handoff-proofs/{type}',
+  tags: ['Reservations'],
+  summary: 'View authorized handoff proof image',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({
+      id: z.string(),
+      type: z.enum(['outbound_dispatch', 'renter_received', 'return_initiated', 'vendor_return'])
+    })
+  },
+  responses: { 200: { description: 'Handoff proof file' } },
 });
 
 registry.registerPath({
@@ -229,7 +349,13 @@ registry.registerPath({
     body: {
       content: {
         'application/json': {
-          schema: z.object({ costumeId: z.number(), startDate: z.string(), endDate: z.string() }),
+          schema: z.object({
+            costumeId: z.number(),
+            quantity: z.number().optional().default(1),
+            startDate: z.string(),
+            endDate: z.string(),
+            fulfillment: reservationFulfillmentSelectionSchema
+          }),
         },
       },
     },
@@ -272,6 +398,20 @@ registry.registerPath({
   tags: ['Payments'],
   summary: 'Upload payment proof',
   security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'multipart/form-data': {
+          schema: z.object({
+            reservationIds: z.union([z.string(), z.array(z.number())]).optional(),
+            reservationAdjustmentId: z.union([z.string(), z.number()]).optional(),
+            amount: z.union([z.string(), z.number()]).optional(),
+            proof: z.any()
+          })
+        }
+      }
+    }
+  },
   responses: { 200: { description: 'Proof uploaded' } },
 });
 
@@ -282,6 +422,34 @@ registry.registerPath({
   summary: 'Get my payments',
   security: [{ bearerAuth: [] }],
   responses: { 200: { description: 'List of payments' } },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/payments/{id}/proof',
+  tags: ['Payments'],
+  summary: 'View payment proof as the submitting renter or owning vendor',
+  security: [{ bearerAuth: [] }],
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { description: 'Payment proof file' } },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/vendors/payments/review',
+  tags: ['Vendors'],
+  summary: 'Verify or reject payment proof for a vendor reservation',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ paymentId: z.number(), status: z.enum(['APPROVED', 'REJECTED']), notes: z.string().optional() }),
+        },
+      },
+    },
+  },
+  responses: { 200: { description: 'Payment proof reviewed by vendor' } },
 });
 
 // --- NOTIFICATIONS ---
@@ -306,39 +474,12 @@ registry.registerPath({
 
 // --- ADMIN ---
 registry.registerPath({
-  method: 'post',
-  path: '/admin/payments/review',
-  tags: ['Admin'],
-  summary: 'Review payment',
-  security: [{ bearerAuth: [] }],
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: z.object({ paymentId: z.number(), status: z.string() }),
-        },
-      },
-    },
-  },
-  responses: { 200: { description: 'Payment reviewed' } },
-});
-
-registry.registerPath({
   method: 'get',
   path: '/admin/reservations',
   tags: ['Admin'],
   summary: 'List reservations (admin)',
   security: [{ bearerAuth: [] }],
   responses: { 200: { description: 'List of all reservations' } },
-});
-
-registry.registerPath({
-  method: 'get',
-  path: '/admin/payments',
-  tags: ['Admin'],
-  summary: 'List payments (admin)',
-  security: [{ bearerAuth: [] }],
-  responses: { 200: { description: 'List of all payments' } },
 });
 
 registry.registerPath({

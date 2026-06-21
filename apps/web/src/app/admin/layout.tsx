@@ -11,7 +11,6 @@ import {
   StackIcon,
   CardStackIcon,
   CalendarIcon,
-  ArchiveIcon,
   PersonIcon,
   ExitIcon,
   HamburgerMenuIcon,
@@ -22,7 +21,6 @@ const NAV = [
   { href: "/admin", label: "Overview", icon: StackIcon },
   { href: "/admin/vendors", label: "Vendors", icon: CardStackIcon },
   { href: "/admin/reservations", label: "Reservations", icon: CalendarIcon },
-  { href: "/admin/payments", label: "Payments", icon: ArchiveIcon },
   { href: "/admin/users", label: "Users", icon: PersonIcon },
 ];
 

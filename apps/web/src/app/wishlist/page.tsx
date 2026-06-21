@@ -7,6 +7,7 @@ import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import { myWishlist, removeWishlist, type WishlistItem } from "../../lib/account";
+import { getCostumePricingSummary } from "../../lib/pricing";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   HeartIcon as Heart,
@@ -20,13 +21,17 @@ import { cn } from "@/lib/utils";
 export default function WishlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
-  const [items, setItems]         = useState<WishlistItem[]>([]);
+  const [items, setItems] = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [removing, setRemoving]   = useState<number | null>(null);
+  const [removing, setRemoving] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!user) { setItems([]); setIsLoading(false); return; }
+    if (!user) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
     if (user.role === "ADMIN") {
       router.replace("/admin");
       return;
@@ -34,12 +39,18 @@ export default function WishlistPage() {
     let cancelled = false;
     setIsLoading(true);
     myWishlist()
-      .then((res) => { if (!cancelled) setItems(res); })
+      .then((res) => {
+        if (!cancelled) setItems(res);
+      })
       .catch((e: unknown) => {
         if (!cancelled) toast.error(e instanceof ApiError ? e.message : "Failed to load wishlist");
       })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, isAuthLoading, router]);
 
   async function handleRemove(item: WishlistItem) {
@@ -56,12 +67,10 @@ export default function WishlistPage() {
     }
   }
 
-  // ── unauthenticated ───────────────────────────────────────────────────────
-
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
           <div className="text-muted-foreground/20">
             <Heart className="mx-auto size-16" />
           </div>
@@ -83,7 +92,7 @@ export default function WishlistPage() {
   if (user.role === "ADMIN") {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto max-w-sm flex flex-col items-center gap-8">
+        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
           <div className="text-muted-foreground/20">
             <Heart className="mx-auto size-16" />
           </div>
@@ -102,38 +111,33 @@ export default function WishlistPage() {
     );
   }
 
-  // ── main ──────────────────────────────────────────────────────────────────
-
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-16">
-
-      {/* ── Page header ── */}
       <div className="mb-16 flex items-end justify-between gap-6">
         <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
+          <p className="animate-fade-up text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Your account
           </p>
-          <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
+          <h1 className="animate-fade-up-delay-1 mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
             Wishlist
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
+          <p className="animate-fade-up-delay-2 mt-4 text-base leading-relaxed text-muted-foreground">
             Costumes you&apos;ve saved for later.
           </p>
         </div>
 
         {!isLoading && items.length > 0 && (
-          <p className="shrink-0 text-sm text-muted-foreground animate-fade-up-delay-2">
+          <p className="animate-fade-up-delay-2 shrink-0 text-sm text-muted-foreground">
             {items.length} {items.length === 1 ? "piece" : "pieces"} saved
           </p>
         )}
       </div>
 
-      {/* ── Grid ── */}
       {isLoading ? (
         <div className="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-4">
-              <Skeleton className="w-full aspect-[3/4] rounded-sm" />
+              <Skeleton className="aspect-[3/4] w-full rounded-sm" />
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
             </div>
@@ -142,10 +146,11 @@ export default function WishlistPage() {
       ) : items.length ? (
         <div className="grid grid-cols-1 gap-x-6 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((it) => {
-            const c    = it.Costume;
-            const imgs = c?.CostumeImages || [];
-            const img  = imgs.find((i) => i.is_primary)?.image_url || imgs[0]?.image_url || "";
-            const tags = [c?.category, c?.theme, c?.size].filter(Boolean);
+            const costume = it.Costume;
+            const images = costume?.CostumeImages || [];
+            const image = images.find((img) => img.is_primary)?.image_url || images[0]?.image_url || "";
+            const tags = [costume?.category, costume?.theme, costume?.size].filter(Boolean);
+            const pricingSummary = costume ? getCostumePricingSummary(costume) : null;
             const isRemoving = removing === it.id;
 
             return (
@@ -153,18 +158,17 @@ export default function WishlistPage() {
                 key={it.id}
                 className={cn(
                   "group flex flex-col gap-4 transition-opacity duration-300",
-                  isRemoving && "opacity-30 pointer-events-none"
+                  isRemoving && "pointer-events-none opacity-30"
                 )}
               >
-                {/* Image */}
                 <Link
                   href={`/costumes/${it.costume_id}`}
-                  className="block w-full overflow-hidden rounded-sm border border-border bg-muted aspect-[3/4] relative"
+                  className="relative block aspect-[3/4] w-full overflow-hidden rounded-sm border border-border bg-muted"
                 >
-                  {img ? (
+                  {image ? (
                     <img
-                      src={resolveApiAsset(img)}
-                      alt={c?.name || "Costume"}
+                      src={resolveApiAsset(image)}
+                      alt={costume?.name || "Costume"}
                       loading="lazy"
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
@@ -174,46 +178,42 @@ export default function WishlistPage() {
                     </div>
                   )}
 
-                  {/* Category label overlay */}
-                  {c?.category && (
+                  {costume?.category && (
                     <span className="absolute left-4 top-4 rounded-sm border border-border bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
-                      {c.category}
+                      {costume.category}
                     </span>
                   )}
                 </Link>
 
-                {/* Info row */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-playfair text-lg font-semibold text-foreground">
-                      {c?.name || `Costume #${it.costume_id}`}
+                      {costume?.name || `Costume #${it.costume_id}`}
                     </p>
                     {tags.length > 0 && (
                       <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                         {tags.join(" · ")}
                       </p>
                     )}
-                    {c?.base_price_per_day != null && (
+                    {pricingSummary && (
                       <p className="mt-1 text-sm text-foreground">
-                        ₱{Number(c.base_price_per_day).toLocaleString()}
-                        <span className="ml-1 text-xs text-muted-foreground">/ day</span>
+                        PHP {pricingSummary.amount.toLocaleString()}
+                        <span className="ml-1 text-xs text-muted-foreground">{pricingSummary.label}</span>
                       </p>
                     )}
                   </div>
 
-                  {/* Remove */}
                   <button
                     type="button"
                     onClick={() => handleRemove(it)}
                     disabled={isRemoving}
-                    aria-label={`Remove ${c?.name || "costume"} from wishlist`}
+                    aria-label={`Remove ${costume?.name || "costume"} from wishlist`}
                     className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                   >
                     <X className="size-3" />
                   </button>
                 </div>
 
-                {/* View CTA */}
                 <Link
                   href={`/costumes/${it.costume_id}`}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
@@ -225,8 +225,7 @@ export default function WishlistPage() {
           })}
         </div>
       ) : (
-        /* ── Empty state ── */
-        <div className="flex flex-col items-center gap-8 border border-border rounded-sm py-32 px-12 text-center">
+        <div className="flex flex-col items-center gap-8 rounded-sm border border-border px-12 py-32 text-center">
           <div className="text-muted-foreground/20">
             <Heart className="size-12" />
           </div>
@@ -246,7 +245,6 @@ export default function WishlistPage() {
           </Link>
         </div>
       )}
-
     </div>
   );
 }

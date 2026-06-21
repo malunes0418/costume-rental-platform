@@ -13,14 +13,11 @@ import {
 } from "../lib/account";
 import { apiFetch } from "../lib/api";
 import { resolveApiAsset } from "../lib/assets";
+import { FULFILLMENT_METHOD_LABELS, formatLocationSummary } from "../lib/fulfillment";
+import { countRentalDaysInclusive } from "../lib/pricing";
 import { toast } from "sonner";
 import { Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
 import { cn } from "../lib/utils";
-
-function daysBetween(start: string, end: string) {
-  if (!start || !end) return 0;
-  return Math.max(1, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)));
-}
 
 function formatDate(date: string) {
   if (!date) return "-";
@@ -56,6 +53,18 @@ function vendorNameForReservation(reservation: ReservationWithItems) {
   if (owner?.name) return owner.name;
   const vendorId = vendorIdForReservation(reservation);
   return vendorId ? `Vendor ${vendorId}` : "Vendor";
+}
+
+function reservationFulfillmentLine(reservation: ReservationWithItems) {
+  if (!reservation.fulfillment) return null;
+
+  return {
+    summary: `${FULFILLMENT_METHOD_LABELS[reservation.fulfillment.outbound_method]} outbound / ${FULFILLMENT_METHOD_LABELS[reservation.fulfillment.return_method]} return`,
+    location:
+      reservation.fulfillment.outbound_method === "DELIVERY"
+        ? formatLocationSummary(reservation.fulfillment.outbound_location_snapshot)
+        : null
+  };
 }
 
 export function CartDrawer() {
@@ -316,8 +325,11 @@ export function CartDrawer() {
                     {group.items.map((item) => {
                       const image = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
                       const name = item.items?.[0]?.Costume?.name || "Costume";
-                      const days = daysBetween(item.start_date, item.end_date);
+                      const days = countRentalDaysInclusive(item.start_date, item.end_date);
                       const isPendingPayment = item.status === "PENDING_PAYMENT";
+                      const fulfillmentLine = reservationFulfillmentLine(item);
+                      const fulfillmentFee =
+                        Number(item.fulfillment?.outbound_fee || 0) + Number(item.fulfillment?.return_fee || 0);
 
                       return (
                         <div key={item.id} className="group flex gap-4">
@@ -354,6 +366,21 @@ export function CartDrawer() {
                             <p className="mt-1 text-xs text-muted-foreground">
                               {formatDate(item.start_date)} - {formatDate(item.end_date)} ({days} day{days !== 1 ? "s" : ""})
                             </p>
+                            {fulfillmentLine ? (
+                              <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                {fulfillmentLine.summary}
+                              </p>
+                            ) : null}
+                            {fulfillmentLine?.location ? (
+                              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                                {fulfillmentLine.location}
+                              </p>
+                            ) : null}
+                            {fulfillmentFee > 0 ? (
+                              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                                Includes PHP {Number(fulfillmentFee).toLocaleString()} in fulfillment fees
+                              </p>
+                            ) : null}
                             <p className="mt-2 text-sm font-medium">PHP {Number(item.total_price).toLocaleString()}</p>
                           </div>
                         </div>
@@ -382,6 +409,24 @@ export function CartDrawer() {
                     Upload one receipt for {selectedGroup.items.length} costume{selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-sm border border-border bg-muted/20 px-4 py-4">
+                {selectedGroup.items.map((item) => {
+                  const fulfillmentLine = reservationFulfillmentLine(item);
+                  return (
+                    <div key={item.id} className="space-y-1 text-left">
+                      <p className="font-medium text-foreground">
+                        {item.items?.[0]?.Costume?.name || `Reservation #${item.id}`}
+                      </p>
+                      {fulfillmentLine ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          {fulfillmentLine.summary}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex-1">
@@ -429,7 +474,7 @@ export function CartDrawer() {
               <div className="space-y-2">
                 <p className="font-playfair text-3xl font-semibold">Payment Received</p>
                 <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
-                  Your receipt has been submitted for vendor review. We&apos;ll notify you once they approve or reject it.
+                  Your receipt has been sent to the vendor for verification. We&apos;ll notify you once it is complete.
                 </p>
               </div>
               <a

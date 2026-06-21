@@ -5,18 +5,16 @@ import { useAuth } from "@/lib/auth";
 import {
   adminListUsers,
   adminListReservations,
-  adminListPayments,
   adminListPendingVendors,
   type AdminUser,
   type AdminReservation,
-  type AdminPayment,
   type PendingVendor,
 } from "@/lib/admin";
+import { getReservationStatusMeta, isReservationStatus } from "@/lib/reservationStatus";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PersonIcon,
   CalendarIcon,
-  ArchiveIcon,
   CardStackIcon,
   ArrowUpIcon,
   ArrowDownIcon,
@@ -37,14 +35,15 @@ function currency(n: number | string) {
 
 function StatusChip({ status }: { status: string }) {
   const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
-      ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-      : s === "PENDING"
-      ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-      : s === "REJECTED" || s === "CANCELLED"
-      ? "border-destructive/20 bg-destructive/5 text-destructive"
-      : "border-border bg-muted/50 text-muted-foreground";
+  const cls = isReservationStatus(s)
+    ? getReservationStatusMeta(s).className
+    : s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
+    ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+    : s === "PENDING"
+    ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+    : s === "REJECTED" || s === "CANCELLED"
+    ? "border-destructive/20 bg-destructive/5 text-destructive"
+    : "border-border bg-muted/50 text-muted-foreground";
 
   return (
     <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>
@@ -124,7 +123,6 @@ export default function AdminOverviewPage() {
 
   const [users, setUsers]                   = useState<AdminUser[]>([]);
   const [reservations, setReservations]     = useState<AdminReservation[]>([]);
-  const [payments, setPayments]             = useState<AdminPayment[]>([]);
   const [pendingVendors, setPendingVendors] = useState<PendingVendor[]>([]);
   const [loading, setLoading]               = useState(true);
 
@@ -133,9 +131,8 @@ export default function AdminOverviewPage() {
     Promise.allSettled([
       adminListUsers(),
       adminListReservations(),
-      adminListPayments(),
       adminListPendingVendors(),
-    ]).then(([u, r, p, v]) => {
+    ]).then(([u, r, v]) => {
       const safe = <T,>(res: PromiseSettledResult<T>, fallback: T): T =>
         res.status === "fulfilled" ? res.value : fallback;
 
@@ -144,16 +141,16 @@ export default function AdminOverviewPage() {
 
       setUsers(arr(safe(u, [])));
       setReservations(arr(safe(r, [])));
-      setPayments(arr(safe(p, [])));
       setPendingVendors(arr(safe(v, [])));
     }).finally(() => setLoading(false));
   }, [user]);
 
   // ── derived analytics ──────────────────────────────────────────────────────
 
-  const totalRevenue    = payments.filter((p) => p.status === "APPROVED").reduce((s, p) => s + Number(p.amount), 0);
-  const pendingPayments = payments.filter((p) => p.status === "PENDING").length;
   const pendingCount    = pendingVendors.length;
+  const activeReservations = reservations.filter((reservation) =>
+    !["CART", "CANCELLED", "COMPLETED", "REJECTED_BY_VENDOR"].includes(reservation.status)
+  ).length;
 
   // Reservations per day of week (last 7 buckets)
   const byDay = Array.from({ length: 7 }, (_, i) => {
@@ -162,13 +159,13 @@ export default function AdminOverviewPage() {
     return reservations.filter((r) => r.created_at?.slice(0, 10) === key).length;
   });
 
-  // Payment amounts per day (last 7)
-  const revByDay = Array.from({ length: 7 }, (_, i) => {
+  // Quoted reservation totals per day (last 7)
+  const quotedByDay = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     const key = d.toISOString().slice(0, 10);
-    return payments
-      .filter((p) => p.status === "APPROVED" && p.created_at?.slice(0, 10) === key)
-      .reduce((s, p) => s + Number(p.amount), 0);
+    return reservations
+      .filter((reservation) => reservation.created_at?.slice(0, 10) === key)
+      .reduce((sum, reservation) => sum + Number(reservation.total_price), 0);
   });
 
   // Status breakdown
@@ -178,21 +175,13 @@ export default function AdminOverviewPage() {
   }, {});
 
   const recentActivity = [
-    ...reservations.slice(-4).map((r) => ({
+    ...reservations.slice(-8).map((r) => ({
       id: `res-${r.id}`,
       label: `Reservation #${r.id}`,
       sub: `${fmt(r.start_date)} → ${fmt(r.end_date)}`,
       amount: currency(r.total_price),
       status: r.status,
       date: r.created_at,
-    })),
-    ...payments.slice(-4).map((p) => ({
-      id: `pay-${p.id}`,
-      label: `Payment #${p.id}`,
-      sub: `Reservations #${(p.reservation_ids || []).join(', #')}`,
-      amount: currency(p.amount),
-      status: p.status,
-      date: p.created_at,
     })),
   ]
     .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
@@ -236,10 +225,10 @@ export default function AdminOverviewPage() {
       {/* ── KPI row ── */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard
-          label="Total revenue"
-          value={currency(totalRevenue)}
-          icon={ArchiveIcon}
-          sub="approved payments"
+          label="Active bookings"
+          value={activeReservations}
+          icon={CalendarIcon}
+          sub="in progress"
         />
         <KpiCard
           label="Reservations"
@@ -255,10 +244,10 @@ export default function AdminOverviewPage() {
         />
         <KpiCard
           label="Action required"
-          value={pendingCount + pendingPayments}
+          value={pendingCount}
           icon={CardStackIcon}
-          sub={`${pendingCount} vendors · ${pendingPayments} payments`}
-          trend={pendingCount + pendingPayments > 0 ? { dir: "up", text: "needs review" } : undefined}
+          sub={`${pendingCount} vendor applications`}
+          trend={pendingCount > 0 ? { dir: "up", text: "needs review" } : undefined}
         />
       </div>
 
@@ -270,12 +259,12 @@ export default function AdminOverviewPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">7-day activity</p>
-              <p className="mt-1 font-playfair text-2xl font-semibold text-foreground">Reservations vs Revenue</p>
+              <p className="mt-1 font-playfair text-2xl font-semibold text-foreground">Reservations vs Quoted Value</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
             <MiniBarChart data={byDay} label="Reservations" />
-            <MiniBarChart data={revByDay} label="Revenue (₱)" />
+            <MiniBarChart data={quotedByDay} label="Quoted value (PHP)" />
           </div>
         </div>
 
@@ -346,13 +335,13 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* ── Pending alerts ── */}
-      {(pendingCount > 0 || pendingPayments > 0) && (
+      {pendingCount > 0 && (
         <div className="rounded-sm border border-amber-400/30 bg-amber-50/50 dark:bg-amber-900/10 p-6">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
             Action required
           </p>
           <p className="mt-1 font-playfair text-xl font-semibold text-foreground">
-            {pendingCount + pendingPayments} item{pendingCount + pendingPayments !== 1 ? "s" : ""} need your attention
+            {pendingCount} item{pendingCount !== 1 ? "s" : ""} need your attention
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {pendingCount > 0 && (
@@ -361,14 +350,6 @@ export default function AdminOverviewPage() {
                 className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-5 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
               >
                 Review {pendingCount} vendor{pendingCount !== 1 ? "s" : ""}
-              </a>
-            )}
-            {pendingPayments > 0 && (
-              <a
-                href="/admin/payments"
-                className="inline-flex h-9 items-center rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-              >
-                Review {pendingPayments} payment{pendingPayments !== 1 ? "s" : ""}
               </a>
             )}
           </div>

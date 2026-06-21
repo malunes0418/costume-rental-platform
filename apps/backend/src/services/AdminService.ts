@@ -1,5 +1,12 @@
+import {
+  assertReservationTransition,
+  deriveVendorReservationStatus,
+  isPreWithRenterStatus,
+  isReservationStatus
+} from "../domain/reservationLifecycle";
+import { presentFulfillmentHandoffProofs } from "../domain/handoffProofs";
+import { assertInitialPaymentApprovedForVendorReview } from "./reservationPaymentGuards";
 import { ReservationItem } from "../models/ReservationItem";
-import { Payment } from "../models/Payment";
 import { Costume } from "../models/Costume";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
@@ -7,22 +14,45 @@ import { Reservation } from "../models/Reservation";
 
 export class AdminService {
   async listReservations() {
-    return Reservation.findAll({
-      include: [{ model: ReservationItem, as: "items", include: [Costume] }, User],
+    const reservations = await Reservation.findAll({
+      include: [
+        { model: ReservationItem, as: "items", include: [Costume] },
+        { association: "fulfillment" },
+        { association: "adjustments" },
+        User
+      ],
       order: [["created_at", "DESC"]]
+    });
+
+    return reservations.map((reservation) => {
+      const json = reservation.toJSON();
+      return {
+        ...json,
+        fulfillment: presentFulfillmentHandoffProofs(reservation.id, json.fulfillment)
+      };
     });
   }
 
   async updateReservationStatus(reservationId: number, status: string) {
     const reservation = await Reservation.findByPk(reservationId);
     if (!reservation) throw new Error("Reservation not found");
-    reservation.status = status as any;
+    if (!isReservationStatus(status)) {
+      throw new Error("Invalid reservation status");
+    }
+
+    if (status === "CANCELLED" && !isPreWithRenterStatus(reservation.status)) {
+      throw new Error("Admin can only cancel reservations before the costume is with the renter");
+    }
+
+    if (reservation.status === "PENDING_PAYMENT" && status === "PENDING_VENDOR_REVIEW") {
+      await assertInitialPaymentApprovedForVendorReview(reservation);
+    }
+
+    assertReservationTransition(reservation.status, status, "Reservation");
+    reservation.status = status;
+    reservation.vendor_status = deriveVendorReservationStatus(status, reservation.vendor_status);
     await reservation.save();
     return reservation;
-  }
-
-  async listPayments() {
-    return Payment.findAll({ include: [User], order: [["created_at", "DESC"]] });
   }
 
   async listInventory() {

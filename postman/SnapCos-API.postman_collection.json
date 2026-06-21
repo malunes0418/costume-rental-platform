@@ -197,6 +197,58 @@
                 "header": [],
                 "url": "{{baseUrl}}/api/reservations/my"
               }
+            },
+            {
+              "name": "Confirm received (handoff)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "proof",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/confirm-received"
+              }
+            },
+            {
+              "name": "Initiate return (handoff)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "proof",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/initiate-return"
+              }
+            },
+            {
+              "name": "Cancel reservation",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/cancel"
+              }
+            },
+            {
+              "name": "Get handoff proof",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/reservations/{{reservationId}}/handoff-proofs/renter_received"
+              }
             }
           ]
         },
@@ -343,36 +395,11 @@
           "name": "Admin",
           "item": [
             {
-              "name": "Review payment",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"paymentId\": {{paymentId}},\n  \"approve\": true,\n  \"notes\": \"OK\"\n}"
-                },
-                "url": "{{baseUrl}}/api/admin/payments/review"
-              }
-            },
-            {
               "name": "List reservations",
               "request": {
                 "method": "GET",
                 "header": [],
                 "url": "{{baseUrl}}/api/admin/reservations"
-              }
-            },
-            {
-              "name": "List payments",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": "{{baseUrl}}/api/admin/payments"
               }
             },
             {
@@ -532,6 +559,23 @@
               }
             },
             {
+              "name": "Verify Payment Proof",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"paymentId\": {{paymentId}},\n  \"status\": \"APPROVED\",\n  \"notes\": \"Receipt verified\"\n}"
+                },
+                "url": "{{baseUrl}}/api/vendors/payments/review"
+              }
+            },
+            {
               "name": "Approve Reservation",
               "request": {
                 "method": "POST",
@@ -545,6 +589,60 @@
                 "method": "POST",
                 "header": [],
                 "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/reject"
+              }
+            },
+            {
+              "name": "Dispatch (handoff)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "proof",
+                      "type": "file",
+                      "src": [],
+                      "disabled": true
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/dispatch"
+              }
+            },
+            {
+              "name": "Confirm return (handoff)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "proof",
+                      "type": "file",
+                      "src": [],
+                      "disabled": true
+                    }
+                  ]
+                },
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/confirm-return"
+              }
+            },
+            {
+              "name": "Complete reservation",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/complete"
+              }
+            },
+            {
+              "name": "Waive surcharge adjustment",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/vendors/reservations/{{reservationId}}/adjustments/{{adjustmentId}}/waive"
               }
             }
           ]

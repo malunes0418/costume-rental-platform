@@ -8,7 +8,10 @@
     "dev": "ts-node-dev src/server.ts",
     "migrate": "npx sequelize-cli db:migrate",
     "migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all"
+    "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "openapi:export": "npx ts-node export-openapi.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
@@ -42,6 +45,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "sequelize-cli": "^6.6.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.6"
   }
 }

@@ -6,6 +6,10 @@ import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenApiDocument } from "./config/openapi";
+import { Payment } from "./models/Payment";
+import { HandoffService } from "./services/HandoffService";
+
+const handoffService = new HandoffService();
 
 export const app = express();
 
@@ -19,6 +23,22 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use(cookieParser());
 
+app.use("/uploads", async (req, res, next) => {
+  try {
+    const relativePath = req.path.replace(/^\/+/, "");
+    const proof = await Payment.findOne({ where: { proof_url: `/uploads/${relativePath}` } });
+    if (proof) {
+      return res.status(404).end();
+    }
+    const isHandoffProof = await handoffService.isProtectedUploadPath(relativePath);
+    if (isHandoffProof) {
+      return res.status(404).end();
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use("/uploads", express.static(env.fileUploadDir));
 
 // Swagger UI configuration
@@ -45,6 +65,7 @@ app.use("/api/notifications", routes.notifications);
 app.use("/api/wishlist", routes.wishlist);
 app.use("/api/vendors", routes.vendor);
 app.use("/api/admin", routes.admin);
+app.use("/api/account", routes.account);
 app.use("/api/subscriptions", routes.subscriptions);
 
 app.use(errorMiddleware);

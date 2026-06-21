@@ -13,6 +13,11 @@ import { Review } from "./Review";
 import { VendorProfile } from "./VendorProfile";
 import { Message } from "./Message";
 import { Subscription } from "./Subscription";
+import { VendorFulfillmentSettings } from "./VendorFulfillmentSettings";
+import { CostumeFulfillmentOverride } from "./CostumeFulfillmentOverride";
+import { UserSavedLocation } from "./UserSavedLocation";
+import { ReservationFulfillment } from "./ReservationFulfillment";
+import { ReservationAdjustment } from "./ReservationAdjustment";
 User.hasMany(OAuthAccount, { foreignKey: "user_id" });
 OAuthAccount.belongsTo(User, { foreignKey: "user_id" });
 
@@ -22,11 +27,20 @@ VendorProfile.belongsTo(User, { foreignKey: "user_id" });
 User.hasOne(Subscription, { foreignKey: "user_id" });
 Subscription.belongsTo(User, { foreignKey: "user_id" });
 
+User.hasOne(VendorFulfillmentSettings, { foreignKey: "vendor_id", as: "fulfillmentSettings" });
+VendorFulfillmentSettings.belongsTo(User, { foreignKey: "vendor_id", as: "vendor" });
+
+User.hasMany(UserSavedLocation, { foreignKey: "user_id", as: "savedLocations" });
+UserSavedLocation.belongsTo(User, { foreignKey: "user_id" });
+
 User.hasMany(Costume, { foreignKey: "owner_id", as: "costumes" });
 Costume.belongsTo(User, { foreignKey: "owner_id", as: "owner" });
 
 Costume.hasMany(CostumeImage, { foreignKey: "costume_id" });
 CostumeImage.belongsTo(Costume, { foreignKey: "costume_id" });
+
+Costume.hasOne(CostumeFulfillmentOverride, { foreignKey: "costume_id", as: "fulfillmentOverride" });
+CostumeFulfillmentOverride.belongsTo(Costume, { foreignKey: "costume_id" });
 
 User.hasMany(Reservation, { foreignKey: "user_id" });
 Reservation.belongsTo(User, { foreignKey: "user_id" });
@@ -34,11 +48,44 @@ Reservation.belongsTo(User, { foreignKey: "user_id" });
 Reservation.hasMany(ReservationItem, { foreignKey: "reservation_id", as: "items" });
 ReservationItem.belongsTo(Reservation, { foreignKey: "reservation_id" });
 
+Reservation.hasOne(ReservationFulfillment, { foreignKey: "reservation_id", as: "fulfillment" });
+ReservationFulfillment.belongsTo(Reservation, { foreignKey: "reservation_id" });
+
+Reservation.hasMany(ReservationAdjustment, { foreignKey: "reservation_id", as: "adjustments" });
+ReservationAdjustment.belongsTo(Reservation, { foreignKey: "reservation_id" });
+
 Costume.hasMany(ReservationItem, { foreignKey: "costume_id" });
 ReservationItem.belongsTo(Costume, { foreignKey: "costume_id" });
 
 User.hasMany(Payment, { foreignKey: "user_id" });
 Payment.belongsTo(User, { foreignKey: "user_id" });
+
+ReservationAdjustment.hasMany(Payment, {
+  foreignKey: "reservation_adjustment_id",
+  as: "payments"
+});
+Payment.belongsTo(ReservationAdjustment, {
+  foreignKey: "reservation_adjustment_id",
+  as: "reservationAdjustment"
+});
+
+UserSavedLocation.hasMany(ReservationFulfillment, {
+  foreignKey: "outbound_location_id",
+  as: "outboundFulfillments"
+});
+ReservationFulfillment.belongsTo(UserSavedLocation, {
+  foreignKey: "outbound_location_id",
+  as: "outboundLocation"
+});
+
+UserSavedLocation.hasMany(ReservationFulfillment, {
+  foreignKey: "return_location_id",
+  as: "returnFulfillments"
+});
+ReservationFulfillment.belongsTo(UserSavedLocation, {
+  foreignKey: "return_location_id",
+  as: "returnLocation"
+});
 
 // Legacy single association removed since Payment uses reservation_ids (JSON array)
 // Reservation.hasMany(Payment, { foreignKey: "reservation_id" });
@@ -83,5 +130,10 @@ export const db = {
   Review,
   VendorProfile,
   Message,
-  Subscription
+  Subscription,
+  VendorFulfillmentSettings,
+  CostumeFulfillmentOverride,
+  UserSavedLocation,
+  ReservationFulfillment,
+  ReservationAdjustment
 };

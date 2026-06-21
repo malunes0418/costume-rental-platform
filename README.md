@@ -178,7 +178,8 @@ You can also run a single workspace:
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/` | Submit a payment for a reservation |
+| `POST` | `/proof` | Submit payment proof for a reservation |
+| `GET` | `/:id/proof` | View a payment proof when authorized |
 
 ### Reviews - `/api/reviews`
 
@@ -207,10 +208,8 @@ You can also run a single workspace:
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/reservations` | List all reservations |
-| `GET` | `/payments` | List all payments |
 | `GET` | `/inventory` | List inventory |
 | `GET` | `/users` | List all users |
-| `POST` | `/payments/review` | Approve or reject a payment |
 | `GET` | `/vendors/pending` | List pending vendor applications |
 | `POST` | `/vendors/:userId/approve` | Approve a vendor application |
 | `POST` | `/vendors/:userId/reject` | Reject a vendor application |
@@ -227,6 +226,7 @@ You can also run a single workspace:
 | `PUT` | `/costumes/:id` | Update a costume listing |
 | `DELETE` | `/costumes/:id` | Delete a costume listing |
 | `GET` | `/reservations` | View received reservation requests |
+| `POST` | `/payments/review` | Verify or reject proof for an owned reservation |
 | `POST` | `/reservations/:id/approve` | Approve a reservation request |
 | `POST` | `/reservations/:id/reject` | Reject a reservation request |
 

@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
 import { VendorService } from "../services/VendorService";
+import { PaymentService } from "../services/PaymentService";
+import { NotificationService } from "../services/NotificationService";
 import { ApiResponse } from "../dto";
+import type { ReviewPaymentRequest } from "../dto";
 import { VendorApplyRequest, MessageCreateRequest } from "../dto/vendor.dto";
 
 const vendorService = new VendorService();
+const paymentService = new PaymentService(new NotificationService());
 
 export class VendorController {
   async apply(req: Request, res: Response) {
@@ -99,6 +103,16 @@ export class VendorController {
     }
   }
 
+  async reviewPayment(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await paymentService.vendorReview(vendorId, req.body as ReviewPaymentRequest);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
   async approveReservation(req: Request, res: Response) {
     try {
       const vendorId = (req as any).user.id;
@@ -113,6 +127,68 @@ export class VendorController {
     try {
       const vendorId = (req as any).user.id;
       const result = await vendorService.updateReservationStatus(vendorId, Number(req.params.id), "REJECTED_BY_VENDOR");
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async requestReservationSurcharge(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.requestReservationSurcharge(vendorId, Number(req.params.id), req.body);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async dispatchReservation(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.dispatchReservation(
+        vendorId,
+        Number(req.params.id),
+        req.file as Express.Multer.File | undefined
+      );
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async confirmVendorReturn(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.confirmVendorReturn(
+        vendorId,
+        Number(req.params.id),
+        req.file as Express.Multer.File | undefined
+      );
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async completeReservation(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.completeReservation(vendorId, Number(req.params.id));
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async waiveReservationAdjustment(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.waiveReservationAdjustment(
+        vendorId,
+        Number(req.params.id),
+        Number(req.params.adjustmentId)
+      );
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { adminListReservations, adminUpdateReservationStatus, type AdminReservation } from "@/lib/admin";
+import { getReservationItemPricingSummary } from "@/lib/pricing";
+import {
+  ACTIVE_VENDOR_EARNING_STATUSES,
+  getReservationStatusMeta,
+  RESERVATION_STATUS_OPTIONS,
+  type ReservationStatus,
+} from "@/lib/reservationStatus";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -14,65 +21,82 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ExclamationTriangleIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { FULFILLMENT_METHOD_LABELS, formatLocationSummary } from "@/lib/fulfillment";
+
+const NEXT_ADMIN_STATUSES: Partial<Record<ReservationStatus, ReservationStatus[]>> = {
+  CART: ["PENDING_PAYMENT", "CANCELLED"],
+  PENDING_PAYMENT: ["PENDING_VENDOR_REVIEW", "CANCELLED"],
+  PENDING_VENDOR_REVIEW: ["CONFIRMED", "AWAITING_SURCHARGE_PAYMENT", "REJECTED_BY_VENDOR", "CANCELLED"],
+  AWAITING_SURCHARGE_PAYMENT: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["DELIVERY_SCHEDULED", "CANCELLED"],
+  DELIVERY_SCHEDULED: ["WITH_RENTER", "CANCELLED"],
+  WITH_RENTER: ["RETURN_PENDING"],
+  RETURN_PENDING: ["RETURNED"],
+  RETURNED: ["COMPLETED"]
+};
 
 function fmt(d?: string) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function StatusChip({ status }: { status: string }) {
-  const s = status?.toUpperCase();
-  const cls =
-    s === "APPROVED" || s === "COMPLETED" ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-    : s === "PENDING" ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-    : s === "REJECTED" || s === "CANCELLED" || s === "DISPUTED" ? "border-destructive/20 bg-destructive/5 text-destructive"
-    : "border-border bg-muted/50 text-muted-foreground";
-  return <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{status}</span>;
+function StatusChip({ status }: { status: ReservationStatus }) {
+  const meta = getReservationStatusMeta(status);
+  return (
+    <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${meta.className}`}>
+      {meta.label}
+    </span>
+  );
 }
 
-const STATUSES = ["", "PENDING", "APPROVED", "COMPLETED", "CANCELLED", "REJECTED", "DISPUTED"];
+const STATUSES: Array<"" | ReservationStatus> = ["", ...RESERVATION_STATUS_OPTIONS];
 
 export default function AdminReservationsPage() {
   const { user } = useAuth();
-  const [all, setAll]           = useState<AdminReservation[]>([]);
-  const [filter, setFilter]     = useState("");
-  const [loading, setLoading]   = useState(true);
-  
-  // Detailed view state
+  const [all, setAll] = useState<AdminReservation[]>([]);
+  const [filter, setFilter] = useState<"" | ReservationStatus>("");
+  const [loading, setLoading] = useState(true);
   const [selectedRes, setSelectedRes] = useState<AdminReservation | null>(null);
   const [actioning, setActioning] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== "ADMIN") return;
     adminListReservations()
-      .then((v) => setAll(Array.isArray(v) ? v : (v as any)?.data || []))
+      .then((value) => setAll(Array.isArray(value) ? value : (value as never as { data?: AdminReservation[] })?.data || []))
       .catch(() => toast.error("Failed to load reservations."))
       .finally(() => setLoading(false));
   }, [user]);
 
-  const items = filter ? all.filter((r) => r.status?.toUpperCase() === filter) : all;
-  const totalRevenue = all.filter(r => r.status === "COMPLETED" || r.status === "APPROVED")
-    .reduce((s, r) => s + Number(r.total_price), 0);
+  const items = filter ? all.filter((reservation) => reservation.status === filter) : all;
+  const trackedStatuses = new Set<ReservationStatus>([
+    "PENDING_VENDOR_REVIEW",
+    "AWAITING_SURCHARGE_PAYMENT",
+    ...ACTIVE_VENDOR_EARNING_STATUSES,
+    "COMPLETED"
+  ]);
+  const totalTrackedValue = all
+    .filter((reservation) => trackedStatuses.has(reservation.status))
+    .reduce((sum, reservation) => sum + Number(reservation.total_price), 0);
 
-  async function handleUpdateStatus(id: number, newStatus: string) {
+  async function handleUpdateStatus(id: number, newStatus: ReservationStatus) {
     if (!user) return;
     setActioning(true);
     try {
       await adminUpdateReservationStatus(id, newStatus);
-      setAll((curr) => curr.map(r => r.id === id ? { ...r, status: newStatus } : r));
+      setAll((current) => current.map((reservation) => (reservation.id === id ? { ...reservation, status: newStatus } : reservation)));
       if (selectedRes?.id === id) {
         setSelectedRes({ ...selectedRes, status: newStatus });
       }
-      toast.success(`Reservation status updated to ${newStatus}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to update reservation status.");
+      toast.success(`Reservation status updated to ${getReservationStatusMeta(newStatus).label}`);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to update reservation status.");
     } finally {
       setActioning(false);
     }
   }
 
   return (
-    <div className="p-6 md:p-10 space-y-8">
+    <div className="space-y-8 p-6 md:p-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
@@ -80,24 +104,24 @@ export default function AdminReservationsPage() {
             Reservations
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {all.length} total · ₱{Number(totalRevenue).toLocaleString()} confirmed revenue
+            {all.length} total · ₱{Number(totalTrackedValue).toLocaleString()} active lifecycle value
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {STATUSES.map((s) => (
+          {STATUSES.map((status) => (
             <button
-              key={s}
+              key={status || "all"}
               type="button"
-              onClick={() => setFilter(s)}
+              onClick={() => setFilter(status)}
               className={cn(
                 "rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
-                filter === s
+                filter === status
                   ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                  : "border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground"
               )}
             >
-              {s || "All"}
+              {status ? getReservationStatusMeta(status).label : "All"}
             </button>
           ))}
         </div>
@@ -105,14 +129,19 @@ export default function AdminReservationsPage() {
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-sm" />)}
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-20 w-full rounded-sm" />
+          ))}
         </div>
       ) : (
-        <div className="rounded-sm border border-border divide-y divide-border bg-card overflow-hidden">
+        <div className="overflow-hidden rounded-sm border border-border bg-card">
           {items.length === 0 && (
-            <p className="px-6 py-16 text-center text-sm text-muted-foreground">No reservations match this filter.</p>
+            <p className="px-6 py-16 text-center text-sm text-muted-foreground">
+              No reservations match this filter.
+            </p>
           )}
-          <table className="w-full text-left text-sm hidden md:table">
+
+          <table className="hidden w-full text-left text-sm md:table">
             <thead className="border-b border-border bg-muted/50 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               <tr>
                 <th className="p-4 font-medium">Reservation</th>
@@ -124,36 +153,37 @@ export default function AdminReservationsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {items.map((r) => {
-                const costume = r.items?.[0]?.Costume;
+              {items.map((reservation) => {
+                const costume = reservation.items?.[0]?.Costume;
                 return (
-                  <tr key={r.id} className="transition-colors hover:bg-muted/30 group">
+                  <tr key={reservation.id} className="group transition-colors hover:bg-muted/30">
                     <td className="p-4">
-                      <p className="font-playfair text-base font-semibold text-foreground">#{r.id}</p>
-                      <StatusChip status={r.status} />
+                      <p className="font-playfair text-base font-semibold text-foreground">#{reservation.id}</p>
+                      <StatusChip status={reservation.status} />
                     </td>
                     <td className="p-4">
-                      <p className="font-semibold text-foreground">{r.User?.name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{r.User?.email || `User #${r.user_id}`}</p>
+                      <p className="font-semibold text-foreground">{reservation.User?.name || "Unknown"}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{reservation.User?.email || `User #${reservation.user_id}`}</p>
                     </td>
                     <td className="p-4">
-                      <p className="font-semibold text-foreground truncate max-w-[200px]">
+                      <p className="max-w-[200px] truncate font-semibold text-foreground">
                         {costume?.name || "Multiple items"}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.items?.length || 0} item(s)
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {reservation.items?.length || 0} item{(reservation.items?.length || 0) === 1 ? "" : "s"}
                       </p>
                     </td>
                     <td className="p-4 text-xs text-muted-foreground">
-                      {fmt(r.start_date)} →<br/>{fmt(r.end_date)}
+                      {fmt(reservation.start_date)} →<br />
+                      {fmt(reservation.end_date)}
                     </td>
                     <td className="p-4 font-playfair font-semibold text-foreground">
-                      ₱{Number(r.total_price).toLocaleString()}
+                      ₱{Number(reservation.total_price).toLocaleString()}
                     </td>
                     <td className="p-4 text-right">
                       <button
                         type="button"
-                        onClick={() => setSelectedRes(r)}
+                        onClick={() => setSelectedRes(reservation)}
                         className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
                         <MagnifyingGlassIcon className="size-3.5" /> Details
@@ -164,25 +194,24 @@ export default function AdminReservationsPage() {
               })}
             </tbody>
           </table>
-          
-          {/* Mobile view */}
-          <div className="md:hidden divide-y divide-border">
-            {items.map((r) => (
-              <div key={r.id} className="p-4 space-y-3">
-                <div className="flex justify-between items-start">
+
+          <div className="divide-y divide-border md:hidden">
+            {items.map((reservation) => (
+              <div key={reservation.id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-playfair text-base font-semibold text-foreground">#{r.id}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{r.User?.name || `User #${r.user_id}`}</p>
+                    <p className="font-playfair text-base font-semibold text-foreground">#{reservation.id}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{reservation.User?.name || `User #${reservation.user_id}`}</p>
                   </div>
                   <div className="text-right">
-                    <StatusChip status={r.status} />
-                    <p className="font-playfair font-semibold text-foreground mt-1">₱{Number(r.total_price).toLocaleString()}</p>
+                    <StatusChip status={reservation.status} />
+                    <p className="mt-1 font-playfair font-semibold text-foreground">₱{Number(reservation.total_price).toLocaleString()}</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedRes(r)}
-                  className="w-full flex h-8 items-center justify-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted"
+                  onClick={() => setSelectedRes(reservation)}
+                  className="flex h-8 w-full items-center justify-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted"
                 >
                   <MagnifyingGlassIcon className="size-3.5" /> View Details
                 </button>
@@ -192,27 +221,28 @@ export default function AdminReservationsPage() {
         </div>
       )}
 
-      {/* Details & Dispute Modal */}
       <Dialog open={!!selectedRes} onOpenChange={(open: boolean) => !open && setSelectedRes(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-playfair text-2xl">Reservation #{selectedRes?.id}</DialogTitle>
             <DialogDescription>
-              View detailed information and moderate this transaction.
+              View detailed information and moderate this reservation lifecycle.
             </DialogDescription>
           </DialogHeader>
 
           {selectedRes && (
-            <div className="space-y-6 mt-2">
+            <div className="mt-2 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Customer</p>
-                  <p className="font-medium text-sm">{selectedRes.User?.name || `User #${selectedRes.user_id}`}</p>
+                  <p className="text-sm font-medium">{selectedRes.User?.name || `User #${selectedRes.user_id}`}</p>
                   <p className="text-xs text-muted-foreground">{selectedRes.User?.email}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
-                  <div className="pt-1"><StatusChip status={selectedRes.status} /></div>
+                  <div className="pt-1">
+                    <StatusChip status={selectedRes.status} />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Rental Period</p>
@@ -224,49 +254,148 @@ export default function AdminReservationsPage() {
                 </div>
               </div>
 
-              <div className="border border-border rounded-sm p-4 bg-muted/20">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Costume Details</p>
+              <div className="rounded-sm border border-border bg-muted/20 p-4">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Costume Details</p>
                 <div className="space-y-2">
-                  {selectedRes.items?.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="font-medium">{item.Costume?.name || `Item #${item.costume_id}`}</span>
-                      <span className="text-muted-foreground">₱{Number(item.price_at_reservation).toLocaleString()} / day</span>
-                    </div>
-                  ))}
+                  {selectedRes.items?.map((item, index) => {
+                    const pricingSummary = getReservationItemPricingSummary(item);
+                    return (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span className="font-medium">{item.Costume?.name || `Item #${item.costume_id}`}</span>
+                        <span className="text-muted-foreground">
+                          PHP {pricingSummary.amount.toLocaleString()} {pricingSummary.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="border-t border-border pt-6 space-y-4">
+              {selectedRes.fulfillment ? (
+                <div className="rounded-sm border border-border bg-muted/20 p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fulfillment</p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">
+                        {FULFILLMENT_METHOD_LABELS[selectedRes.fulfillment.outbound_method]} outbound
+                      </p>
+                      <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                        {selectedRes.fulfillment.outbound_method === "DELIVERY"
+                          ? formatLocationSummary(selectedRes.fulfillment.outbound_location_snapshot)
+                          : "Vendor collection point"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">
+                        {FULFILLMENT_METHOD_LABELS[selectedRes.fulfillment.return_method]} return
+                      </p>
+                      <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                        {selectedRes.fulfillment.return_method === "DELIVERY"
+                          ? formatLocationSummary(selectedRes.fulfillment.return_location_snapshot)
+                          : "Vendor collection point"}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedRes.fulfillment.vendor_approval_note ? (
+                    <p className="mt-3 text-xs leading-6 text-muted-foreground">
+                      Note: {selectedRes.fulfillment.vendor_approval_note}
+                    </p>
+                  ) : null}
+                  {selectedRes.fulfillment.outside_service_area ? (
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-orange-700 dark:text-orange-300">
+                      Flagged outside service area
+                    </p>
+                  ) : null}
+                  {[
+                    ["Outbound dispatch", selectedRes.fulfillment.outbound_dispatch_proof_url, selectedRes.fulfillment.outbound_dispatched_at],
+                    ["Renter received", selectedRes.fulfillment.renter_received_proof_url, selectedRes.fulfillment.renter_received_at],
+                    ["Return initiated", selectedRes.fulfillment.return_initiated_proof_url, selectedRes.fulfillment.return_initiated_at],
+                    ["Vendor return", selectedRes.fulfillment.vendor_return_proof_url, selectedRes.fulfillment.vendor_return_received_at]
+                  ].some(([, proof]) => proof) ? (
+                    <div className="mt-4 space-y-2 border-t border-border pt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Handoff proofs
+                      </p>
+                      {[
+                        ["Outbound dispatch", selectedRes.fulfillment.outbound_dispatch_proof_url, selectedRes.fulfillment.outbound_dispatched_at],
+                        ["Renter received", selectedRes.fulfillment.renter_received_proof_url, selectedRes.fulfillment.renter_received_at],
+                        ["Return initiated", selectedRes.fulfillment.return_initiated_proof_url, selectedRes.fulfillment.return_initiated_at],
+                        ["Vendor return", selectedRes.fulfillment.vendor_return_proof_url, selectedRes.fulfillment.vendor_return_received_at]
+                      ]
+                        .filter(([, proof]) => proof)
+                        .map(([label, proof, timestamp]) => (
+                          <div key={label} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">
+                              {label}
+                              {timestamp ? ` · ${fmt(String(timestamp))}` : ""}
+                            </span>
+                            <a
+                              href={proof || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold uppercase tracking-widest text-foreground underline-offset-4 hover:underline"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {selectedRes.adjustments?.length ? (
+                <div className="rounded-sm border border-border bg-muted/20 p-4">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Reservation Adjustments</p>
+                  <div className="space-y-3">
+                    {selectedRes.adjustments?.map((adjustment) => (
+                      <div key={adjustment.id} className="rounded-sm border border-border bg-background px-4 py-3 text-sm">
+                        <p className="font-semibold text-foreground">
+                          Outside-area surcharge · ₱{Number(adjustment.amount).toLocaleString()}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+                          {adjustment.status}
+                        </p>
+                        {adjustment.note ? (
+                          <p className="mt-1 text-xs leading-6 text-muted-foreground">{adjustment.note}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-4 border-t border-border pt-6">
                 <div className="flex items-center gap-2 text-destructive">
                   <ExclamationTriangleIcon className="size-4" />
-                  <p className="text-xs font-semibold uppercase tracking-widest">Admin Override Actions</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest">Admin Lifecycle Controls</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "COMPLETED")}
-                    disabled={actioning || selectedRes.status === "COMPLETED"}
-                    className="flex h-9 items-center rounded-sm border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-40"
-                  >
-                    Force Complete
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "CANCELLED")}
-                    disabled={actioning || selectedRes.status === "CANCELLED"}
-                    className="flex h-9 items-center rounded-sm border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                  >
-                    Force Cancel
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedRes.id, "DISPUTED")}
-                    disabled={actioning || selectedRes.status === "DISPUTED"}
-                    className="flex h-9 items-center rounded-sm border border-amber-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-40"
-                  >
-                    Flag as Disputed
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Overrides bypass the normal vendor/customer flow. Use only when necessary for dispute resolution.
-                </p>
+                {(NEXT_ADMIN_STATUSES[selectedRes.status] || []).length > 0 ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {(NEXT_ADMIN_STATUSES[selectedRes.status] || []).map((nextStatus) => {
+                        const meta = getReservationStatusMeta(nextStatus);
+                        return (
+                          <button
+                            key={nextStatus}
+                            onClick={() => handleUpdateStatus(selectedRes.id, nextStatus)}
+                            disabled={actioning}
+                            className="flex h-9 items-center rounded-sm border border-foreground/20 px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                          >
+                            Mark {meta.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Admin controls respect the same guarded lifecycle transitions used by vendor and renter workflows.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    This reservation is in a terminal state and has no further legal lifecycle transitions.
+                  </p>
+                )}
               </div>
             </div>
           )}

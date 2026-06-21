@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
+import path from "path";
 import { PaymentService } from "../services/PaymentService";
 import { NotificationService } from "../services/NotificationService";
+import { env } from "../config/env";
 import { ApiResponse, MyPaymentsResponse, UploadPaymentProofRequest, UploadPaymentProofResponse } from "../dto";
 
 const notificationService = new NotificationService();
@@ -23,6 +25,15 @@ export class PaymentController {
       ApiResponse.ok(res, payments as MyPaymentsResponse);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async proof(req: Request, res: Response) {
+    try {
+      const proofPath = await paymentService.getProofFileForViewer(req.user!.id, Number(req.params.id));
+      res.sendFile(path.basename(proofPath), { root: env.fileUploadDir });
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e, 404);
     }
   }
 }

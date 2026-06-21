@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { AddCostumeModal } from "@/components/AddCostumeModal";
 import { EditCostumeModal } from "@/components/EditCostumeModal";
+import { VendorFulfillmentStudio } from "@/components/VendorFulfillmentStudio";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { resolveApiAsset } from "@/lib/assets";
 import {
   deleteVendorCostume,
+  getVendorFulfillmentSettings,
   getVendorProfile,
   listVendorCostumes,
   publishVendorCostume,
@@ -32,7 +34,9 @@ import {
   type VendorProfile,
   unpublishVendorCostume,
 } from "@/lib/vendor";
+import { getCostumePricingSummary } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { FULFILLMENT_MODE_LABELS, type VendorFulfillmentSettings } from "@/lib/fulfillment";
 
 function resolveImage(costume: VendorCostume): string {
   const images = costume.CostumeImages || [];
@@ -63,6 +67,13 @@ function statusPill(status: VendorCostume["status"]) {
   );
 }
 
+function resolveFulfillmentLine(costume: VendorCostume, vendorSettings: VendorFulfillmentSettings | null) {
+  const outbound = costume.fulfillmentOverride?.outbound_mode || vendorSettings?.outbound_mode || "BOTH";
+  const returnMode = costume.fulfillmentOverride?.return_mode || vendorSettings?.return_mode || "BOTH";
+
+  return `Outbound ${FULFILLMENT_MODE_LABELS[outbound]} / Returns ${FULFILLMENT_MODE_LABELS[returnMode]}`;
+}
+
 function Section({
   title,
   description,
@@ -72,6 +83,7 @@ function Section({
   onDelete,
   onPublish,
   onUnpublish,
+  vendorSettings,
 }: {
   title: string;
   description: string;
@@ -81,6 +93,7 @@ function Section({
   onDelete: (costumeId: number) => void;
   onPublish: (costumeId: number) => void;
   onUnpublish: (costumeId: number) => void;
+  vendorSettings: VendorFulfillmentSettings | null;
 }) {
   if (items.length === 0) return null;
 
@@ -99,6 +112,7 @@ function Section({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         {items.map((costume) => {
           const image = resolveImage(costume);
+          const pricingSummary = getCostumePricingSummary(costume);
           return (
             <article key={costume.id} className="overflow-hidden rounded-sm border border-border bg-card">
               <div className="relative aspect-[4/5] border-b border-border bg-muted/40">
@@ -118,6 +132,9 @@ function Section({
                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       {[costume.category, costume.size].filter(Boolean).join(" / ") || "Curated piece"}
                     </p>
+                    <p className="mt-3 max-w-[22rem] text-xs leading-6 text-muted-foreground">
+                      {resolveFulfillmentLine(costume, vendorSettings)}
+                    </p>
                   </div>
                   {statusPill(costume.status)}
                 </div>
@@ -125,10 +142,13 @@ function Section({
                 <div className="flex items-end justify-between gap-4">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Daily rate
+                      {costume.pricing_mode === "PACKAGE" ? "Package pricing" : "Daily rate"}
                     </p>
                     <p className="mt-2 font-playfair text-2xl font-semibold text-foreground">
-                      PHP {Number(costume.base_price_per_day).toLocaleString()}
+                      PHP {pricingSummary.amount.toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {pricingSummary.label}
                     </p>
                   </div>
                   <div className="text-right">
@@ -194,15 +214,21 @@ function Section({
 export default function VendorInventoryPage() {
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [costumes, setCostumes] = useState<VendorCostume[]>([]);
+  const [fulfillmentSettings, setFulfillmentSettings] = useState<VendorFulfillmentSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCostume, setSelectedCostume] = useState<VendorCostume | null>(null);
   const [costumePendingDelete, setCostumePendingDelete] = useState<VendorCostume | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [vendorProfile, costumeList] = await Promise.all([getVendorProfile(), listVendorCostumes()]);
+    const [vendorProfile, costumeList, settings] = await Promise.all([
+      getVendorProfile(),
+      listVendorCostumes(),
+      getVendorFulfillmentSettings()
+    ]);
     setProfile(vendorProfile);
     setCostumes(costumeList);
+    setFulfillmentSettings(settings);
   }, []);
 
   useEffect(() => {
@@ -319,7 +345,11 @@ export default function VendorInventoryPage() {
               </p>
             </div>
           </div>
-          <AddCostumeModal onSuccess={refresh} disabled={!profile.canManageDrafts} />
+          <AddCostumeModal
+            onSuccess={refresh}
+            disabled={!profile.canManageDrafts}
+            vendorSettings={fulfillmentSettings}
+          />
         </div>
 
         {!profile.canPublish ? (
@@ -334,6 +364,8 @@ export default function VendorInventoryPage() {
           </div>
         ) : null}
       </section>
+
+      <VendorFulfillmentStudio settings={fulfillmentSettings} onSaved={setFulfillmentSettings} />
 
       <div className="mt-10 space-y-12">
         {grouped.drafts.length === 0 && grouped.active.length === 0 && grouped.moderated.length === 0 ? (
@@ -354,6 +386,7 @@ export default function VendorInventoryPage() {
           onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
+          vendorSettings={fulfillmentSettings}
         />
 
         <Section
@@ -365,6 +398,7 @@ export default function VendorInventoryPage() {
           onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
+          vendorSettings={fulfillmentSettings}
         />
 
         <Section
@@ -376,10 +410,16 @@ export default function VendorInventoryPage() {
           onDelete={handleDeleteRequest}
           onPublish={handlePublish}
           onUnpublish={handleUnpublish}
+          vendorSettings={fulfillmentSettings}
         />
       </div>
 
-      <EditCostumeModal costume={selectedCostume} onClose={() => setSelectedCostume(null)} onSuccess={refresh} />
+      <EditCostumeModal
+        costume={selectedCostume}
+        onClose={() => setSelectedCostume(null)}
+        onSuccess={refresh}
+        vendorSettings={fulfillmentSettings}
+      />
 
       <Dialog
         open={!!costumePendingDelete}
@@ -392,6 +432,9 @@ export default function VendorInventoryPage() {
         <DialogContent className="overflow-hidden border-border bg-background p-0 sm:max-w-2xl">
           {costumePendingDelete ? (
             <>
+              {(() => {
+                const pricingSummary = getCostumePricingSummary(costumePendingDelete);
+                return (
               <div className="grid gap-0 sm:grid-cols-[minmax(0,232px)_minmax(0,1fr)]">
                 <div className="relative border-b border-border bg-muted/40 sm:border-b-0 sm:border-r">
                   {resolveImage(costumePendingDelete) ? (
@@ -441,10 +484,13 @@ export default function VendorInventoryPage() {
                         </div>
                         <div className="text-left sm:text-right">
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                            Daily rate
+                            {costumePendingDelete.pricing_mode === "PACKAGE" ? "Package pricing" : "Daily rate"}
                           </p>
                           <p className="mt-2 font-playfair text-2xl font-semibold text-foreground">
-                            PHP {Number(costumePendingDelete.base_price_per_day).toLocaleString()}
+                            PHP {pricingSummary.amount.toLocaleString()}
+                          </p>
+                          <p className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+                            {pricingSummary.label}
                           </p>
                         </div>
                       </div>
@@ -492,6 +538,8 @@ export default function VendorInventoryPage() {
                   </DialogFooter>
                 </div>
               </div>
+                );
+              })()}
             </>
           ) : null}
         </DialogContent>
