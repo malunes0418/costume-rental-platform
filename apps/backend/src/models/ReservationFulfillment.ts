@@ -26,6 +26,14 @@ export interface ReservationFulfillmentAttributes {
   outside_service_area: boolean;
   vendor_approval_status: ReservationFulfillmentApprovalStatus;
   vendor_approval_note?: string | null;
+  outbound_dispatched_at?: Date | null;
+  outbound_dispatch_proof_url?: string | null;
+  renter_received_at?: Date | null;
+  renter_received_proof_url?: string | null;
+  return_initiated_at?: Date | null;
+  return_initiated_proof_url?: string | null;
+  vendor_return_received_at?: Date | null;
+  vendor_return_proof_url?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -45,6 +53,14 @@ export interface ReservationFulfillmentCreationAttributes
     | "return_window_start"
     | "return_window_end"
     | "vendor_approval_note"
+    | "outbound_dispatched_at"
+    | "outbound_dispatch_proof_url"
+    | "renter_received_at"
+    | "renter_received_proof_url"
+    | "return_initiated_at"
+    | "return_initiated_proof_url"
+    | "vendor_return_received_at"
+    | "vendor_return_proof_url"
   > {}
 
 export class ReservationFulfillment
@@ -70,6 +86,14 @@ export class ReservationFulfillment
   public outside_service_area!: boolean;
   public vendor_approval_status!: ReservationFulfillmentApprovalStatus;
   public vendor_approval_note!: string | null;
+  public outbound_dispatched_at!: Date | null;
+  public outbound_dispatch_proof_url!: string | null;
+  public renter_received_at!: Date | null;
+  public renter_received_proof_url!: string | null;
+  public return_initiated_at!: Date | null;
+  public return_initiated_proof_url!: string | null;
+  public vendor_return_received_at!: Date | null;
+  public vendor_return_proof_url!: string | null;
   public created_at!: Date;
   public updated_at!: Date;
 }
@@ -99,6 +123,14 @@ ReservationFulfillment.init(
       defaultValue: "PENDING_VENDOR_REVIEW"
     },
     vendor_approval_note: { type: DataTypes.TEXT, allowNull: true },
+    outbound_dispatched_at: { type: DataTypes.DATE, allowNull: true },
+    outbound_dispatch_proof_url: { type: DataTypes.STRING(512), allowNull: true },
+    renter_received_at: { type: DataTypes.DATE, allowNull: true },
+    renter_received_proof_url: { type: DataTypes.STRING(512), allowNull: true },
+    return_initiated_at: { type: DataTypes.DATE, allowNull: true },
+    return_initiated_proof_url: { type: DataTypes.STRING(512), allowNull: true },
+    vendor_return_received_at: { type: DataTypes.DATE, allowNull: true },
+    vendor_return_proof_url: { type: DataTypes.STRING(512), allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },

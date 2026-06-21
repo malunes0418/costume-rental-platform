@@ -238,6 +238,14 @@ export function listVendorReservations() {
   return apiFetch<Reservation[]>("/api/vendors/reservations");
 }
 
+export function reviewVendorPayment(paymentId: number, status: "APPROVED" | "REJECTED", notes = "") {
+  return apiFetch<{ payment: ReservationPayment; reservations: Reservation[] }>("/api/vendors/payments/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentId, status, notes })
+  });
+}
+
 export function getVendorFulfillmentSettings() {
   return apiFetch<VendorFulfillmentSettings | null>("/api/vendors/fulfillment-settings");
 }
@@ -270,11 +278,37 @@ export function requestReservationSurcharge(id: number, payload: VendorReservati
   });
 }
 
-export function advanceReservationLifecycle(id: number, status: ReservationStatus) {
-  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/lifecycle`, {
+export function dispatchReservation(id: number, proof?: File) {
+  const form = new FormData();
+  if (proof) {
+    form.set("proof", proof);
+  }
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/dispatch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status })
+    body: proof ? form : undefined
+  });
+}
+
+export function confirmVendorReturn(id: number, proof?: File) {
+  const form = new FormData();
+  if (proof) {
+    form.set("proof", proof);
+  }
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/confirm-return`, {
+    method: "POST",
+    body: proof ? form : undefined
+  });
+}
+
+export function completeReservation(id: number) {
+  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/complete`, {
+    method: "POST"
+  });
+}
+
+export function waiveReservationAdjustment(reservationId: number, adjustmentId: number) {
+  return apiFetch<Reservation>(`/api/vendors/reservations/${reservationId}/adjustments/${adjustmentId}/waive`, {
+    method: "POST"
   });
 }
 

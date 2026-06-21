@@ -6,10 +6,8 @@ import { adminMiddleware } from "../middleware/adminMiddleware";
 const router = Router();
 const controller = new AdminController();
 
-router.post("/payments/review", authMiddleware, adminMiddleware, (req, res) => controller.reviewPayment(req, res));
 router.get("/reservations", authMiddleware, adminMiddleware, (req, res) => controller.listReservations(req, res));
 router.patch("/reservations/:id/status", authMiddleware, adminMiddleware, (req, res) => controller.updateReservationStatus(req, res));
-router.get("/payments", authMiddleware, adminMiddleware, (req, res) => controller.listPayments(req, res));
 router.get("/inventory", authMiddleware, adminMiddleware, (req, res) => controller.listInventory(req, res));
 router.get("/users", authMiddleware, adminMiddleware, (req, res) => controller.listUsers(req, res));
 router.patch("/users/:id/role", authMiddleware, adminMiddleware, (req, res) => controller.updateUserRole(req, res));

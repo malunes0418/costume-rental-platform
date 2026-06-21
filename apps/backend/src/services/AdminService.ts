@@ -1,11 +1,12 @@
-import { Op } from "sequelize";
 import {
   assertReservationTransition,
   deriveVendorReservationStatus,
+  isPreWithRenterStatus,
   isReservationStatus
 } from "../domain/reservationLifecycle";
+import { presentFulfillmentHandoffProofs } from "../domain/handoffProofs";
+import { assertInitialPaymentApprovedForVendorReview } from "./reservationPaymentGuards";
 import { ReservationItem } from "../models/ReservationItem";
-import { Payment } from "../models/Payment";
 import { Costume } from "../models/Costume";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
@@ -23,27 +24,11 @@ export class AdminService {
       order: [["created_at", "DESC"]]
     });
 
-    const userIds = [...new Set(reservations.map((reservation) => Number(reservation.user_id)).filter(Boolean))];
-    const payments = userIds.length
-      ? await Payment.findAll({
-          where: { user_id: { [Op.in]: userIds } },
-          include: [{ association: "reservationAdjustment", required: false }],
-          order: [["created_at", "DESC"]]
-        })
-      : [];
-
     return reservations.map((reservation) => {
-      const reservationJson = reservation.toJSON();
-      const matchingPayments = payments
-        .filter((payment) =>
-          Array.isArray(payment.reservation_ids) &&
-          payment.reservation_ids.some((paymentReservationId) => Number(paymentReservationId) === Number(reservation.id))
-        )
-        .map((payment) => payment.toJSON());
-
+      const json = reservation.toJSON();
       return {
-        ...reservationJson,
-        payments: matchingPayments
+        ...json,
+        fulfillment: presentFulfillmentHandoffProofs(reservation.id, json.fulfillment)
       };
     });
   }
@@ -54,18 +39,20 @@ export class AdminService {
     if (!isReservationStatus(status)) {
       throw new Error("Invalid reservation status");
     }
+
+    if (status === "CANCELLED" && !isPreWithRenterStatus(reservation.status)) {
+      throw new Error("Admin can only cancel reservations before the costume is with the renter");
+    }
+
+    if (reservation.status === "PENDING_PAYMENT" && status === "PENDING_VENDOR_REVIEW") {
+      await assertInitialPaymentApprovedForVendorReview(reservation);
+    }
+
     assertReservationTransition(reservation.status, status, "Reservation");
     reservation.status = status;
     reservation.vendor_status = deriveVendorReservationStatus(status, reservation.vendor_status);
     await reservation.save();
     return reservation;
-  }
-
-  async listPayments() {
-    return Payment.findAll({
-      include: [User, { association: "reservationAdjustment", required: false }],
-      order: [["created_at", "DESC"]]
-    });
   }
 
   async listInventory() {

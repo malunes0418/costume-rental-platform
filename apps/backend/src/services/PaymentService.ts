@@ -1,4 +1,5 @@
-import type { AdminReviewPaymentRequest, UploadPaymentProofRequest } from "../dto";
+import type { ReviewPaymentRequest, UploadPaymentProofRequest } from "../dto";
+import type { PaymentAttributes } from "../models/Payment";
 import { Op } from "sequelize";
 import { deriveVendorReservationStatus } from "../domain/reservationLifecycle";
 import { Payment } from "../models/Payment";
@@ -7,10 +8,16 @@ import { ReservationAdjustment } from "../models/ReservationAdjustment";
 import { ReservationItem } from "../models/ReservationItem";
 import { Costume } from "../models/Costume";
 import { NotificationService } from "./NotificationService";
-import { User } from "../models/User";
 
 export class PaymentService {
   constructor(private notificationService: NotificationService) {}
+
+  private presentPayment(payment: Payment): PaymentAttributes {
+    return {
+      ...payment.toJSON(),
+      proof_url: payment.proof_url ? `/api/payments/${payment.id}/proof` : null
+    };
+  }
 
   private parseReservationIds(reservationIds: UploadPaymentProofRequest["reservationIds"]) {
     let parsedIds: number[] = [];
@@ -81,8 +88,6 @@ export class PaymentService {
       throw new Error("Proof file is required");
     }
     const proofUrl = `/uploads/${file.filename}`;
-    const user = await User.findByPk(userId);
-
     const adjustmentId = body.reservationAdjustmentId ? Number(body.reservationAdjustmentId) : null;
     if (adjustmentId) {
       if (!Number.isFinite(adjustmentId)) {
@@ -146,26 +151,18 @@ export class PaymentService {
         reservation_adjustment_id: adjustment.id
       });
 
-      if (user) {
-        await this.notificationService.createForAdmin(
-          "SURCHARGE_PAYMENT_PROOF_UPLOADED",
-          "Surcharge payment proof uploaded",
-          `User ${user.email} uploaded surcharge payment proof for reservation #${reservation.id}.`
-        );
-      }
-
       const vendorMessages = this.buildVendorMessages([reservation]);
       for (const [vendorId, reservationRefs] of vendorMessages.entries()) {
         const uniqueReservations = [...new Set(reservationRefs)];
         await this.notificationService.create(
           vendorId,
           "SURCHARGE_PAYMENT_PROOF_UPLOADED",
-          "Supplemental payment received",
-          `A renter uploaded surcharge payment proof for reservation${uniqueReservations.length === 1 ? "" : "s"} ${uniqueReservations.join(", ")}.`
+          "Supplemental payment proof submitted",
+          `A renter uploaded surcharge payment proof for reservation${uniqueReservations.length === 1 ? "" : "s"} ${uniqueReservations.join(", ")}. Verify the receipt before continuing.`
         );
       }
 
-      return payment;
+      return this.presentPayment(payment);
     }
 
     const parsedIds = this.parseReservationIds(body.reservationIds);
@@ -225,39 +222,74 @@ export class PaymentService {
       payment_purpose: "INITIAL_RESERVATION"
     });
 
-    if (user) {
-      await this.notificationService.createForAdmin(
-        "PAYMENT_PROOF_UPLOADED",
-        "Payment proof uploaded",
-        `User ${user.email} uploaded a payment proof for reservations: ${parsedIds.join(", ")}`
-      );
-    }
-
     const vendorMessages = this.buildVendorMessages(reservationOwners);
     for (const [vendorId, reservationRefs] of vendorMessages.entries()) {
       const uniqueReservations = [...new Set(reservationRefs)];
       await this.notificationService.create(
         vendorId,
         "PAYMENT_PROOF_UPLOADED",
-        "New payment receipt to review",
-        `A renter uploaded payment proof for reservation${uniqueReservations.length === 1 ? "" : "s"} ${uniqueReservations.join(", ")}. Review the receipt in your vendor dashboard.`
+        "Payment proof submitted",
+        `A renter uploaded payment proof for reservation${uniqueReservations.length === 1 ? "" : "s"} ${uniqueReservations.join(", ")}. Verify the receipt before reviewing the booking.`
       );
     }
 
-    return payment;
+    return this.presentPayment(payment);
   }
 
   async listForUser(userId: number) {
-    return Payment.findAll({
+    const payments = await Payment.findAll({
       where: { user_id: userId },
       include: [{ association: "reservationAdjustment", required: false }],
       order: [["created_at", "DESC"]]
     });
+    return payments.map((payment) => ({
+      ...this.presentPayment(payment),
+      reservationAdjustment: (payment as any).reservationAdjustment
+    }));
   }
 
-  async adminReview({ paymentId, approve, status, notes }: AdminReviewPaymentRequest) {
+  async getProofFileForViewer(userId: number, paymentId: number) {
+    const payment = await Payment.findByPk(paymentId);
+    if (!payment || !payment.proof_url) {
+      throw new Error("Payment receipt not found");
+    }
+
+    if (Number(payment.user_id) === Number(userId)) {
+      return payment.proof_url;
+    }
+
+    const reservationIds = payment.reservation_ids || [];
+    const reservations = await Reservation.findAll({
+      where: { id: reservationIds },
+      include: [
+        {
+          model: ReservationItem,
+          as: "items",
+          required: true,
+          include: [{ model: Costume, attributes: ["owner_id"], required: true }]
+        }
+      ]
+    });
+    const ownsEveryReservation =
+      reservations.length === reservationIds.length &&
+      reservations.every((reservation) => {
+        const items = ((reservation as any).items || []) as Array<ReservationItem & { Costume?: Costume }>;
+        return items.length > 0 && items.every((item) => Number(item.Costume?.owner_id) === Number(userId));
+      });
+
+    if (!ownsEveryReservation) {
+      throw new Error("Payment receipt not found");
+    }
+
+    return payment.proof_url;
+  }
+
+  async vendorReview(vendorId: number, { paymentId, status, notes }: ReviewPaymentRequest) {
     const id = Number(paymentId);
-    const ok = status ? status === "APPROVED" : typeof approve === "boolean" ? approve : Boolean(approve);
+    if (!Number.isFinite(id) || (status !== "APPROVED" && status !== "REJECTED")) {
+      throw new Error("Invalid payment review request");
+    }
+    const ok = status === "APPROVED";
     const payment = await Payment.findByPk(id);
     if (!payment) {
       throw new Error("Payment not found");
@@ -265,15 +297,41 @@ export class PaymentService {
     if (payment.status !== "PENDING") {
       throw new Error("Payment has already been reviewed");
     }
+    if (!payment.proof_url) {
+      throw new Error("Payment receipt is missing");
+    }
     
     const reservationIds = payment.reservation_ids || [];
     if (!reservationIds.length) {
       throw new Error("No reservations found for this payment");
     }
 
-    const reservations = await Reservation.findAll({ where: { id: reservationIds } });
+    const reservations = await Reservation.findAll({
+      where: { id: reservationIds },
+      include: [
+        {
+          model: ReservationItem,
+          as: "items",
+          required: true,
+          include: [
+            {
+              model: Costume,
+              attributes: ["id", "owner_id"],
+              required: true
+            }
+          ]
+        }
+      ]
+    });
     if (reservations.length !== reservationIds.length) {
       throw new Error("One or more reservations not found");
+    }
+    const ownsEveryReservation = reservations.every((reservation) => {
+      const items = ((reservation as any).items || []) as Array<ReservationItem & { Costume?: Costume }>;
+      return items.length > 0 && items.every((item) => Number(item.Costume?.owner_id) === Number(vendorId));
+    });
+    if (!ownsEveryReservation) {
+      throw new Error("Payment not found or unauthorized");
     }
 
     const adjustment =
@@ -293,7 +351,7 @@ export class PaymentService {
             res.user_id,
             "PAYMENT_APPROVED",
             "Payment approved",
-            `Your initial payment for reservation #${res.id} was approved and is now awaiting vendor review.`
+            `The vendor verified your initial payment for reservation #${res.id}. Your booking is now awaiting vendor review.`
           );
         } else if (payment.payment_purpose === "RESERVATION_ADJUSTMENT" && res.status === "AWAITING_SURCHARGE_PAYMENT") {
           res.status = "CONFIRMED";
@@ -301,7 +359,7 @@ export class PaymentService {
             res.user_id,
             "SURCHARGE_PAYMENT_APPROVED",
             "Supplemental payment approved",
-            `Your supplemental payment for reservation #${res.id} was approved and the reservation is now confirmed.`
+            `The vendor verified your supplemental payment for reservation #${res.id}. The reservation is now confirmed.`
           );
         }
         res.vendor_status = deriveVendorReservationStatus(res.status, res.vendor_status);
@@ -324,7 +382,7 @@ export class PaymentService {
           ? "Your supplemental payment proof was rejected. Please upload a new receipt to continue this reservation."
           : "Your payment proof was rejected. Please upload a new receipt to continue your reservation.";
       await this.notificationService.create(payment.user_id, "PAYMENT_STATUS", "Payment reviewed", message);
-      return { payment, reservations };
+      return { payment: this.presentPayment(payment), reservations };
     }
 
     await this.notificationService.create(
@@ -332,9 +390,9 @@ export class PaymentService {
       "PAYMENT_STATUS",
       "Payment reviewed",
       payment.payment_purpose === "RESERVATION_ADJUSTMENT"
-        ? "Your supplemental payment has been approved."
-        : "Your payment has been approved."
+        ? "The vendor verified your supplemental payment."
+        : "The vendor verified your payment."
     );
-    return { payment, reservations };
+    return { payment: this.presentPayment(payment), reservations };
   }
 }

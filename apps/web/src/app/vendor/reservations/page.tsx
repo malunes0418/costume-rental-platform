@@ -38,23 +38,17 @@ import {
 } from "@/lib/reservationStatus";
 import { cn } from "@/lib/utils";
 import {
-  advanceReservationLifecycle,
   approveReservation,
+  completeReservation,
+  confirmVendorReturn,
+  dispatchReservation,
   listVendorReservations,
   rejectReservation,
+  reviewVendorPayment,
   requestReservationSurcharge,
+  waiveReservationAdjustment,
   type Reservation
 } from "@/lib/vendor";
-
-const NEXT_VENDOR_LIFECYCLE_STATUS: Partial<Record<ReservationStatus, ReservationStatus>> = {
-  CONFIRMED: "OUTBOUND_SCHEDULED",
-  OUTBOUND_SCHEDULED: "OUTBOUND_IN_PROGRESS",
-  OUTBOUND_IN_PROGRESS: "WITH_RENTER",
-  WITH_RENTER: "RETURN_SCHEDULED",
-  RETURN_SCHEDULED: "RETURN_IN_PROGRESS",
-  RETURN_IN_PROGRESS: "RETURNED",
-  RETURNED: "COMPLETED"
-};
 
 const OPERATION_TIMELINE: ReservationStatus[] = [...FULFILLMENT_OPERATION_STATUSES];
 
@@ -95,6 +89,17 @@ function getPaidAdjustmentTotal(reservation: Reservation) {
 }
 
 function getVendorDecisionMeta(reservation: Reservation) {
+  const initialPayment = reservation.payments?.find(
+    (payment) => payment.payment_purpose === "INITIAL_RESERVATION" && payment.proof_url
+  );
+
+  if (reservation.status === "PENDING_PAYMENT" && initialPayment?.status === "PENDING") {
+    return {
+      label: "Payment Verification",
+      className: "border-amber-400/40 text-amber-700 dark:text-amber-400"
+    };
+  }
+
   return getReservationStatusMeta(reservation.status);
 }
 
@@ -119,9 +124,15 @@ function getReceiptStatusMeta(reservation: Reservation) {
       className: "border-border text-muted-foreground"
     };
   }
+  if (reservation.status === "CART") {
+    return {
+      label: "Not Checked Out",
+      className: "border-border text-muted-foreground"
+    };
+  }
   return {
-    label: "Payment Settled",
-    className: "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
+    label: "No Payment Record",
+    className: "border-border text-muted-foreground"
   };
 }
 
@@ -160,8 +171,10 @@ function formatWindowLabel(start?: string | null, end?: string | null) {
   return slot ? `${formatDate(start)} - ${slot.toLowerCase()}` : `${formatDate(start)} - timed window`;
 }
 
-function nextOperationalStatus(reservation: Reservation) {
-  return NEXT_VENDOR_LIFECYCLE_STATUS[reservation.status] || null;
+function reservationStatusMeta(reservation: Reservation, status: ReservationStatus) {
+  return getReservationStatusMeta(status, {
+    outboundMethod: reservation.fulfillment?.outbound_method
+  });
 }
 
 function timelineStepState(current: ReservationStatus, step: ReservationStatus) {
@@ -180,6 +193,8 @@ export default function VendorReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [surchargeAmount, setSurchargeAmount] = useState("");
   const [surchargeNote, setSurchargeNote] = useState("");
+  const [dispatchProof, setDispatchProof] = useState<File | null>(null);
+  const [returnProof, setReturnProof] = useState<File | null>(null);
 
   const fetchReservations = useCallback(
     async (showError = true) => {
@@ -235,6 +250,19 @@ export default function VendorReservationsPage() {
     }
   }
 
+  async function handlePaymentReview(paymentId: number, status: "APPROVED" | "REJECTED") {
+    setActioningId(paymentId);
+    try {
+      await reviewVendorPayment(paymentId, status);
+      toast.success(status === "APPROVED" ? "Payment verified." : "Payment receipt rejected.");
+      await fetchReservations(false);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to review payment receipt."));
+    } finally {
+      setActioningId(null);
+    }
+  }
+
   async function handleReject(id: number) {
     if (!user) return;
 
@@ -268,16 +296,59 @@ export default function VendorReservationsPage() {
     }
   }
 
-  async function handleAdvanceLifecycle(id: number, status: ReservationStatus) {
+  async function handleDispatch(id: number) {
     if (!user) return;
-
     setActioningId(id);
     try {
-      await advanceReservationLifecycle(id, status);
-      toast.success(`Reservation moved to ${getReservationStatusMeta(status).label}.`);
+      await dispatchReservation(id, dispatchProof || undefined);
+      toast.success("Reservation dispatched.");
+      setDispatchProof(null);
       await fetchReservations(false);
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update fulfillment lifecycle."));
+      toast.error(getErrorMessage(error, "Failed to dispatch reservation."));
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  async function handleConfirmReturn(id: number) {
+    if (!user) return;
+    setActioningId(id);
+    try {
+      await confirmVendorReturn(id, returnProof || undefined);
+      toast.success("Return confirmed.");
+      setReturnProof(null);
+      await fetchReservations(false);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to confirm return."));
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  async function handleComplete(id: number) {
+    if (!user) return;
+    setActioningId(id);
+    try {
+      await completeReservation(id);
+      toast.success("Rental completed.");
+      await fetchReservations(false);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to complete rental."));
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  async function handleWaiveSurcharge(reservationId: number, adjustmentId: number) {
+    if (!user) return;
+    setActioningId(reservationId);
+    try {
+      await waiveReservationAdjustment(reservationId, adjustmentId);
+      toast.success("Surcharge waived.");
+      await fetchReservations(false);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to waive surcharge."));
     } finally {
       setActioningId(null);
     }
@@ -288,8 +359,9 @@ export default function VendorReservationsPage() {
   const selectedReceiptStatus = selectedReservation ? getReceiptStatusMeta(selectedReservation) : null;
   const canReviewSelectedReservation = selectedReservation ? canVendorReviewReservation(selectedReservation) : false;
   const selectedPendingAdjustment = selectedReservation ? getPendingAdjustment(selectedReservation) : null;
-  const selectedNextStatus = selectedReservation ? nextOperationalStatus(selectedReservation) : null;
   const selectedPaidSurcharge = selectedReservation ? getPaidAdjustmentTotal(selectedReservation) : 0;
+  const selectedOutsideServiceArea = Boolean(selectedReservation?.fulfillment?.outside_service_area);
+  const canVerifySelectedPayment = Boolean(selectedPayment?.proof_url && selectedPayment.status === "PENDING");
 
   if (loading) {
     return (
@@ -692,19 +764,12 @@ export default function VendorReservationsPage() {
                 </section>
               </div>
 
-              {selectedReservation.status === "CONFIRMED" ||
-              selectedReservation.status === "OUTBOUND_SCHEDULED" ||
-              selectedReservation.status === "OUTBOUND_IN_PROGRESS" ||
-              selectedReservation.status === "WITH_RENTER" ||
-              selectedReservation.status === "RETURN_SCHEDULED" ||
-              selectedReservation.status === "RETURN_IN_PROGRESS" ||
-              selectedReservation.status === "RETURNED" ||
-              selectedReservation.status === "COMPLETED" ? (
+              {FULFILLMENT_OPERATION_STATUSES.includes(selectedReservation.status) ? (
                 <section className="rounded-sm border border-border bg-muted/20 p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Operational Timeline</p>
                   <div className="mt-4 grid gap-2 sm:grid-cols-4">
                     {OPERATION_TIMELINE.map((step) => {
-                      const meta = getReservationStatusMeta(step);
+                      const meta = reservationStatusMeta(selectedReservation, step);
                       const state = timelineStepState(selectedReservation.status, step);
                       return (
                         <div
@@ -725,11 +790,43 @@ export default function VendorReservationsPage() {
               ) : null}
 
               <div className="border-t border-border pt-6">
-                {canReviewSelectedReservation ? (
+                {canVerifySelectedPayment && selectedPayment ? (
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      Confirm that this receipt matches payment received through your payment method before reviewing the booking.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePaymentReview(selectedPayment.id, "REJECTED")}
+                        disabled={actioningId === selectedPayment.id}
+                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+                      >
+                        <Cross2Icon className="size-3.5" />
+                        Reject Receipt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePaymentReview(selectedPayment.id, "APPROVED")}
+                        disabled={actioningId === selectedPayment.id}
+                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-sm border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
+                      >
+                        <CheckIcon className="size-3.5" />
+                        Verify Payment
+                      </button>
+                    </div>
+                  </div>
+                ) : canReviewSelectedReservation ? (
                   <div className="space-y-5">
                     <p className="max-w-2xl text-sm text-muted-foreground">
-                      Approve or reject the renter&apos;s submitted fulfillment details exactly as selected. If the address falls outside your practical service area, request a supplemental surcharge instead of changing their chosen methods or windows.
+                      Review the submitted fulfillment details exactly as selected. Approve or reject the booking, or request a supplemental surcharge if the delivery address falls outside your practical service area.
                     </p>
+
+                    {selectedOutsideServiceArea && !selectedPendingAdjustment ? (
+                      <div className="rounded-sm border border-orange-400/30 bg-orange-50/60 px-4 py-3 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
+                        This delivery location is outside your configured service areas. Consider requesting a surcharge before approving.
+                      </div>
+                    ) : null}
 
                     <div className="grid gap-4 rounded-sm border border-border bg-muted/20 p-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
                       <div className="space-y-3">
@@ -790,21 +887,108 @@ export default function VendorReservationsPage() {
                     </div>
                   </div>
                 ) : selectedReservation.status === "AWAITING_SURCHARGE_PAYMENT" && selectedPendingAdjustment ? (
-                  <div className="rounded-sm border border-orange-400/30 bg-orange-50/60 px-4 py-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
-                    Waiting for the renter to settle the supplemental request of {formatMoney(selectedPendingAdjustment.amount)} before this reservation can move into fulfillment.
-                  </div>
-                ) : selectedNextStatus ? (
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      This reservation has cleared review and payment. Advance it carefully through the operational handoff lifecycle without skipping steps.
-                    </p>
+                  <div className="space-y-4">
+                    <div className="rounded-sm border border-orange-400/30 bg-orange-50/60 px-4 py-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
+                      Waiting for the renter to settle the supplemental request of {formatMoney(selectedPendingAdjustment.amount)} before this reservation can move into fulfillment.
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleAdvanceLifecycle(selectedReservation.id, selectedNextStatus)}
+                      onClick={() => handleWaiveSurcharge(selectedReservation.id, selectedPendingAdjustment.id)}
+                      disabled={actioningId === selectedReservation.id}
+                      className="inline-flex h-10 items-center justify-center rounded-sm border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                    >
+                      Waive Surcharge
+                    </button>
+                  </div>
+                ) : selectedReservation.status === "CONFIRMED" ? (
+                  <div className="space-y-4">
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      Dispatch the costume when it is ready for pickup or delivery. A photo is optional but recommended.
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(event) => setDispatchProof(event.target.files?.[0] || null)}
+                      className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDispatch(selectedReservation.id)}
                       disabled={actioningId === selectedReservation.id}
                       className="inline-flex h-10 items-center justify-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
                     >
-                      Mark {getReservationStatusMeta(selectedNextStatus).label}
+                      Dispatch Costume
+                    </button>
+                  </div>
+                ) : selectedReservation.status === "DELIVERY_SCHEDULED" || selectedReservation.status === "WITH_RENTER" ? (
+                  <div className="rounded-sm border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                    Waiting for the renter to {selectedReservation.status === "DELIVERY_SCHEDULED" ? "confirm receipt with a photo" : "initiate the return with a photo"}.
+                    {selectedReservation.fulfillment?.renter_received_proof_url ? (
+                      <a
+                        href={resolveApiAsset(selectedReservation.fulfillment.renter_received_proof_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                      >
+                        View renter receipt proof
+                        <ExternalLinkIcon className="size-3" />
+                      </a>
+                    ) : null}
+                    {selectedReservation.fulfillment?.return_initiated_proof_url ? (
+                      <a
+                        href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                      >
+                        View renter return proof
+                        <ExternalLinkIcon className="size-3" />
+                      </a>
+                    ) : null}
+                  </div>
+                ) : selectedReservation.status === "RETURN_PENDING" ? (
+                  <div className="space-y-4">
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      Confirm the costume has been returned. You can attach an optional photo for your records.
+                    </p>
+                    {selectedReservation.fulfillment?.return_initiated_proof_url ? (
+                      <a
+                        href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                      >
+                        View renter return proof
+                        <ExternalLinkIcon className="size-3" />
+                      </a>
+                    ) : null}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(event) => setReturnProof(event.target.files?.[0] || null)}
+                      className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmReturn(selectedReservation.id)}
+                      disabled={actioningId === selectedReservation.id}
+                      className="inline-flex h-10 items-center justify-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                    >
+                      Confirm Return Received
+                    </button>
+                  </div>
+                ) : selectedReservation.status === "RETURNED" ? (
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      Close out the rental once inspection is complete.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleComplete(selectedReservation.id)}
+                      disabled={actioningId === selectedReservation.id}
+                      className="inline-flex h-10 items-center justify-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+                    >
+                      Complete Rental
                     </button>
                   </div>
                 ) : (

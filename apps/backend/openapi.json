@@ -231,6 +231,9 @@
           "theme": {
             "type": "string"
           },
+          "ownerId": {
+            "type": "string"
+          },
           "sort": {
             "type": "string"
           },
@@ -394,6 +397,14 @@
               "type": "string"
             },
             "required": false,
+            "name": "ownerId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
             "name": "sort",
             "in": "query"
           },
@@ -537,6 +548,373 @@
         "responses": {
           "200": {
             "description": "List of reservations for availability checking"
+          }
+        }
+      }
+    },
+    "/vendors/fulfillment-settings": {
+      "get": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Get vendor fulfillment settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor fulfillment settings"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Create or update vendor fulfillment settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "primary_location": {
+                    "type": "object",
+                    "nullable": true,
+                    "additionalProperties": {
+                      "nullable": true
+                    }
+                  },
+                  "outbound_mode": {
+                    "type": "string",
+                    "enum": [
+                      "PICKUP",
+                      "DELIVERY",
+                      "BOTH"
+                    ]
+                  },
+                  "return_mode": {
+                    "type": "string",
+                    "enum": [
+                      "PICKUP",
+                      "DELIVERY",
+                      "BOTH"
+                    ]
+                  },
+                  "outbound_pickup_fee": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "outbound_delivery_fee": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "return_pickup_fee": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "return_delivery_fee": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "service_areas": {
+                    "type": "array",
+                    "nullable": true,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "city": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "province": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "area": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "outbound_mode",
+                  "return_mode"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vendor fulfillment settings saved"
+          }
+        }
+      }
+    },
+    "/account/locations": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "List saved renter locations",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved locations"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Create a saved renter location",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "contact_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "phone_number": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "address_line_1": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "address_line_2": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "barangay": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "city": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "province": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "postal_code": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "country": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "area": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "contact_name",
+                  "phone_number",
+                  "address_line_1",
+                  "city"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved location created"
+          }
+        }
+      }
+    },
+    "/account/locations/{id}": {
+      "put": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Update a saved renter location",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "contact_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "phone_number": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "address_line_1": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "address_line_2": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "barangay": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "city": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "province": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "postal_code": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "country": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "area": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "is_default": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "contact_name",
+                  "phone_number",
+                  "address_line_1",
+                  "city"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved location updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Delete a saved renter location",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved location deleted"
           }
         }
       }
@@ -719,13 +1097,68 @@
                   "description": {
                     "type": "string"
                   },
-                  "dailyRate": {
-                    "type": "number"
+                  "pricing_mode": {
+                    "type": "string",
+                    "enum": [
+                      "PER_DAY",
+                      "PACKAGE"
+                    ]
+                  },
+                  "base_price_per_day": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "package_price": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "package_included_days": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "package_unused_day_discount": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "package_extra_day_charge": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "fulfillment_override": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "outbound_mode": {
+                        "type": "string",
+                        "enum": [
+                          "PICKUP",
+                          "DELIVERY",
+                          "BOTH"
+                        ]
+                      },
+                      "return_mode": {
+                        "type": "string",
+                        "enum": [
+                          "PICKUP",
+                          "DELIVERY",
+                          "BOTH"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "outbound_mode",
+                      "return_mode"
+                    ]
                   }
                 },
                 "required": [
-                  "name",
-                  "dailyRate"
+                  "name"
                 ]
               }
             }
@@ -862,6 +1295,309 @@
         "responses": {
           "200": {
             "description": "Reservation rejected"
+          }
+        }
+      }
+    },
+    "/vendors/reservations/{id}/surcharge": {
+      "post": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Request an outside-area surcharge for a reservation",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "amount",
+                  "note"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Surcharge requested"
+          }
+        }
+      }
+    },
+    "/vendors/reservations/{id}/dispatch": {
+      "post": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Dispatch costume to renter (optional photo proof)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation dispatched"
+          }
+        }
+      }
+    },
+    "/vendors/reservations/{id}/confirm-return": {
+      "post": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Confirm costume return from renter (optional photo proof)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return confirmed"
+          }
+        }
+      }
+    },
+    "/vendors/reservations/{id}/complete": {
+      "post": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Complete rental after return",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation completed"
+          }
+        }
+      }
+    },
+    "/vendors/reservations/{id}/adjustments/{adjustmentId}/waive": {
+      "post": {
+        "tags": [
+          "Vendor"
+        ],
+        "summary": "Waive a pending outside-area surcharge",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "adjustmentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Surcharge waived"
+          }
+        }
+      }
+    },
+    "/reservations/{id}/confirm-received": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "summary": "Renter confirms costume receipt (photo required)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt confirmed"
+          }
+        }
+      }
+    },
+    "/reservations/{id}/initiate-return": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "summary": "Renter initiates return (photo required)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return initiated"
+          }
+        }
+      }
+    },
+    "/reservations/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "summary": "Renter cancels unpaid reservation",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation cancelled"
+          }
+        }
+      }
+    },
+    "/reservations/{id}/handoff-proofs/{type}": {
+      "get": {
+        "tags": [
+          "Reservations"
+        ],
+        "summary": "View authorized handoff proof image",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "outbound_dispatch",
+                "renter_received",
+                "return_initiated",
+                "vendor_return"
+              ]
+            },
+            "required": true,
+            "name": "type",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Handoff proof file"
           }
         }
       }
@@ -1051,17 +1787,231 @@
                   "costumeId": {
                     "type": "number"
                   },
+                  "quantity": {
+                    "type": "number",
+                    "default": 1
+                  },
                   "startDate": {
                     "type": "string"
                   },
                   "endDate": {
                     "type": "string"
+                  },
+                  "fulfillment": {
+                    "type": "object",
+                    "properties": {
+                      "outbound_method": {
+                        "type": "string",
+                        "enum": [
+                          "PICKUP",
+                          "DELIVERY"
+                        ]
+                      },
+                      "return_method": {
+                        "type": "string",
+                        "enum": [
+                          "PICKUP",
+                          "DELIVERY"
+                        ]
+                      },
+                      "pickup_window_slot": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                          "MORNING",
+                          "AFTERNOON",
+                          "EVENING",
+                          null
+                        ]
+                      },
+                      "delivery_window_slot": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                          "MORNING",
+                          "AFTERNOON",
+                          "EVENING",
+                          null
+                        ]
+                      },
+                      "return_window_slot": {
+                        "type": "string",
+                        "enum": [
+                          "MORNING",
+                          "AFTERNOON",
+                          "EVENING"
+                        ]
+                      },
+                      "outbound_location": {
+                        "type": "object",
+                        "nullable": true,
+                        "properties": {
+                          "saved_location_id": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "new_location": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "contact_name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "phone_number": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "address_line_1": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "address_line_2": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "barangay": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "province": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "postal_code": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "country": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "area": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "notes": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "is_default": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "contact_name",
+                              "phone_number",
+                              "address_line_1",
+                              "city"
+                            ]
+                          },
+                          "save_as_default": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "return_location": {
+                        "type": "object",
+                        "nullable": true,
+                        "properties": {
+                          "saved_location_id": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "new_location": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "contact_name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "phone_number": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "address_line_1": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "address_line_2": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "barangay": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "province": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "postal_code": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "country": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "area": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "notes": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "is_default": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "contact_name",
+                              "phone_number",
+                              "address_line_1",
+                              "city"
+                            ]
+                          },
+                          "save_as_default": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "use_same_location_for_return": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "outbound_method",
+                      "return_method",
+                      "return_window_slot"
+                    ]
                   }
                 },
                 "required": [
                   "costumeId",
                   "startDate",
-                  "endDate"
+                  "endDate",
+                  "fulfillment"
                 ]
               }
             }
@@ -1088,6 +2038,34 @@
         "responses": {
           "200": {
             "description": "Checkout successful"
+          }
+        }
+      }
+    },
+    "/reservations/{id}": {
+      "delete": {
+        "tags": [
+          "Reservations"
+        ],
+        "summary": "Remove reservation from cart or unpaid queue",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation removed"
           }
         }
       }
@@ -1121,6 +2099,53 @@
             "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reservationIds": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  },
+                  "reservationAdjustmentId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "proof": {
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Proof uploaded"
@@ -1142,6 +2167,80 @@
         "responses": {
           "200": {
             "description": "List of payments"
+          }
+        }
+      }
+    },
+    "/payments/{id}/proof": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "View payment proof as the submitting renter or owning vendor",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment proof file"
+          }
+        }
+      }
+    },
+    "/vendors/payments/review": {
+      "post": {
+        "tags": [
+          "Vendors"
+        ],
+        "summary": "Verify or reject payment proof for a vendor reservation",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paymentId": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "APPROVED",
+                      "REJECTED"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "paymentId",
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment proof reviewed by vendor"
           }
         }
       }
@@ -1192,45 +2291,6 @@
         }
       }
     },
-    "/admin/payments/review": {
-      "post": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "Review payment",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "paymentId": {
-                    "type": "number"
-                  },
-                  "status": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "paymentId",
-                  "status"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Payment reviewed"
-          }
-        }
-      }
-    },
     "/admin/reservations": {
       "get": {
         "tags": [
@@ -1245,24 +2305,6 @@
         "responses": {
           "200": {
             "description": "List of all reservations"
-          }
-        }
-      }
-    },
-    "/admin/payments": {
-      "get": {
-        "tags": [
-          "Admin"
-        ],
-        "summary": "List payments (admin)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of all payments"
           }
         }
       }

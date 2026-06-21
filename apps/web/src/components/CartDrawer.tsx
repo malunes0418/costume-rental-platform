@@ -474,7 +474,7 @@ export function CartDrawer() {
               <div className="space-y-2">
                 <p className="font-playfair text-3xl font-semibold">Payment Received</p>
                 <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
-                  Your receipt has been submitted for vendor review. We&apos;ll notify you once they approve or reject it.
+                  Your receipt has been sent to the vendor for verification. We&apos;ll notify you once it is complete.
                 </p>
               </div>
               <a

@@ -2,16 +2,15 @@ import { Op } from "sequelize";
 import {
   MessageCreateRequest,
   VendorApplyRequest,
-  VendorReservationLifecycleUpdateRequest,
   VendorReservationSurchargeRequest
 } from "../dto/vendor.dto";
 import type { CostumeFulfillmentOverrideRequest } from "../dto/fulfillment.dto";
 import {
   assertReservationTransition,
   deriveVendorReservationStatus,
-  isReservationStatus,
   type ReservationStatus
 } from "../domain/reservationLifecycle";
+import { presentFulfillmentHandoffProofs } from "../domain/handoffProofs";
 import type { ReservationFulfillmentApprovalStatus } from "../domain/fulfillment";
 import { Costume, type CostumeCreationAttributes } from "../models/Costume";
 import { Message } from "../models/Message";
@@ -29,6 +28,8 @@ import {
   type PricingMode
 } from "../utils/pricing";
 import { FulfillmentService } from "./FulfillmentService";
+import { HandoffService } from "./HandoffService";
+import { assertInitialPaymentApprovedForVendorReview } from "./reservationPaymentGuards";
 
 type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 type BlockingReason = "APPLICATION_REQUIRED" | "APPLICATION_UNDER_REVIEW" | "APPLICATION_REJECTED";
@@ -46,10 +47,7 @@ type VendorCapabilityResponse = {
 export class VendorService {
   private notificationService = new NotificationService();
   private fulfillmentService = new FulfillmentService();
-
-  private formatLifecycleLabel(status: ReservationStatus) {
-    return status.toLowerCase().split("_").join(" ");
-  }
+  private handoffService = new HandoffService();
 
   private async hydrateReservationForVendor(vendorId: number, reservationId: number) {
     const reservations = await this.listReservations(vendorId);
@@ -388,6 +386,7 @@ export class VendorService {
 
   async listReservations(vendorId: number) {
     const reservations = await Reservation.findAll({
+      where: { status: { [Op.ne]: "CART" } },
       include: [
         {
           association: "items",
@@ -427,10 +426,14 @@ export class VendorService {
           Array.isArray(payment.reservation_ids) &&
           payment.reservation_ids.some((paymentReservationId) => Number(paymentReservationId) === Number(reservation.id))
         )
-        .map((payment) => payment.toJSON());
+        .map((payment) => ({
+          ...payment.toJSON(),
+          proof_url: payment.proof_url ? `/api/payments/${payment.id}/proof` : null
+        }));
 
       return {
         ...reservationJson,
+        fulfillment: presentFulfillmentHandoffProofs(reservation.id, reservationJson.fulfillment),
         payments: matchingPayments
       };
     });
@@ -443,6 +446,7 @@ export class VendorService {
     }
 
     assertReservationTransition(reservation.status, status, "Reservation");
+    await assertInitialPaymentApprovedForVendorReview(reservation);
 
     reservation.status = status;
     reservation.vendor_status = deriveVendorReservationStatus(status, reservation.vendor_status);
@@ -459,8 +463,8 @@ export class VendorService {
       "RESERVATION_VENDOR_REVIEW",
       status === "CONFIRMED" ? "Reservation approved" : "Reservation declined",
       status === "CONFIRMED"
-        ? `Your payment receipt was reviewed and reservation #${reservation.id} has been approved by the vendor.`
-        : `Your payment receipt was reviewed and reservation #${reservation.id} was declined by the vendor.`
+        ? `Your fulfillment request for reservation #${reservation.id} has been approved by the vendor.`
+        : `Your fulfillment request for reservation #${reservation.id} was declined by the vendor.`
     );
 
     return (await this.hydrateReservationForVendor(vendorId, reservation.id)) || reservation;
@@ -477,6 +481,7 @@ export class VendorService {
     }
 
     assertReservationTransition(reservation.status, "AWAITING_SURCHARGE_PAYMENT", "Reservation");
+    await assertInitialPaymentApprovedForVendorReview(reservation);
 
     const amount = Number(payload.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -531,44 +536,55 @@ export class VendorService {
     return (await this.hydrateReservationForVendor(vendorId, reservation.id)) || reservation;
   }
 
-  async transitionReservationLifecycle(
-    vendorId: number,
-    reservationId: number,
-    payload: VendorReservationLifecycleUpdateRequest
-  ) {
+  async dispatchReservation(vendorId: number, reservationId: number, file?: Express.Multer.File) {
+    await this.handoffService.dispatchReservation(vendorId, reservationId, file);
+    return (await this.hydrateReservationForVendor(vendorId, reservationId)) || null;
+  }
+
+  async confirmVendorReturn(vendorId: number, reservationId: number, file?: Express.Multer.File) {
+    await this.handoffService.confirmVendorReturn(vendorId, reservationId, file);
+    return (await this.hydrateReservationForVendor(vendorId, reservationId)) || null;
+  }
+
+  async completeReservation(vendorId: number, reservationId: number) {
+    await this.handoffService.completeReservation(vendorId, reservationId);
+    return (await this.hydrateReservationForVendor(vendorId, reservationId)) || null;
+  }
+
+  async waiveReservationAdjustment(vendorId: number, reservationId: number, adjustmentId: number) {
     const { reservation, ownsItem } = await this.findReservationForParticipant(reservationId, vendorId);
     if (!ownsItem) {
       throw new Error("Reservation not found or unauthorized");
     }
 
-    if (!isReservationStatus(payload.status)) {
-      throw new Error("Invalid reservation status");
-    }
-    const nextStatus = payload.status;
-    const allowedVendorStatuses: ReservationStatus[] = [
-      "OUTBOUND_SCHEDULED",
-      "OUTBOUND_IN_PROGRESS",
-      "WITH_RENTER",
-      "RETURN_SCHEDULED",
-      "RETURN_IN_PROGRESS",
-      "RETURNED",
-      "COMPLETED"
-    ];
-    if (!allowedVendorStatuses.includes(nextStatus)) {
-      throw new Error("Vendors cannot move reservations to the requested status");
+    if (reservation.status !== "AWAITING_SURCHARGE_PAYMENT") {
+      throw new Error("Surcharge adjustments can only be waived while awaiting surcharge payment");
     }
 
-    assertReservationTransition(reservation.status, nextStatus, "Reservation");
+    const adjustment = await ReservationAdjustment.findOne({
+      where: {
+        id: adjustmentId,
+        reservation_id: reservation.id,
+        status: "PENDING"
+      }
+    });
+    if (!adjustment) {
+      throw new Error("Pending surcharge adjustment not found");
+    }
 
-    reservation.status = nextStatus;
-    reservation.vendor_status = deriveVendorReservationStatus(nextStatus, reservation.vendor_status);
+    adjustment.status = "WAIVED";
+    await adjustment.save();
+
+    assertReservationTransition(reservation.status, "CONFIRMED", "Reservation");
+    reservation.status = "CONFIRMED";
+    reservation.vendor_status = deriveVendorReservationStatus(reservation.status, reservation.vendor_status);
     await reservation.save();
 
     await this.notificationService.create(
       reservation.user_id,
-      "RESERVATION_FULFILLMENT_UPDATED",
-      "Reservation fulfillment updated",
-      `Reservation #${reservation.id} moved to ${this.formatLifecycleLabel(nextStatus)}.`
+      "RESERVATION_SURCHARGE_WAIVED",
+      "Surcharge waived",
+      `The vendor waived the outside-area surcharge for reservation #${reservation.id}. Your booking is now confirmed.`
     );
 
     return (await this.hydrateReservationForVendor(vendorId, reservation.id)) || reservation;

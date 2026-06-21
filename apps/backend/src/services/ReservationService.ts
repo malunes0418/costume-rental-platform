@@ -17,10 +17,13 @@ import { NotificationService } from "./NotificationService";
 import { countDaysInclusive } from "../utils/dateUtils";
 import { calculateReservationPrice } from "../utils/pricing";
 import { FulfillmentService } from "./FulfillmentService";
+import { HandoffService } from "./HandoffService";
+import { presentFulfillmentHandoffProofs } from "../domain/handoffProofs";
 
 export class ReservationService {
   private notificationService = new NotificationService();
   private fulfillmentService = new FulfillmentService();
+  private handoffService = new HandoffService();
 
   private normalizeReservationQuantity(quantity: unknown) {
     const parsed = Number(quantity);
@@ -38,7 +41,7 @@ export class ReservationService {
   }
 
   private async loadReservationWithItems(reservationId: number) {
-    return Reservation.findByPk(reservationId, {
+    const reservation = await Reservation.findByPk(reservationId, {
       include: [
         {
           model: ReservationItem,
@@ -61,6 +64,14 @@ export class ReservationService {
         { association: "adjustments" }
       ]
     });
+    if (!reservation) {
+      return null;
+    }
+    const json = reservation.toJSON();
+    return {
+      ...json,
+      fulfillment: presentFulfillmentHandoffProofs(reservation.id, json.fulfillment)
+    };
   }
 
   private buyerLabel(user?: User | null) {
@@ -272,7 +283,7 @@ export class ReservationService {
   }
 
   async listUserReservations(userId: number) {
-    return Reservation.findAll({
+    const reservations = await Reservation.findAll({
       where: { user_id: userId },
       include: [
         {
@@ -297,6 +308,14 @@ export class ReservationService {
       ],
       order: [["created_at", "DESC"]]
     });
+
+    return reservations.map((reservation) => {
+      const json = reservation.toJSON();
+      return {
+        ...json,
+        fulfillment: presentFulfillmentHandoffProofs(reservation.id, json.fulfillment)
+      };
+    });
   }
 
   async removeReservation(userId: number, reservationId: number) {
@@ -316,7 +335,8 @@ export class ReservationService {
     const linkedPayment = payments.find(
       (payment) =>
         Array.isArray(payment.reservation_ids) &&
-        payment.reservation_ids.some((id) => Number(id) === Number(reservation.id))
+        payment.reservation_ids.some((id) => Number(id) === Number(reservation.id)) &&
+        payment.status !== "REJECTED"
     );
 
     if (linkedPayment) {
@@ -327,5 +347,24 @@ export class ReservationService {
     await reservation.destroy();
 
     return { success: true as const };
+  }
+
+  async confirmReceived(userId: number, reservationId: number, file?: Express.Multer.File) {
+    const reservation = await this.handoffService.confirmRenterReceived(userId, reservationId, file);
+    return this.loadReservationWithItems(reservation.id);
+  }
+
+  async initiateReturn(userId: number, reservationId: number, file?: Express.Multer.File) {
+    const reservation = await this.handoffService.initiateReturn(userId, reservationId, file);
+    return this.loadReservationWithItems(reservation.id);
+  }
+
+  async cancelReservation(userId: number, reservationId: number) {
+    const reservation = await this.handoffService.cancelReservationByRenter(userId, reservationId);
+    return this.loadReservationWithItems(reservation.id);
+  }
+
+  async getHandoffProofFileForViewer(userId: number, reservationId: number, type: string) {
+    return this.handoffService.getHandoffProofFileForViewer(userId, reservationId, type);
   }
 }

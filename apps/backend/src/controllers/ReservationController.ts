@@ -1,4 +1,6 @@
+import path from "path";
 import { Request, Response } from "express";
+import { env } from "../config/env";
 import { ReservationService } from "../services/ReservationService";
 import { VendorService } from "../services/VendorService";
 import {
@@ -66,6 +68,54 @@ export class ReservationController {
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e, 403);
+    }
+  }
+
+  async confirmReceived(req: Request, res: Response) {
+    try {
+      const reservation = await reservationService.confirmReceived(
+        req.user!.id,
+        Number(req.params.id),
+        req.file as Express.Multer.File | undefined
+      );
+      ApiResponse.ok(res, reservation);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async initiateReturn(req: Request, res: Response) {
+    try {
+      const reservation = await reservationService.initiateReturn(
+        req.user!.id,
+        Number(req.params.id),
+        req.file as Express.Multer.File | undefined
+      );
+      ApiResponse.ok(res, reservation);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async cancelReservation(req: Request, res: Response) {
+    try {
+      const reservation = await reservationService.cancelReservation(req.user!.id, Number(req.params.id));
+      ApiResponse.ok(res, reservation);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async handoffProof(req: Request, res: Response) {
+    try {
+      const proofPath = await reservationService.getHandoffProofFileForViewer(
+        req.user!.id,
+        Number(req.params.id),
+        String(req.params.type)
+      );
+      res.sendFile(path.basename(proofPath), { root: env.fileUploadDir });
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e, 404);
     }
   }
 }

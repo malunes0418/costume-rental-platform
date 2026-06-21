@@ -1,11 +1,7 @@
 import { apiFetch } from "./api";
 import type { ReservationAdjustment, ReservationFulfillment } from "./fulfillment";
 import type { PricingMode } from "./pricing";
-import type {
-  PaymentStatus,
-  ReservationStatus,
-  VendorReservationStatus
-} from "./reservationStatus";
+import type { ReservationStatus, VendorReservationStatus } from "./reservationStatus";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,22 +26,7 @@ export type AdminReservation = {
   items?: any[];
   fulfillment?: ReservationFulfillment | null;
   adjustments?: ReservationAdjustment[];
-  payments?: AdminPayment[];
   User?: { name?: string; email?: string };
-};
-
-export type AdminPayment = {
-  id: number;
-  reservation_ids: number[];
-  user_id: number;
-  amount: number;
-  proof_url?: string;
-  status: PaymentStatus;
-  payment_purpose: "INITIAL_RESERVATION" | "RESERVATION_ADJUSTMENT";
-  reservation_adjustment_id?: number | null;
-  reservationAdjustment?: ReservationAdjustment | null;
-  notes?: string;
-  created_at?: string;
 };
 
 export type AdminInventoryItem = {
@@ -86,10 +67,6 @@ export function adminListReservations() {
   return apiFetch<AdminReservation[]>("/api/admin/reservations");
 }
 
-export function adminListPayments() {
-  return apiFetch<AdminPayment[]>("/api/admin/payments");
-}
-
 export function adminListInventory() {
   return apiFetch<AdminInventoryItem[]>("/api/admin/inventory");
 }
@@ -115,18 +92,6 @@ export function adminRejectVendor(userId: number, review_note?: string) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ review_note }),
-  });
-}
-
-export function adminReviewPayment(
-  paymentId: number,
-  status: "APPROVED" | "REJECTED",
-  notes: string,
-) {
-  return apiFetch<{ success: boolean }>("/api/admin/payments/review", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ paymentId, status, notes }),
   });
 }
 

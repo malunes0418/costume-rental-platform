@@ -15,7 +15,3 @@ export interface VendorReservationSurchargeRequest {
   amount: number | string;
   note: string;
 }
-
-export interface VendorReservationLifecycleUpdateRequest {
-  status: string;
-}

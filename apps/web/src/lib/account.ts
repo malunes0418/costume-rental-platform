@@ -110,6 +110,30 @@ export function removeReservation(reservationId: number) {
   });
 }
 
+export function confirmReservationReceived(reservationId: number, proof: File) {
+  const form = new FormData();
+  form.set("proof", proof);
+  return apiFetch<ReservationWithItems>(`/api/reservations/${reservationId}/confirm-received`, {
+    method: "POST",
+    body: form
+  });
+}
+
+export function initiateReservationReturn(reservationId: number, proof: File) {
+  const form = new FormData();
+  form.set("proof", proof);
+  return apiFetch<ReservationWithItems>(`/api/reservations/${reservationId}/initiate-return`, {
+    method: "POST",
+    body: form
+  });
+}
+
+export function cancelReservation(reservationId: number) {
+  return apiFetch<ReservationWithItems>(`/api/reservations/${reservationId}/cancel`, {
+    method: "POST"
+  });
+}
+
 export function myWishlist() {
   return apiFetch<WishlistItem[]>("/api/wishlist");
 }

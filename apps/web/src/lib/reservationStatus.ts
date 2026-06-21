@@ -1,14 +1,14 @@
+import type { FulfillmentMethod } from "./fulfillment";
+
 export const RESERVATION_STATUS_OPTIONS = [
   "CART",
   "PENDING_PAYMENT",
   "PENDING_VENDOR_REVIEW",
   "AWAITING_SURCHARGE_PAYMENT",
   "CONFIRMED",
-  "OUTBOUND_SCHEDULED",
-  "OUTBOUND_IN_PROGRESS",
+  "DELIVERY_SCHEDULED",
   "WITH_RENTER",
-  "RETURN_SCHEDULED",
-  "RETURN_IN_PROGRESS",
+  "RETURN_PENDING",
   "RETURNED",
   "COMPLETED",
   "CANCELLED",
@@ -37,7 +37,16 @@ export function isReservationStatus(value: string): value is ReservationStatus {
   return RESERVATION_STATUS_OPTIONS.includes(value as ReservationStatus);
 }
 
-export function getReservationStatusMeta(status: ReservationStatus) {
+export function getDeliveryScheduledLabel(outboundMethod?: FulfillmentMethod | null) {
+  return outboundMethod === "PICKUP" ? "Ready for Pickup" : "Out for Delivery";
+}
+
+export function getReservationStatusMeta(
+  status: ReservationStatus,
+  options?: { outboundMethod?: FulfillmentMethod | null }
+) {
+  const deliveryScheduledLabel = getDeliveryScheduledLabel(options?.outboundMethod);
+
   const statusMap: Record<ReservationStatus, { label: string; className: string }> = {
     CART: {
       label: "In Cart",
@@ -59,24 +68,16 @@ export function getReservationStatusMeta(status: ReservationStatus) {
       label: "Confirmed",
       className: "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
     },
-    OUTBOUND_SCHEDULED: {
-      label: "Outbound Scheduled",
-      className: "border-sky-400/40 text-sky-700 dark:text-sky-400"
-    },
-    OUTBOUND_IN_PROGRESS: {
-      label: "Outbound In Progress",
+    DELIVERY_SCHEDULED: {
+      label: deliveryScheduledLabel,
       className: "border-sky-400/40 text-sky-700 dark:text-sky-400"
     },
     WITH_RENTER: {
       label: "With Renter",
       className: "border-indigo-400/40 text-indigo-700 dark:text-indigo-400"
     },
-    RETURN_SCHEDULED: {
-      label: "Return Scheduled",
-      className: "border-fuchsia-400/40 text-fuchsia-700 dark:text-fuchsia-400"
-    },
-    RETURN_IN_PROGRESS: {
-      label: "Return In Progress",
+    RETURN_PENDING: {
+      label: "Return Pending",
       className: "border-fuchsia-400/40 text-fuchsia-700 dark:text-fuchsia-400"
     },
     RETURNED: {
@@ -103,7 +104,7 @@ export function getReservationStatusMeta(status: ReservationStatus) {
 export function getPaymentStatusMeta(status: PaymentStatus) {
   const statusMap: Record<PaymentStatus, { label: string; className: string }> = {
     PENDING: {
-      label: "Payment Review",
+      label: "Payment Verification",
       className: "border-amber-400/40 text-amber-700 dark:text-amber-400"
     },
     APPROVED: {
@@ -121,21 +122,17 @@ export function getPaymentStatusMeta(status: PaymentStatus) {
 
 export const ACTIVE_VENDOR_EARNING_STATUSES: ReservationStatus[] = [
   "CONFIRMED",
-  "OUTBOUND_SCHEDULED",
-  "OUTBOUND_IN_PROGRESS",
+  "DELIVERY_SCHEDULED",
   "WITH_RENTER",
-  "RETURN_SCHEDULED",
-  "RETURN_IN_PROGRESS",
+  "RETURN_PENDING",
   "RETURNED"
 ];
 
 export const FULFILLMENT_OPERATION_STATUSES: ReservationStatus[] = [
   "CONFIRMED",
-  "OUTBOUND_SCHEDULED",
-  "OUTBOUND_IN_PROGRESS",
+  "DELIVERY_SCHEDULED",
   "WITH_RENTER",
-  "RETURN_SCHEDULED",
-  "RETURN_IN_PROGRESS",
+  "RETURN_PENDING",
   "RETURNED",
   "COMPLETED"
 ];

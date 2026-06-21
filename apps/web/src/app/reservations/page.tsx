@@ -13,14 +13,18 @@ import {
 } from "@radix-ui/react-icons";
 
 import { SavedLocationFields } from "@/components/SavedLocationFields";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
 import { useAuth } from "../../lib/auth";
 import { useCart } from "../../lib/CartContext";
 import {
+  cancelReservation,
+  confirmReservationReceived,
   createSavedLocation,
   deleteSavedLocation,
+  initiateReservationReturn,
   listSavedLocations,
   myPayments,
   myReservations,
@@ -40,20 +44,21 @@ import { countRentalDaysInclusive } from "../../lib/pricing";
 import {
   PAYMENT_PURPOSE_LABELS,
   getPaymentStatusMeta,
-  getReservationStatusMeta
+  getReservationStatusMeta,
+  type ReservationStatus
 } from "../../lib/reservationStatus";
 import { cn } from "@/lib/utils";
 
 const OPERATION_TIMELINE = [
   "CONFIRMED",
-  "OUTBOUND_SCHEDULED",
-  "OUTBOUND_IN_PROGRESS",
+  "DELIVERY_SCHEDULED",
   "WITH_RENTER",
-  "RETURN_SCHEDULED",
-  "RETURN_IN_PROGRESS",
+  "RETURN_PENDING",
   "RETURNED",
   "COMPLETED"
 ] as const;
+
+type JourneyStep = ReservationStatus | "PAYMENT_REVIEW";
 
 function primaryImage(reservation: ReservationWithItems) {
   const item = reservation.items?.[0];
@@ -140,22 +145,49 @@ function getPaidAdjustmentTotal(reservation: ReservationWithItems) {
     .reduce((sum, adjustment) => sum + Number(adjustment.amount), 0);
 }
 
-function timelineForReservation(reservation: ReservationWithItems) {
+function hasPendingInitialPaymentProof(payments: Payment[]) {
+  return payments.some(
+    (payment) =>
+      payment.payment_purpose === "INITIAL_RESERVATION" &&
+      payment.status === "PENDING" &&
+      Boolean(payment.proof_url)
+  );
+}
+
+function currentJourneyStep(reservation: ReservationWithItems, payments: Payment[]): JourneyStep {
+  if (reservation.status === "PENDING_PAYMENT" && hasPendingInitialPaymentProof(payments)) {
+    return "PAYMENT_REVIEW";
+  }
+
+  return reservation.status;
+}
+
+function getJourneyStepMeta(step: JourneyStep, outboundMethod?: ReservationWithItems["fulfillment"]) {
+  if (step === "PAYMENT_REVIEW") {
+    return {
+      label: "Payment Verification",
+      className: "border-amber-400/40 text-amber-700 dark:text-amber-400"
+    };
+  }
+
+  return getReservationStatusMeta(step, { outboundMethod: outboundMethod?.outbound_method });
+}
+
+function timelineForReservation(reservation: ReservationWithItems): JourneyStep[] {
   const includesSurcharge =
     reservation.status === "AWAITING_SURCHARGE_PAYMENT" || (reservation.adjustments?.length || 0) > 0;
 
-  const preface = includesSurcharge
-    ? ["PENDING_PAYMENT", "PENDING_VENDOR_REVIEW", "AWAITING_SURCHARGE_PAYMENT"]
-    : ["PENDING_PAYMENT", "PENDING_VENDOR_REVIEW"];
+  const preface: JourneyStep[] = includesSurcharge
+    ? ["PENDING_PAYMENT", "PAYMENT_REVIEW", "PENDING_VENDOR_REVIEW", "AWAITING_SURCHARGE_PAYMENT"]
+    : ["PENDING_PAYMENT", "PAYMENT_REVIEW", "PENDING_VENDOR_REVIEW"];
 
   return [...preface, ...OPERATION_TIMELINE];
 }
 
-function timelineStepState(reservation: ReservationWithItems, step: string) {
-  const timeline = timelineForReservation(reservation);
-  const currentIndex = timeline.indexOf(reservation.status);
-  const stepIndex = timeline.indexOf(step as (typeof timeline)[number]);
-  if (reservation.status === step) return "current";
+function timelineStepState(currentStep: JourneyStep, timeline: JourneyStep[], step: JourneyStep) {
+  const currentIndex = timeline.indexOf(currentStep);
+  const stepIndex = timeline.indexOf(step);
+  if (currentStep === step) return "current";
   if (currentIndex >= 0 && stepIndex >= 0 && stepIndex < currentIndex) return "complete";
   return "upcoming";
 }
@@ -200,6 +232,8 @@ export default function ReservationsPage() {
   const [deletingLocationId, setDeletingLocationId] = useState<number | null>(null);
   const [adjustmentFiles, setAdjustmentFiles] = useState<Record<number, File | null>>({});
   const [uploadingAdjustmentId, setUploadingAdjustmentId] = useState<number | null>(null);
+  const [handoffFiles, setHandoffFiles] = useState<Record<number, File | null>>({});
+  const [handoffActionId, setHandoffActionId] = useState<number | null>(null);
 
   const paymentsByReservation = useMemo(() => {
     const map = new Map<number, Payment[]>();
@@ -361,6 +395,62 @@ export default function ReservationsPage() {
     }
   }
 
+  async function handleConfirmReceived(reservation: ReservationWithItems) {
+    const file = handoffFiles[reservation.id];
+    if (!file) {
+      toast.error("Upload a photo showing you received the costume.");
+      return;
+    }
+
+    setHandoffActionId(reservation.id);
+    try {
+      await confirmReservationReceived(reservation.id, file);
+      const nextReservations = await myReservations();
+      setReservations(nextReservations);
+      setHandoffFiles((current) => ({ ...current, [reservation.id]: null }));
+      toast.success("Receipt confirmed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to confirm receipt.");
+    } finally {
+      setHandoffActionId(null);
+    }
+  }
+
+  async function handleInitiateReturn(reservation: ReservationWithItems) {
+    const file = handoffFiles[reservation.id];
+    if (!file) {
+      toast.error("Upload a photo of the costume you are returning.");
+      return;
+    }
+
+    setHandoffActionId(reservation.id);
+    try {
+      await initiateReservationReturn(reservation.id, file);
+      const nextReservations = await myReservations();
+      setReservations(nextReservations);
+      setHandoffFiles((current) => ({ ...current, [reservation.id]: null }));
+      toast.success("Return initiated.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to initiate return.");
+    } finally {
+      setHandoffActionId(null);
+    }
+  }
+
+  async function handleCancelReservation(reservation: ReservationWithItems) {
+    setHandoffActionId(reservation.id);
+    try {
+      await cancelReservation(reservation.id);
+      const nextReservations = await myReservations();
+      setReservations(nextReservations);
+      toast.success("Reservation cancelled.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to cancel reservation.");
+    } finally {
+      setHandoffActionId(null);
+    }
+  }
+
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
@@ -450,6 +540,12 @@ export default function ReservationsPage() {
                 const fulfillmentLine = reservationFulfillmentSummary(reservation);
                 const pendingAdjustment = getPendingAdjustment(reservation);
                 const paidSurchargeTotal = getPaidAdjustmentTotal(reservation);
+                const journey = timelineForReservation(reservation);
+                const journeyCurrentStep = currentJourneyStep(reservation, reservationPayments);
+                const journeyIndex = journey.indexOf(journeyCurrentStep);
+                const showsJourney = journeyIndex >= 0;
+                const nextJourneyStep = showsJourney ? journey[journeyIndex + 1] : undefined;
+                const journeyCompletion = showsJourney ? ((journeyIndex + 1) / journey.length) * 100 : 0;
 
                 return (
                   <article key={reservation.id} className="flex flex-col gap-6 py-10 sm:flex-row sm:gap-8">
@@ -524,6 +620,17 @@ export default function ReservationsPage() {
                           </button>
                         ) : null}
 
+                        {reservation.status === "PENDING_PAYMENT" && !hasActivePaymentForReservation(reservationPayments) ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleCancelReservation(reservation)}
+                            disabled={handoffActionId === reservation.id}
+                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-destructive/30 px-5 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                          >
+                            Cancel Reservation
+                          </button>
+                        ) : null}
+
                         {firstItem?.costume_id ? (
                           <Link
                             href={`/costumes/${firstItem.costume_id}`}
@@ -543,25 +650,171 @@ export default function ReservationsPage() {
                         ) : null}
                       </div>
 
-                      <div className="grid gap-2 sm:grid-cols-4">
-                        {timelineForReservation(reservation).map((step) => {
-                          const meta = getReservationStatusMeta(step as any);
-                          const state = timelineStepState(reservation, step);
-                          return (
+                      {showsJourney ? (
+                        <section className="space-y-3 border-y border-border/70 py-4" aria-label="Fulfillment progress">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                              Fulfillment progress
+                            </p>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                              Stage {journeyIndex + 1} of {journey.length}
+                            </p>
+                          </div>
+
+                          <div className="h-px w-full bg-border" aria-hidden="true">
                             <div
-                              key={step}
-                              className={cn(
-                                "rounded-sm border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest",
-                                state === "current" && "border-foreground bg-foreground text-background",
-                                state === "complete" && "border-emerald-400/30 text-emerald-700 dark:text-emerald-400",
-                                state === "upcoming" && "border-border text-muted-foreground"
-                              )}
-                            >
-                              {meta.label}
-                            </div>
-                          );
-                        })}
-                      </div>
+                              className="h-px bg-foreground"
+                              style={{ width: `${journeyCompletion}%` }}
+                            />
+                          </div>
+
+                          <p className="text-sm text-muted-foreground">
+                            {nextJourneyStep ? (
+                              <>
+                                Next step:{" "}
+                                <span className="font-medium text-foreground">
+                                  {getJourneyStepMeta(nextJourneyStep, reservation.fulfillment || undefined).label}
+                                </span>
+                              </>
+                            ) : (
+                              "All fulfillment steps are complete."
+                            )}
+                          </p>
+
+                          <Accordion type="single" collapsible>
+                            <AccordionItem value={`journey-${reservation.id}`} className="border-b-0">
+                              <AccordionTrigger className="py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                View full journey
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <ol className="grid gap-x-6 gap-y-1 pt-3 sm:grid-cols-2">
+                                  {journey.map((step) => {
+                                    const meta = getJourneyStepMeta(step, reservation.fulfillment || undefined);
+                                    const state = timelineStepState(journeyCurrentStep, journey, step);
+                                    return (
+                                      <li key={step} className="flex items-center gap-3 py-1.5 text-xs">
+                                        <span
+                                          aria-hidden="true"
+                                          className={cn(
+                                            "size-2 shrink-0 rounded-full border",
+                                            state === "current" && "border-foreground bg-foreground",
+                                            state === "complete" && "border-foreground bg-foreground/35",
+                                            state === "upcoming" && "border-border bg-background"
+                                          )}
+                                        />
+                                        <span
+                                          className={cn(
+                                            "uppercase tracking-widest",
+                                            state === "current" && "font-semibold text-foreground",
+                                            state !== "current" && "text-muted-foreground"
+                                          )}
+                                        >
+                                          {meta.label}
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
+                                </ol>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </section>
+                      ) : null}
+
+                      {reservation.fulfillment &&
+                      [
+                        ["Dispatch", reservation.fulfillment.outbound_dispatch_proof_url],
+                        ["Received", reservation.fulfillment.renter_received_proof_url],
+                        ["Return started", reservation.fulfillment.return_initiated_proof_url],
+                        ["Vendor return", reservation.fulfillment.vendor_return_proof_url]
+                      ].some(([, proof]) => proof) ? (
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            ["Dispatch", reservation.fulfillment.outbound_dispatch_proof_url],
+                            ["Received", reservation.fulfillment.renter_received_proof_url],
+                            ["Return started", reservation.fulfillment.return_initiated_proof_url],
+                            ["Vendor return", reservation.fulfillment.vendor_return_proof_url]
+                          ]
+                            .filter(([, proof]) => proof)
+                            .map(([label, proof]) => (
+                              <a
+                                key={label}
+                                href={resolveApiAsset(proof!)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-8 items-center rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              >
+                                {label} proof
+                              </a>
+                            ))}
+                        </div>
+                      ) : null}
+
+                      {reservation.fulfillment?.outside_service_area ? (
+                        <div className="rounded-sm border border-orange-400/30 bg-orange-50/50 p-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
+                          This booking was flagged as outside the vendor&apos;s service area. A surcharge may be requested during review.
+                        </div>
+                      ) : null}
+
+                      {reservation.status === "DELIVERY_SCHEDULED" ? (
+                        <div className="space-y-3 rounded-sm border border-border p-4">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Confirm you received the costume
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Upload a photo showing the costume in your possession. This is required before the rental period begins.
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(event) =>
+                              setHandoffFiles((current) => ({
+                                ...current,
+                                [reservation.id]: event.target.files?.[0] || null
+                              }))
+                            }
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleConfirmReceived(reservation)}
+                            disabled={handoffActionId === reservation.id}
+                            className="inline-flex h-10 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                          >
+                            {handoffActionId === reservation.id ? "Submitting..." : "Confirm I Received It"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {reservation.status === "WITH_RENTER" ? (
+                        <div className="space-y-3 rounded-sm border border-border p-4">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Return the costume
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Upload a photo of the costume as you prepare to return it.
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(event) =>
+                              setHandoffFiles((current) => ({
+                                ...current,
+                                [reservation.id]: event.target.files?.[0] || null
+                              }))
+                            }
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleInitiateReturn(reservation)}
+                            disabled={handoffActionId === reservation.id}
+                            className="inline-flex h-10 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                          >
+                            {handoffActionId === reservation.id ? "Submitting..." : "Return Costume"}
+                          </button>
+                        </div>
+                      ) : null}
 
                       {pendingAdjustment ? (
                         <div className="space-y-4 rounded-sm border border-orange-400/30 bg-orange-50/50 p-4 dark:bg-orange-900/10">

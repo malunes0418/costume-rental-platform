@@ -157,6 +157,14 @@ export type ReservationFulfillment = {
   outside_service_area: boolean;
   vendor_approval_status: ReservationFulfillmentApprovalStatus;
   vendor_approval_note?: string | null;
+  outbound_dispatched_at?: string | null;
+  outbound_dispatch_proof_url?: string | null;
+  renter_received_at?: string | null;
+  renter_received_proof_url?: string | null;
+  return_initiated_at?: string | null;
+  return_initiated_proof_url?: string | null;
+  vendor_return_received_at?: string | null;
+  vendor_return_proof_url?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -204,6 +212,37 @@ export function inferFulfillmentWindowSlot(
   if (startHour === 17 && endHour === 20) return "EVENING";
 
   return null;
+}
+
+export function locationMatchesServiceArea(
+  location: Pick<LocationSnapshot, "area" | "city" | "province"> | null | undefined,
+  serviceArea: ServiceAreaDefinition
+) {
+  if (!location) return false;
+
+  const normalize = (value?: string | null) => value?.trim().toLocaleLowerCase() || null;
+  const locationArea = normalize(location.area);
+  const locationCity = normalize(location.city);
+  const locationProvince = normalize(location.province);
+  const serviceLabel = normalize(serviceArea.label);
+  const serviceAreaValue = normalize(serviceArea.area);
+  const serviceCity = normalize(serviceArea.city);
+  const serviceProvince = normalize(serviceArea.province);
+
+  if (serviceAreaValue && locationArea === serviceAreaValue) return true;
+  if (serviceCity && locationCity === serviceCity) return true;
+  if (serviceProvince && locationProvince === serviceProvince) return true;
+  if (serviceLabel && (locationArea === serviceLabel || locationCity === serviceLabel)) return true;
+
+  return false;
+}
+
+export function isLocationOutsideServiceAreas(
+  location: Pick<LocationSnapshot, "area" | "city" | "province"> | null | undefined,
+  serviceAreas: ServiceAreaDefinition[] | null | undefined
+) {
+  if (!location || !serviceAreas?.length) return false;
+  return !serviceAreas.some((area) => locationMatchesServiceArea(location, area));
 }
 
 export function formatLocationSummary(location: LocationSnapshot | null | undefined) {

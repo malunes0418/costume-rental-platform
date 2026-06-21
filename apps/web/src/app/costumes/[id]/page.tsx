@@ -33,6 +33,7 @@ import { useCart } from "../../../lib/CartContext";
 import {
   FULFILLMENT_METHOD_LABELS,
   FULFILLMENT_WINDOW_LABELS,
+  isLocationOutsideServiceAreas,
   modeAllowsMethod,
   type FulfillmentMethod,
   type FulfillmentWindowSlot,
@@ -305,6 +306,37 @@ export default function CostumeDetailPage() {
     outboundMethod === "DELIVERY" && returnMethod === "DELIVERY" && useSameLocationForReturn;
   const returnNeedsSeparateLocation = returnMethod === "DELIVERY" && !canReuseReturnLocation;
   const showReturnDeliveryToggle = outboundMethod === "DELIVERY" && returnMethod === "DELIVERY";
+
+  const outboundLocationOutsideServiceArea = useMemo(() => {
+    if (!data || outboundMethod !== "DELIVERY") return false;
+
+    const serviceAreas = data.effective_fulfillment.service_areas;
+    if (!serviceAreas?.length) return false;
+
+    let location: { area?: string | null; city?: string | null; province?: string | null } | null = null;
+
+    if (outboundLocationMode === "saved" && selectedOutboundLocationId) {
+      const saved = savedLocations.find((entry) => entry.id === selectedOutboundLocationId);
+      if (saved) {
+        location = { area: saved.area, city: saved.city, province: saved.province };
+      }
+    } else if (outboundLocationMode === "new" && locationComplete(newOutboundLocation)) {
+      location = {
+        area: newOutboundLocation.area,
+        city: newOutboundLocation.city,
+        province: newOutboundLocation.province
+      };
+    }
+
+    return isLocationOutsideServiceAreas(location, serviceAreas);
+  }, [
+    data,
+    outboundMethod,
+    outboundLocationMode,
+    selectedOutboundLocationId,
+    savedLocations,
+    newOutboundLocation
+  ]);
 
   function handleStartDateSelect(nextDate: Date | undefined) {
     setStartDate(nextDate);
@@ -886,6 +918,19 @@ export default function CostumeDetailPage() {
                       </div>
                     ) : null}
                   </div>
+
+                  {outboundLocationOutsideServiceArea ? (
+                    <Alert className="rounded-sm border-orange-400/40 bg-orange-50/60 dark:bg-orange-950/20">
+                      <AlertCircle className="size-4 text-orange-700 dark:text-orange-300" />
+                      <AlertTitle className="text-sm font-semibold text-orange-900 dark:text-orange-100">
+                        Outside vendor service area
+                      </AlertTitle>
+                      <AlertDescription className="text-sm leading-6 text-orange-900/90 dark:text-orange-100/90">
+                        This delivery address is outside the vendor&apos;s listed service areas. The vendor may request an
+                        outside-area surcharge during review before confirming your reservation.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
 
                   {outboundNeedsLocation ? (
                     <div className="space-y-4 rounded-sm border border-border bg-background px-4 py-4">

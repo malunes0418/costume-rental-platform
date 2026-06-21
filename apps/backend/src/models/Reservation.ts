@@ -4,6 +4,7 @@ import {
   type ReservationStatus,
   type ReservationVendorStatus
 } from "../domain/reservationLifecycle";
+import type { ReservationFulfillmentAttributes } from "./ReservationFulfillment";
 
 export interface ReservationAttributes {
   id: number;
@@ -16,6 +17,7 @@ export interface ReservationAttributes {
   end_date: string;
   created_at?: Date;
   updated_at?: Date;
+  fulfillment?: ReservationFulfillmentAttributes | null;
 }
 
 export interface ReservationCreationAttributes
@@ -45,11 +47,9 @@ Reservation.init(
         "PENDING_VENDOR_REVIEW",
         "AWAITING_SURCHARGE_PAYMENT",
         "CONFIRMED",
-        "OUTBOUND_SCHEDULED",
-        "OUTBOUND_IN_PROGRESS",
+        "DELIVERY_SCHEDULED",
         "WITH_RENTER",
-        "RETURN_SCHEDULED",
-        "RETURN_IN_PROGRESS",
+        "RETURN_PENDING",
         "RETURNED",
         "COMPLETED",
         "CANCELLED",

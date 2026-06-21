@@ -26,9 +26,19 @@ router.get("/fulfillment-settings", (req, res) => fulfillmentController.getVendo
 router.put("/fulfillment-settings", (req, res) => fulfillmentController.upsertVendorSettings(req, res));
 
 router.get("/reservations", ensureApprovedVendor, (req, res) => vendorController.listReservations(req, res));
+router.post("/payments/review", ensureApprovedVendor, (req, res) => vendorController.reviewPayment(req, res));
 router.post("/reservations/:id/approve", ensureApprovedVendor, (req, res) => vendorController.approveReservation(req, res));
 router.post("/reservations/:id/reject", ensureApprovedVendor, (req, res) => vendorController.rejectReservation(req, res));
 router.post("/reservations/:id/surcharge", ensureApprovedVendor, (req, res) => vendorController.requestReservationSurcharge(req, res));
-router.post("/reservations/:id/lifecycle", ensureApprovedVendor, (req, res) => vendorController.advanceReservationLifecycle(req, res));
+router.post("/reservations/:id/dispatch", ensureApprovedVendor, upload.single("proof"), (req, res) =>
+  vendorController.dispatchReservation(req, res)
+);
+router.post("/reservations/:id/confirm-return", ensureApprovedVendor, upload.single("proof"), (req, res) =>
+  vendorController.confirmVendorReturn(req, res)
+);
+router.post("/reservations/:id/complete", ensureApprovedVendor, (req, res) => vendorController.completeReservation(req, res));
+router.post("/reservations/:id/adjustments/:adjustmentId/waive", ensureApprovedVendor, (req, res) =>
+  vendorController.waiveReservationAdjustment(req, res)
+);
 
 export default router;

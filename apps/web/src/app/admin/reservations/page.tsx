@@ -6,7 +6,6 @@ import { adminListReservations, adminUpdateReservationStatus, type AdminReservat
 import { getReservationItemPricingSummary } from "@/lib/pricing";
 import {
   ACTIVE_VENDOR_EARNING_STATUSES,
-  PAYMENT_PURPOSE_LABELS,
   getReservationStatusMeta,
   RESERVATION_STATUS_OPTIONS,
   type ReservationStatus,
@@ -25,16 +24,14 @@ import { ExclamationTriangleIcon, MagnifyingGlassIcon } from "@radix-ui/react-ic
 import { FULFILLMENT_METHOD_LABELS, formatLocationSummary } from "@/lib/fulfillment";
 
 const NEXT_ADMIN_STATUSES: Partial<Record<ReservationStatus, ReservationStatus[]>> = {
-  CART: ["PENDING_PAYMENT"],
-  PENDING_PAYMENT: ["PENDING_VENDOR_REVIEW"],
-  PENDING_VENDOR_REVIEW: ["CONFIRMED", "AWAITING_SURCHARGE_PAYMENT", "REJECTED_BY_VENDOR"],
-  AWAITING_SURCHARGE_PAYMENT: ["CONFIRMED"],
-  CONFIRMED: ["OUTBOUND_SCHEDULED"],
-  OUTBOUND_SCHEDULED: ["OUTBOUND_IN_PROGRESS"],
-  OUTBOUND_IN_PROGRESS: ["WITH_RENTER"],
-  WITH_RENTER: ["RETURN_SCHEDULED"],
-  RETURN_SCHEDULED: ["RETURN_IN_PROGRESS"],
-  RETURN_IN_PROGRESS: ["RETURNED"],
+  CART: ["PENDING_PAYMENT", "CANCELLED"],
+  PENDING_PAYMENT: ["PENDING_VENDOR_REVIEW", "CANCELLED"],
+  PENDING_VENDOR_REVIEW: ["CONFIRMED", "AWAITING_SURCHARGE_PAYMENT", "REJECTED_BY_VENDOR", "CANCELLED"],
+  AWAITING_SURCHARGE_PAYMENT: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["DELIVERY_SCHEDULED", "CANCELLED"],
+  DELIVERY_SCHEDULED: ["WITH_RENTER", "CANCELLED"],
+  WITH_RENTER: ["RETURN_PENDING"],
+  RETURN_PENDING: ["RETURNED"],
   RETURNED: ["COMPLETED"]
 };
 
@@ -304,12 +301,52 @@ export default function AdminReservationsPage() {
                       Note: {selectedRes.fulfillment.vendor_approval_note}
                     </p>
                   ) : null}
+                  {selectedRes.fulfillment.outside_service_area ? (
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-orange-700 dark:text-orange-300">
+                      Flagged outside service area
+                    </p>
+                  ) : null}
+                  {[
+                    ["Outbound dispatch", selectedRes.fulfillment.outbound_dispatch_proof_url, selectedRes.fulfillment.outbound_dispatched_at],
+                    ["Renter received", selectedRes.fulfillment.renter_received_proof_url, selectedRes.fulfillment.renter_received_at],
+                    ["Return initiated", selectedRes.fulfillment.return_initiated_proof_url, selectedRes.fulfillment.return_initiated_at],
+                    ["Vendor return", selectedRes.fulfillment.vendor_return_proof_url, selectedRes.fulfillment.vendor_return_received_at]
+                  ].some(([, proof]) => proof) ? (
+                    <div className="mt-4 space-y-2 border-t border-border pt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Handoff proofs
+                      </p>
+                      {[
+                        ["Outbound dispatch", selectedRes.fulfillment.outbound_dispatch_proof_url, selectedRes.fulfillment.outbound_dispatched_at],
+                        ["Renter received", selectedRes.fulfillment.renter_received_proof_url, selectedRes.fulfillment.renter_received_at],
+                        ["Return initiated", selectedRes.fulfillment.return_initiated_proof_url, selectedRes.fulfillment.return_initiated_at],
+                        ["Vendor return", selectedRes.fulfillment.vendor_return_proof_url, selectedRes.fulfillment.vendor_return_received_at]
+                      ]
+                        .filter(([, proof]) => proof)
+                        .map(([label, proof, timestamp]) => (
+                          <div key={label} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">
+                              {label}
+                              {timestamp ? ` · ${fmt(String(timestamp))}` : ""}
+                            </span>
+                            <a
+                              href={proof || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold uppercase tracking-widest text-foreground underline-offset-4 hover:underline"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
-              {selectedRes.adjustments?.length || selectedRes.payments?.length ? (
+              {selectedRes.adjustments?.length ? (
                 <div className="rounded-sm border border-border bg-muted/20 p-4">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Financial Activity</p>
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Reservation Adjustments</p>
                   <div className="space-y-3">
                     {selectedRes.adjustments?.map((adjustment) => (
                       <div key={adjustment.id} className="rounded-sm border border-border bg-background px-4 py-3 text-sm">
@@ -321,19 +358,6 @@ export default function AdminReservationsPage() {
                         </p>
                         {adjustment.note ? (
                           <p className="mt-1 text-xs leading-6 text-muted-foreground">{adjustment.note}</p>
-                        ) : null}
-                      </div>
-                    ))}
-                    {selectedRes.payments?.map((payment) => (
-                      <div key={payment.id} className="rounded-sm border border-border bg-background px-4 py-3 text-sm">
-                        <p className="font-semibold text-foreground">
-                          Payment #{payment.id} · ₱{Number(payment.amount).toLocaleString()}
-                        </p>
-                        <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                          {PAYMENT_PURPOSE_LABELS[payment.payment_purpose]} · {payment.status}
-                        </p>
-                        {payment.reservationAdjustment?.note ? (
-                          <p className="mt-1 text-xs leading-6 text-muted-foreground">{payment.reservationAdjustment.note}</p>
                         ) : null}
                       </div>
                     ))}
