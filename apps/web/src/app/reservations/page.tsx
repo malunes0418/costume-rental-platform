@@ -459,12 +459,12 @@ export default function ReservationsPage() {
             <CalendarDays className="mx-auto size-16" />
           </div>
           <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Your Reservations</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Your Reservations</h1>
             <p className="text-muted-foreground">Sign in to view and manage your costume reservations.</p>
           </div>
           <Link
             href="/login?next=/reservations"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Log in to continue
           </Link>
@@ -481,12 +481,12 @@ export default function ReservationsPage() {
             <CalendarDays className="mx-auto size-16" />
           </div>
           <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Unavailable</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Unavailable</h1>
             <p className="text-muted-foreground">Administrators cannot make or view personal reservations.</p>
           </div>
           <Link
             href="/"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Return Home
           </Link>
@@ -501,7 +501,7 @@ export default function ReservationsPage() {
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
           Your account
         </p>
-        <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
+        <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
           Reservations
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
@@ -567,7 +567,7 @@ export default function ReservationsPage() {
                     <div className="flex min-w-0 flex-1 flex-col gap-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="truncate font-playfair text-xl font-semibold text-foreground">{title}</p>
+                          <p className="truncate font-display text-xl font-semibold text-foreground">{title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {formatDate(reservation.start_date)} to {formatDate(reservation.end_date)}
                             {days > 0 && ` · ${days} day${days !== 1 ? "s" : ""}`}
@@ -602,7 +602,7 @@ export default function ReservationsPage() {
                           <button
                             type="button"
                             onClick={openCart}
-                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-foreground bg-foreground px-5 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-foreground bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
                           >
                             <CreditCard className="size-3.5" />
                             Continue in Cart
@@ -663,7 +663,7 @@ export default function ReservationsPage() {
 
                           <div className="h-px w-full bg-border" aria-hidden="true">
                             <div
-                              className="h-px bg-foreground"
+                              className="h-px bg-primary"
                               style={{ width: `${journeyCompletion}%` }}
                             />
                           </div>
@@ -697,8 +697,8 @@ export default function ReservationsPage() {
                                           aria-hidden="true"
                                           className={cn(
                                             "size-2 shrink-0 rounded-full border",
-                                            state === "current" && "border-foreground bg-foreground",
-                                            state === "complete" && "border-foreground bg-foreground/35",
+                                            state === "current" && "border-primary bg-primary",
+                                            state === "complete" && "border-primary bg-primary/35",
                                             state === "upcoming" && "border-border bg-background"
                                           )}
                                         />
@@ -779,7 +779,7 @@ export default function ReservationsPage() {
                             type="button"
                             onClick={() => void handleConfirmReceived(reservation)}
                             disabled={handoffActionId === reservation.id}
-                            className="inline-flex h-10 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                            className="inline-flex h-10 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                           >
                             {handoffActionId === reservation.id ? "Submitting..." : "Confirm I Received It"}
                           </button>
@@ -809,7 +809,7 @@ export default function ReservationsPage() {
                             type="button"
                             onClick={() => void handleInitiateReturn(reservation)}
                             disabled={handoffActionId === reservation.id}
-                            className="inline-flex h-10 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                            className="inline-flex h-10 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                           >
                             {handoffActionId === reservation.id ? "Submitting..." : "Return Costume"}
                           </button>
@@ -851,7 +851,7 @@ export default function ReservationsPage() {
                                 type="button"
                                 onClick={() => void handleUploadAdjustmentPayment(reservation, pendingAdjustment)}
                                 disabled={uploadingAdjustmentId === pendingAdjustment.id}
-                                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                               >
                                 {uploadingAdjustmentId === pendingAdjustment.id ? "Uploading..." : "Upload Supplemental Proof"}
                               </button>
@@ -918,12 +918,12 @@ export default function ReservationsPage() {
                 <CalendarDays className="size-12" />
               </div>
               <div className="space-y-2">
-                <p className="font-playfair text-3xl font-semibold text-foreground">No reservations yet.</p>
+                <p className="font-display text-3xl font-semibold text-foreground">No reservations yet.</p>
                 <p className="text-muted-foreground">Start browsing and find a costume to book.</p>
               </div>
               <Link
                 href="/"
-                className="inline-flex h-12 items-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Browse costumes
               </Link>
@@ -935,7 +935,7 @@ export default function ReservationsPage() {
           <div className="sticky top-24 flex flex-col gap-10 rounded-sm border border-border p-8">
             <section className="border-b border-border pb-8">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Payment</p>
-              <h2 className="mt-3 font-playfair text-2xl font-semibold text-foreground">Upload Proof</h2>
+              <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">Upload Proof</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 Upload your payment receipt for any reservation still waiting on base payment. Supplemental surcharge receipts are handled directly inside the reservation timeline.
               </p>
@@ -951,7 +951,7 @@ export default function ReservationsPage() {
                     <button
                       type="button"
                       onClick={openCart}
-                      className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                      className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       <Upload className="size-3.5" />
                       Complete Payment in Cart
@@ -971,7 +971,7 @@ export default function ReservationsPage() {
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Delivery book
                 </p>
-                <h2 className="font-playfair text-2xl font-semibold text-foreground">Saved locations</h2>
+                <h2 className="font-display text-2xl font-semibold text-foreground">Saved locations</h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   Keep your preferred handoff addresses ready so delivery reservations stay quick, clear, and consistent.
                 </p>
@@ -984,7 +984,7 @@ export default function ReservationsPage() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-playfair text-xl font-semibold text-foreground">{location.label}</p>
+                            <p className="font-display text-xl font-semibold text-foreground">{location.label}</p>
                             {location.is_default ? (
                               <span className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                 Default
@@ -1058,7 +1058,7 @@ export default function ReservationsPage() {
                   type="button"
                   onClick={() => void handleSaveLocation()}
                   disabled={isSavingLocation}
-                  className="flex h-11 w-full items-center justify-center rounded-sm bg-foreground text-[10px] font-semibold uppercase tracking-[0.24em] text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
+                  className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-[10px] font-semibold uppercase tracking-[0.24em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   {isSavingLocation ? "Saving..." : editingLocationId ? "Save location changes" : "Save location"}
                 </button>

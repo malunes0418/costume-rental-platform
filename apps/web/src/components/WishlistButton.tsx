@@ -86,8 +86,8 @@ export function WishlistButton({
         "flex items-center justify-center rounded-sm border backdrop-blur-sm",
         "transition-all duration-200 disabled:cursor-wait",
         isSmall ? "size-7" : "size-9",
-        !saved && "border-border/60 bg-background/80 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-        saved && "border-transparent bg-foreground text-background",
+        !saved && "border-border/60 bg-background/80 text-muted-foreground hover:border-primary/30 hover:text-primary",
+        saved && "border-transparent bg-primary text-primary-foreground",
         "active:scale-90",
         className
       )}

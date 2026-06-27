@@ -1,97 +1,245 @@
 {
-  "schemaVersion": 2,
-  "generatedAt": "2026-05-03T07:58:00Z",
+  "schemaVersion": 4,
+  "generatedAt": "2026-06-26T15:35:00Z",
   "title": "Design System: SnapCos",
   "extensions": {
     "colorMeta": {
-      "studio-black": { "role": "primary", "displayName": "Studio Black", "canonical": "oklch(0.14 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.35 0.01 30)", "oklch(0.45 0.01 30)", "oklch(0.55 0.01 30)", "oklch(0.70 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.96 0.01 30)"] },
-      "gallery-canvas": { "role": "neutral", "displayName": "Gallery Canvas", "canonical": "oklch(0.98 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.40 0.01 30)", "oklch(0.60 0.01 30)", "oklch(0.75 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.94 0.01 30)", "oklch(0.98 0.01 30)"] },
-      "soft-ash": { "role": "neutral", "displayName": "Soft Ash", "canonical": "oklch(0.94 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.30 0.01 30)", "oklch(0.50 0.01 30)", "oklch(0.70 0.01 30)", "oklch(0.80 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.90 0.01 30)", "oklch(0.94 0.01 30)"] },
-      "alert-rust": { "role": "secondary", "displayName": "Alert Rust", "canonical": "oklch(0.55 0.22 25)", "tonalRamp": ["oklch(0.25 0.22 25)", "oklch(0.35 0.22 25)", "oklch(0.45 0.22 25)", "oklch(0.55 0.22 25)", "oklch(0.65 0.22 25)", "oklch(0.75 0.15 25)", "oklch(0.85 0.10 25)", "oklch(0.95 0.05 25)"] },
-      "border-ash": { "role": "neutral", "displayName": "Border Ash", "canonical": "oklch(0.85 0.01 30)", "tonalRamp": ["oklch(0.14 0.01 30)", "oklch(0.25 0.01 30)", "oklch(0.40 0.01 30)", "oklch(0.55 0.01 30)", "oklch(0.65 0.01 30)", "oklch(0.75 0.01 30)", "oklch(0.85 0.01 30)", "oklch(0.95 0.01 30)"] }
+      "spotlight-coral": {
+        "role": "primary",
+        "token": "--primary",
+        "displayName": "Spotlight Coral",
+        "canonical": "oklch(0.68 0.16 28)",
+        "hover": "oklch(0.60 0.17 28)",
+        "tonalRamp": [
+          "oklch(0.45 0.16 28)",
+          "oklch(0.55 0.16 28)",
+          "oklch(0.60 0.17 28)",
+          "oklch(0.68 0.16 28)",
+          "oklch(0.75 0.14 28)",
+          "oklch(0.85 0.10 28)",
+          "oklch(0.93 0.05 28)",
+          "oklch(0.98 0.02 28)"
+        ]
+      },
+      "stage-gold": {
+        "role": "accent",
+        "token": "--accent",
+        "displayName": "Stage Gold",
+        "canonical": "oklch(0.80 0.12 80)",
+        "tonalRamp": [
+          "oklch(0.40 0.10 80)",
+          "oklch(0.55 0.11 80)",
+          "oklch(0.65 0.12 80)",
+          "oklch(0.80 0.12 80)",
+          "oklch(0.88 0.10 80)",
+          "oklch(0.93 0.08 80)",
+          "oklch(0.97 0.04 80)",
+          "oklch(0.99 0.02 80)"
+        ]
+      },
+      "curtain-black": {
+        "role": "ink",
+        "token": "--foreground",
+        "displayName": "Curtain Black",
+        "canonical": "oklch(0.17 0.02 30)",
+        "tonalRamp": [
+          "oklch(0.10 0.02 30)",
+          "oklch(0.17 0.02 30)",
+          "oklch(0.25 0.02 30)",
+          "oklch(0.35 0.02 30)",
+          "oklch(0.50 0.02 30)",
+          "oklch(0.65 0.02 30)",
+          "oklch(0.80 0.02 30)",
+          "oklch(0.95 0.01 30)"
+        ]
+      },
+      "warm-canvas": {
+        "role": "neutral",
+        "token": "--background",
+        "displayName": "Warm Canvas",
+        "canonical": "oklch(0.98 0.012 60)",
+        "tonalRamp": [
+          "oklch(0.16 0.015 30)",
+          "oklch(0.25 0.012 60)",
+          "oklch(0.40 0.012 60)",
+          "oklch(0.60 0.012 60)",
+          "oklch(0.75 0.012 60)",
+          "oklch(0.88 0.012 60)",
+          "oklch(0.94 0.012 60)",
+          "oklch(0.98 0.012 60)"
+        ]
+      },
+      "destructive-crimson": {
+        "role": "semantic",
+        "token": "--destructive",
+        "displayName": "Destructive Crimson",
+        "canonical": "oklch(0.53 0.21 16)",
+        "tonalRamp": [
+          "oklch(0.30 0.21 16)",
+          "oklch(0.40 0.21 16)",
+          "oklch(0.53 0.21 16)",
+          "oklch(0.62 0.19 16)",
+          "oklch(0.72 0.15 16)",
+          "oklch(0.82 0.10 16)",
+          "oklch(0.92 0.05 16)",
+          "oklch(0.97 0.02 16)"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Playfair Display", "purpose": "Reserved for hero sections and major page titles." },
-      "body": { "displayName": "DM Sans", "purpose": "Primary UI text, descriptions, and functional copy." }
+      "display": {
+        "displayName": "Fraunces",
+        "token": "--font-display",
+        "loader": "next/font/google",
+        "purpose": "Page titles, card names, pricing emphasis, compact brand strip (h1–h4)."
+      },
+      "body": {
+        "displayName": "DM Sans",
+        "token": "--font-sans",
+        "loader": "next/font/google",
+        "purpose": "UI text, forms, tables, filters, and functional copy."
+      }
     },
-    "shadows": [],
+    "layoutMeta": {
+      "marketplaceShell": {
+        "class": "marketplace-shell",
+        "pageBackground": "bg-muted/40",
+        "maxWidth": "1400px",
+        "navbarHeight": "7.5rem"
+      },
+      "dashboardShell": {
+        "class": "page-bg",
+        "pageBackground": "color-mix(in oklch, muted 40%, background)",
+        "sidebarWidth": "16rem",
+        "activeNav": "bg-primary text-primary-foreground rounded-lg"
+      },
+      "urlParams": {
+        "browse": ["q", "category", "size", "gender", "theme", "sort", "view", "page", "priceMin", "priceMax"],
+        "serverBacked": ["q", "category", "size", "gender", "theme", "sort", "page"],
+        "clientOnly": ["priceMin", "priceMax", "view"]
+      }
+    },
+    "shadows": [
+      {
+        "name": "coral-hover",
+        "token": "--shadow-coral",
+        "value": "0 8px 24px oklch(0.68 0.16 28 / 0.12)",
+        "purpose": "Card and interactive surface hover elevation."
+      }
+    ],
     "motion": [
       { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for state transitions." },
-      { "name": "dur-slow", "value": "400ms", "purpose": "Duration for smooth, deliberate UI transitions." }
+      { "name": "dur-slow", "value": "400ms", "purpose": "Duration for smooth UI transitions." },
+      { "name": "snap", "value": "scale(0.97) on active", "purpose": "Button press micro-interaction." },
+      { "name": "sparkle", "value": "opacity + scale pulse 2.4s", "purpose": "Gold accent star animation." }
     ],
-    "breakpoints": []
+    "breakpoints": [
+      { "name": "md", "value": "768px", "purpose": "Filter sidebar visible; two-row navbar fully expanded." },
+      { "name": "lg", "value": "1024px", "purpose": "Wider filter sidebar (w-60)." }
+    ]
   },
   "components": [
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Solid Studio Black button for primary actions.",
-      "html": "<button class=\"ds-btn-primary\">CONTINUE</button>",
-      "css": ".ds-btn-primary { background: oklch(0.14 0.01 30); color: oklch(0.98 0.01 30); padding: 0 1rem; height: 2rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-btn-primary:hover { background: color-mix(in oklab, oklch(0.14 0.01 30) 80%, transparent); }"
+      "description": "Spotlight Coral button for primary actions with snap hover.",
+      "html": "<button class=\"ds-btn-primary\">Search</button>",
+      "css": ".ds-btn-primary { background: oklch(0.68 0.16 28); color: oklch(0.99 0.01 60); padding: 0 1rem; height: 2.25rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; border: none; border-radius: 0.75rem; transition: background 0.2s, transform 0.15s; cursor: pointer; } .ds-btn-primary:hover { background: oklch(0.60 0.17 28); transform: scale(1.02); } .ds-btn-primary:active { transform: scale(0.97); }"
     },
     {
-      "name": "Secondary Button",
+      "name": "Gold Button",
       "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "Soft Ash button for secondary actions.",
-      "html": "<button class=\"ds-btn-secondary\">CANCEL</button>",
-      "css": ".ds-btn-secondary { background: oklch(0.94 0.01 30); color: oklch(0.14 0.01 30); padding: 0 1rem; height: 2rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 0.5rem; transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-btn-secondary:hover { background: color-mix(in oklab, oklch(0.94 0.01 30) 80%, transparent); }"
+      "refersTo": "button-gold",
+      "description": "Stage Gold button for premium CTAs.",
+      "html": "<button class=\"ds-btn-gold\">Featured</button>",
+      "css": ".ds-btn-gold { background: oklch(0.80 0.12 80); color: oklch(0.17 0.02 30); padding: 0 1rem; height: 2.25rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; border: none; border-radius: 0.75rem; transition: background 0.2s; cursor: pointer; } .ds-btn-gold:hover { background: oklch(0.75 0.13 80); }"
     },
     {
-      "name": "Card Container",
+      "name": "Listing Card (Grid)",
       "kind": "card",
-      "refersTo": "card",
-      "description": "Standard content container.",
-      "html": "<div class=\"ds-card\"><h3>Card Title</h3><p>Card content goes here.</p></div>",
-      "css": ".ds-card { background: oklch(0.98 0.01 30); border: 1px solid oklch(0.85 0.01 30); border-radius: 0.5rem; padding: 1.5rem; font-family: 'DM Sans', sans-serif; color: oklch(0.14 0.01 30); } .ds-card h3 { font-family: 'Playfair Display', serif; margin-top: 0; margin-bottom: 0.5rem; font-size: 1.25rem; font-weight: 700; }"
+      "refersTo": "costume-card-grid",
+      "description": "Dense marketplace listing card with coral price and circular action.",
+      "html": "<article class=\"ds-listing-card\"><div class=\"ds-listing-image\"></div><p class=\"ds-listing-price\">₱1,200</p><h3 class=\"ds-listing-title\">Costume Name</h3></article>",
+      "css": ".ds-listing-card { border-radius: 0.75rem; border: 1px solid oklch(0.88 0.012 60); background: oklch(0.99 0.01 60); overflow: hidden; transition: box-shadow 0.3s; } .ds-listing-card:hover { box-shadow: 0 8px 24px oklch(0.68 0.16 28 / 0.12); } .ds-listing-price { color: oklch(0.68 0.16 28); font-family: 'Fraunces', serif; font-weight: 600; } .ds-listing-title { font-family: 'Fraunces', serif; font-size: 1rem; }"
     },
     {
-      "name": "Text Input",
+      "name": "Filter Sidebar Panel",
+      "kind": "panel",
+      "refersTo": "filter-sidebar",
+      "description": "Sticky left filter panel with checkbox facets and price range.",
+      "html": "<aside class=\"ds-filter-sidebar\"><h3>Category</h3></aside>",
+      "css": ".ds-filter-sidebar { position: sticky; width: 15rem; border-radius: 0.75rem; border: 1px solid oklch(0.88 0.012 60); background: oklch(0.99 0.01 60); padding: 1.25rem; } .ds-filter-sidebar input[type=checkbox] { accent-color: oklch(0.68 0.16 28); }"
+    },
+    {
+      "name": "Results Toolbar",
+      "kind": "toolbar",
+      "refersTo": "results-toolbar",
+      "description": "Result count, sort select, and grid/list view toggle.",
+      "html": "<div class=\"ds-results-toolbar\"><span>12 results</span></div>",
+      "css": ".ds-results-toolbar { display: flex; align-items: center; justify-content: space-between; border-radius: 0.75rem; border: 1px solid oklch(0.88 0.012 60); background: oklch(0.99 0.01 60); padding: 0.75rem 1rem; }"
+    },
+    {
+      "name": "Pill Search",
       "kind": "input",
-      "refersTo": "input",
-      "description": "Standard form input.",
-      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Enter text...\" />",
-      "css": ".ds-input { background: oklch(0.98 0.01 30); border: 1px solid oklch(0.85 0.01 30); border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: oklch(0.14 0.01 30); outline: none; transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s; width: 100%; box-sizing: border-box; } .ds-input:focus { border-color: oklch(0.14 0.01 30); box-shadow: 0 0 0 2px color-mix(in oklab, oklch(0.14 0.01 30) 20%, transparent); }"
+      "refersTo": "navbar-search",
+      "description": "Rounded-full search bar in marketplace top bar.",
+      "html": "<form class=\"ds-pill-search\"><input placeholder=\"Search costumes…\" /><button>Search</button></form>",
+      "css": ".ds-pill-search { display: flex; align-items: center; border-radius: 9999px; border: 1px solid oklch(0.88 0.012 60); background: color-mix(in oklch, oklch(0.94 0.012 60) 50%, transparent); padding: 0 0.375rem 0 1rem; } .ds-pill-search:focus-within { border-color: oklch(0.68 0.16 28 / 0.4); background: oklch(0.99 0.01 60); }"
     }
   ],
   "narrative": {
-    "northStar": "The Curator's Studio",
-    "overview": "SnapCos embodies refined utilitarianism. It balances the functional robustness of a modern SaaS tool with the visual elegance of a premium editorial marketplace. The aesthetic is clean, intentional, and content-forward, ensuring that the interface recedes to let costume photography take center stage.\n\nThe system explicitly rejects SaaS landing-page clichés, heavy decorative elements, neon accents, and generic glassmorphism.",
+    "northStar": "Snap Into Character",
+    "overview": "SnapCos is a playful, theatrical costume rental marketplace. Brand colors (coral, gold, curtain black) come from the logo. The storefront uses a utility-forward marketplace layout: two-row top bar with pill search, left filter sidebar, results toolbar, filter chips, and dense listing cards. Vendor and admin dashboards share the same surface language — rounded-xl panels, muted page backgrounds, coral active nav — without the full browse sidebar.\n\nReal data only on listing cards. No fabricated ratings, sold counts, or sale prices.",
     "keyCharacteristics": [
-      "Crisp 1px borders for structure",
-      "Generous whitespace for breathability",
-      "Zero heavy shadows",
-      "High-contrast typography"
+      "Spotlight Coral primary actions and active states",
+      "Stage Gold sparkle accents used sparingly",
+      "Fraunces theatrical display typography",
+      "Utility-forward marketplace browse layout",
+      "URL-driven filter state for shareable views",
+      "Soft coral-tinted hover shadows on cards",
+      "Rounded-xl dashboard surfaces on muted page backgrounds"
     ],
     "rules": [
       {
-        "name": "The Content-Forward Rule",
-        "body": "The UI must remain monochromatic to ensure that full-color costume photography provides the only true color pops on the screen.",
+        "name": "The Spotlight Rule",
+        "body": "Coral owns primary actions and active navigation. Gold accents sparkle moments — never compete with coral on the same control.",
         "section": "colors"
       },
       {
-        "name": "The Intentional Contrast Rule",
-        "body": "Hierarchy is established through extreme contrast in weight and scale, rather than subtle shifts in size.",
+        "name": "The Snap Contrast Rule",
+        "body": "Headlines use Fraunces at bold weights; body stays in DM Sans. Do not mix display font in dense data tables.",
         "section": "typography"
       },
       {
-        "name": "The Flat-By-Default Rule",
-        "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, elevation, focus) or for critical overlay context like modals, and even then must be extremely diffuse and low-opacity.",
+        "name": "The Warm Depth Rule",
+        "body": "Elevation responds to interaction with coral-tinted shadows on hover. Surfaces are warm and approachable at rest.",
         "section": "elevation"
+      },
+      {
+        "name": "The Real Data Rule",
+        "body": "Listing cards show only fields the API provides: price, name, category, size, theme. Never fabricate ratings, sold counts, or discount prices.",
+        "section": "content"
+      },
+      {
+        "name": "The URL State Rule",
+        "body": "Browse filters live in URL search params so filtered views are shareable and back-button friendly.",
+        "section": "marketplace"
       }
     ],
     "dos": [
-      "Do use 1px solid borders (oklch(0.85 0.01 30)) to separate content areas.",
-      "Do use Playfair Display exclusively for top-level hierarchy and editorial moments.",
-      "Do rely on generous whitespace rather than lines to group related items."
+      "Do use Spotlight Coral for primary buttons, active nav, filter chips, and focus states.",
+      "Do use the marketplace shell (muted page bg + card panels) on browse surfaces.",
+      "Do drive browse state from URL search params.",
+      "Do use Fraunces for h1–h4 and display moments.",
+      "Do show only real listing data on cards."
     ],
     "donts": [
-      "Don't use heavy drop shadows on cards or containers.",
-      "Don't use neon accents, purple gradients, or SaaS-cream aesthetics.",
-      "Don't use side-stripe borders (border-left or border-right greater than 1px as a colored accent).",
-      "Don't use glassmorphism as a default treatment.",
-      "Don't use identical card grids repeatedly without typographic breaks."
+      "Don't use monochrome bg-foreground for primary actions — use coral tokens.",
+      "Don't fabricate ratings, sold counts, or sale prices on listing cards.",
+      "Don't overuse gold — it should sparkle, not dominate.",
+      "Don't revert to tall hero-only browse or flat colorless editorial minimalism.",
+      "Don't use glassmorphism as a default treatment."
     ]
   }
 }

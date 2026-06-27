@@ -83,7 +83,7 @@ export default function SubscriptionPage() {
             ))}
           </div>
           <div className="lg:col-span-7">
-            <Skeleton className="h-64 w-full rounded-sm" />
+            <Skeleton className="h-64 w-full rounded-xl" />
           </div>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function SubscriptionPage() {
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Account
         </p>
-        <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
+        <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
           Subscription
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -123,19 +123,19 @@ export default function SubscriptionPage() {
 
           {/* Status panel */}
           <div className="lg:col-span-7 flex flex-col gap-8">
-            <div className="border border-border rounded-sm p-8 flex flex-col gap-8">
+            <div className="border border-border rounded-xl p-8 flex flex-col gap-8">
               {/* Header row */}
               <div className="flex items-start justify-between gap-4 border-b border-border pb-6">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                     Current plan
                   </p>
-                  <p className="font-playfair text-3xl font-semibold text-foreground">
+                  <p className="font-display text-3xl font-semibold text-foreground">
                     {subscription!.plan_name}
                   </p>
                 </div>
                 <span className={cn(
-                  "shrink-0 rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest",
+                  "shrink-0 rounded-xl border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest",
                   subscription!.status === "ACTIVE"
                     ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
                     : "border-amber-400/40 text-amber-700 dark:text-amber-400"
@@ -150,7 +150,7 @@ export default function SubscriptionPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Start date
                   </p>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
+                  <p className="font-display text-lg font-semibold text-foreground">
                     {formatDate(subscription!.start_date)}
                   </p>
                 </div>
@@ -158,7 +158,7 @@ export default function SubscriptionPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Renewal date
                   </p>
-                  <p className="font-playfair text-lg font-semibold text-foreground">
+                  <p className="font-display text-lg font-semibold text-foreground">
                     {formatDate(subscription!.end_date)}
                   </p>
                 </div>
@@ -172,7 +172,7 @@ export default function SubscriptionPage() {
                 <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {PLAN_FEATURES.map((f) => (
                     <li key={f} className="flex items-start gap-3 text-sm text-muted-foreground">
-                      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border border-emerald-400/40 text-emerald-700 dark:text-emerald-400">
+                      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 text-emerald-700 dark:text-emerald-400">
                         <CheckIcon className="size-2.5" />
                       </span>
                       {f}
@@ -194,12 +194,12 @@ export default function SubscriptionPage() {
 
           {/* Side summary */}
           <div className="lg:col-span-5">
-            <div className="border border-border rounded-sm p-8 space-y-6 sticky top-24">
+            <div className="border border-border rounded-xl p-8 space-y-6 sticky top-24">
               <div className="text-muted-foreground/20">
                 <CreditCard className="size-8" />
               </div>
               <div>
-                <p className="font-playfair text-2xl font-semibold text-foreground">
+                <p className="font-display text-2xl font-semibold text-foreground">
                   You&apos;re all set.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -208,7 +208,7 @@ export default function SubscriptionPage() {
               </div>
               <Link
                 href="/vendor"
-                className="inline-flex h-10 items-center rounded-sm border border-border px-6 text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                className="inline-flex h-10 items-center rounded-xl border border-border px-6 text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
               >
                 Go to dashboard
               </Link>
@@ -222,13 +222,13 @@ export default function SubscriptionPage() {
           {/* Why subscribe */}
           <div className="lg:col-span-5 flex flex-col gap-12">
             <div className="space-y-6">
-              <h2 className="font-playfair text-3xl font-semibold text-foreground">
+              <h2 className="font-display text-3xl font-semibold text-foreground">
                 Why subscribe?
               </h2>
               <ul className="space-y-5">
                 {PLAN_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-4">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-xl border border-border text-foreground">
                       <CheckIcon className="size-3" />
                     </span>
                     <span className="text-sm leading-relaxed text-muted-foreground">{f}</span>
@@ -244,7 +244,7 @@ export default function SubscriptionPage() {
 
           {/* Pricing card */}
           <div className="lg:col-span-7">
-            <div className="border border-border rounded-sm p-8 md:p-12 flex flex-col gap-10">
+            <div className="border border-border rounded-xl p-8 md:p-12 flex flex-col gap-10">
 
               {/* Price header */}
               <div className="space-y-4 border-b border-border pb-8">
@@ -252,7 +252,7 @@ export default function SubscriptionPage() {
                   Pro Vendor
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-playfair text-6xl font-semibold tracking-tight text-foreground">
+                  <span className="font-display text-6xl font-semibold tracking-tight text-foreground">
                     ₱29
                   </span>
                   <span className="text-sm text-muted-foreground">/ month</span>
@@ -266,7 +266,7 @@ export default function SubscriptionPage() {
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {PLAN_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xl border border-border text-foreground">
                       <CheckIcon className="size-2.5" />
                     </span>
                     {f}
@@ -280,7 +280,7 @@ export default function SubscriptionPage() {
                   type="button"
                   onClick={handleSubscribe}
                   disabled={submitting}
-                  className="flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex h-12 w-full items-center justify-center gap-2.5 rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="size-3.5" />
                   {submitting ? "Processing…" : "Subscribe now"}

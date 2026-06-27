@@ -14,6 +14,8 @@ import {
 import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Sparkle } from "@/components/brand/Sparkle";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
@@ -66,13 +68,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-1 flex-col lg:flex-row">
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-r border-border bg-muted/30 px-12 py-16">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-r border-border bg-primary/5 px-12 py-16">
         <div className="flex flex-1 items-center">
           <div className="space-y-6">
-            <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
-              Your wardrobe,
+            <Sparkle size="lg" animated className="text-accent" />
+            <p className="font-display text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+              Snap into
               <br />
-              elevated.
+              character.
             </p>
             <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
               Access your reservations, saved costumes, and booking history - all in one place.
@@ -89,7 +92,7 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
         <div className="w-full max-w-[400px] animate-fade-up">
           <div className="mb-10 space-y-2">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Welcome back</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Welcome back</h1>
             <p className="text-sm text-muted-foreground">Log in to your account to continue.</p>
           </div>
 
@@ -132,7 +135,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-md border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
               />
             </div>
 
@@ -152,7 +155,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   placeholder="........"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                  className="h-12 rounded-md border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
                 />
                 <button
                   type="button"
@@ -165,11 +168,11 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button
+            <Button
               id="login-submit-btn"
               type="submit"
               disabled={isSubmitting}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-2 h-12 w-full text-xs font-semibold uppercase tracking-widest"
             >
               {isSubmitting ? (
                 <>
@@ -179,14 +182,14 @@ export default function LoginPage() {
               ) : (
                 "Log in"
               )}
-            </button>
+            </Button>
           </form>
 
           <p className="mt-8 text-center text-xs text-muted-foreground">
             New here?{" "}
             <Link
               href="/register"
-              className="font-semibold text-foreground underline underline-offset-4 transition-opacity hover:opacity-70"
+              className="font-semibold text-primary underline underline-offset-4 transition-opacity hover:opacity-70"
             >
               Create an account
             </Link>

@@ -35,7 +35,7 @@ type AdminSidebarProps = {
 
 function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }: AdminSidebarProps) {
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-20 items-center justify-between gap-3 border-b border-border px-6">
         <div className="space-y-2">
           <BrandLogo size="md" />
@@ -43,12 +43,12 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
             Admin Console
           </p>
         </div>
-        <div className="flex size-8 items-center justify-center rounded-[1rem] border border-border bg-muted text-foreground">
+        <div className="flex size-8 items-center justify-center rounded-xl border border-border bg-muted text-foreground">
           <LockClosedIcon className="size-3.5" />
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4" aria-label="Admin navigation">
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-4" aria-label="Admin navigation">
         {NAV.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
           return (
@@ -57,9 +57,9 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
               href={href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
                 isActive
-                  ? "bg-foreground text-background"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -72,7 +72,7 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
 
       <div className="space-y-3 border-t border-border px-4 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
@@ -85,7 +85,7 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-destructive/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
           >
             <ExitIcon className="size-3" /> Log out
           </button>
@@ -124,7 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden page-bg">
       <div className="hidden md:flex">
         <AdminSidebar
           email={user.email}
@@ -139,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
-            className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-brand-ink/20 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-10 flex h-full">
@@ -161,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             type="button"
             aria-label="Open menu"
             onClick={() => setSidebarOpen(true)}
-            className="flex size-9 items-center justify-center rounded-sm border border-border text-foreground"
+            className="flex size-9 items-center justify-center rounded-xl border border-border text-foreground"
           >
             <HamburgerMenuIcon className="size-4" />
           </button>
@@ -174,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <ThemeToggle />
         </div>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-muted/40">{children}</main>
       </div>
     </div>
   );

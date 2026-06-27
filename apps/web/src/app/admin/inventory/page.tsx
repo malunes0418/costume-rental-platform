@@ -43,7 +43,7 @@ export default function AdminInventoryPage() {
     <div className="space-y-8 p-6 md:p-10">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-        <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
           Global Inventory
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -53,15 +53,15 @@ export default function AdminInventoryPage() {
 
       {loading ? (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-sm" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-sm border border-border bg-card py-28 text-center">
-          <p className="font-playfair text-3xl font-semibold text-foreground">No items found.</p>
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card py-28 text-center">
+          <p className="font-display text-3xl font-semibold text-foreground">No items found.</p>
           <p className="text-sm text-muted-foreground">The platform currently has no listed costumes.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-sm border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/50 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               <tr>
@@ -81,7 +81,7 @@ export default function AdminInventoryPage() {
                   <tr key={item.id} className="transition-colors hover:bg-muted/30">
                     <td className="p-4 text-xs text-muted-foreground">#{item.id}</td>
                     <td className="p-4">
-                      <p className="max-w-[200px] truncate font-playfair font-semibold text-foreground">{item.name}</p>
+                      <p className="max-w-[200px] truncate font-display font-semibold text-foreground">{item.name}</p>
                       <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                         {item.category || "Uncategorized"}
                       </p>
@@ -95,7 +95,7 @@ export default function AdminInventoryPage() {
                     <td className="p-4">
                       <span
                         className={cn(
-                          "inline-flex rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
+                          "inline-flex rounded-xl border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest",
                           item.status === "ACTIVE"
                             ? "border-emerald-400/40 text-emerald-700 dark:text-emerald-400"
                             : item.status === "FLAGGED"
@@ -112,7 +112,7 @@ export default function AdminInventoryPage() {
                           type="button"
                           disabled={actioning === item.id}
                           onClick={() => updateStatus(item.id, "HIDDEN")}
-                          className="flex h-8 items-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                          className="flex h-8 items-center gap-1.5 rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                           title="Hide Listing"
                         >
                           <EyeClosedIcon className="size-3.5" />
@@ -123,7 +123,7 @@ export default function AdminInventoryPage() {
                           type="button"
                           disabled={actioning === item.id}
                           onClick={() => updateStatus(item.id, "ACTIVE")}
-                          className="flex h-8 items-center gap-1.5 rounded-sm border border-emerald-400/40 px-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
+                          className="flex h-8 items-center gap-1.5 rounded-xl border border-emerald-400/40 px-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
                           title="Restore Listing"
                         >
                           <EyeOpenIcon className="size-3.5" />
@@ -134,7 +134,7 @@ export default function AdminInventoryPage() {
                           type="button"
                           disabled={actioning === item.id}
                           onClick={() => updateStatus(item.id, "FLAGGED")}
-                          className="flex h-8 items-center gap-1.5 rounded-sm border border-amber-400/40 px-3 text-[10px] font-semibold uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 disabled:opacity-40"
+                          className="flex h-8 items-center gap-1.5 rounded-xl border border-amber-400/40 px-3 text-[10px] font-semibold uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 disabled:opacity-40"
                           title="Flag Listing"
                         >
                           <ExclamationTriangleIcon className="size-3.5" />

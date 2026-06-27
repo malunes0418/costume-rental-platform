@@ -37,6 +37,7 @@ import {
 import { getCostumePricingSummary } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { FULFILLMENT_MODE_LABELS, type VendorFulfillmentSettings } from "@/lib/fulfillment";
+import { ResultsToolbar, type ViewMode } from "@/components/marketplace/ResultsToolbar";
 
 function resolveImage(costume: VendorCostume): string {
   const images = costume.CostumeImages || [];
@@ -58,7 +59,7 @@ function statusPill(status: VendorCostume["status"]) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-sm border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
+        "inline-flex rounded-xl border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
         classes
       )}
     >
@@ -101,7 +102,7 @@ function Section({
     <section className="space-y-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-playfair text-3xl font-semibold text-foreground">{title}</p>
+          <p className="font-display text-3xl font-semibold text-foreground">{title}</p>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -109,13 +110,13 @@ function Section({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 sm:gap-5">
         {items.map((costume) => {
           const image = resolveImage(costume);
           const pricingSummary = getCostumePricingSummary(costume);
           return (
-            <article key={costume.id} className="overflow-hidden rounded-sm border border-border bg-card">
-              <div className="relative aspect-[4/5] border-b border-border bg-muted/40">
+            <article key={costume.id} className="overflow-hidden rounded-xl border border-border bg-card shadow-coral-hover">
+              <div className="relative aspect-[3/4] border-b border-border bg-muted/40">
                 {image ? (
                   <img src={image} alt={costume.name} className="h-full w-full object-cover" />
                 ) : (
@@ -128,7 +129,7 @@ function Section({
               <div className="space-y-5 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-playfair text-2xl font-semibold text-foreground">{costume.name}</p>
+                    <p className="truncate font-display text-2xl font-semibold text-foreground">{costume.name}</p>
                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       {[costume.category, costume.size].filter(Boolean).join(" / ") || "Curated piece"}
                     </p>
@@ -144,7 +145,7 @@ function Section({
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       {costume.pricing_mode === "PACKAGE" ? "Package pricing" : "Daily rate"}
                     </p>
-                    <p className="mt-2 font-playfair text-2xl font-semibold text-foreground">
+                    <p className="mt-2 font-display text-2xl font-semibold text-foreground">
                       PHP {pricingSummary.amount.toLocaleString()}
                     </p>
                     <p className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -158,7 +159,7 @@ function Section({
                 </div>
 
                 {costume.status === "FLAGGED" || costume.status === "HIDDEN" ? (
-                  <div className="rounded-sm border border-border bg-muted/30 px-4 py-4 text-sm leading-7 text-muted-foreground">
+                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm leading-7 text-muted-foreground">
                     This listing is under moderation. You can still refine the content, but only the admin team can restore it to a publishable state.
                   </div>
                 ) : null}
@@ -167,7 +168,7 @@ function Section({
                   <button
                     type="button"
                     onClick={() => onEdit(costume)}
-                    className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                    className="inline-flex h-9 items-center gap-2 rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
                   >
                     <Pencil className="size-3.5" />
                     Edit
@@ -177,7 +178,7 @@ function Section({
                     <button
                       type="button"
                       onClick={() => onPublish(costume.id)}
-                      className="inline-flex h-9 items-center gap-2 rounded-sm bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                      className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       Publish
                     </button>
@@ -187,7 +188,7 @@ function Section({
                     <button
                       type="button"
                       onClick={() => onUnpublish(costume.id)}
-                      className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                      className="inline-flex h-9 items-center gap-2 rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
                     >
                       Return to draft
                     </button>
@@ -196,7 +197,7 @@ function Section({
                   <button
                     type="button"
                     onClick={() => onDelete(costume.id)}
-                    className="inline-flex h-9 items-center gap-2 rounded-sm border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
+                    className="inline-flex h-9 items-center gap-2 rounded-xl border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
                   >
                     <Trash className="size-3.5" />
                     Delete
@@ -219,6 +220,8 @@ export default function VendorInventoryPage() {
   const [selectedCostume, setSelectedCostume] = useState<VendorCostume | null>(null);
   const [costumePendingDelete, setCostumePendingDelete] = useState<VendorCostume | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "active" | "moderated">("all");
+  const [view, setView] = useState<ViewMode>("grid");
 
   const refresh = useCallback(async () => {
     const [vendorProfile, costumeList, settings] = await Promise.all([
@@ -252,6 +255,12 @@ export default function VendorInventoryPage() {
       moderated: costumes.filter((costume) => costume.status === "HIDDEN" || costume.status === "FLAGGED"),
     };
   }, [costumes]);
+
+  const statusChips = useMemo(() => {
+    if (statusFilter === "all") return [];
+    const labels = { draft: "Drafts", active: "Live", moderated: "Moderated" };
+    return [{ key: "status", label: labels[statusFilter] }];
+  }, [statusFilter]);
 
   function handleDeleteRequest(costumeId: number) {
     const costume = costumes.find((item) => item.id === costumeId) ?? null;
@@ -298,9 +307,9 @@ export default function VendorInventoryPage() {
     return (
       <div className="mx-auto max-w-[1200px] px-6 py-12">
         <div className="space-y-4">
-          <Skeleton className="h-4 w-32 rounded-sm" />
-          <Skeleton className="h-14 w-80 rounded-sm" />
-          <Skeleton className="h-40 w-full rounded-sm" />
+          <Skeleton className="h-4 w-32 rounded-xl" />
+          <Skeleton className="h-14 w-80 rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -311,14 +320,14 @@ export default function VendorInventoryPage() {
       <div className="mx-auto max-w-[960px] px-6 py-16">
         <div className="space-y-6 border-b border-border pb-12 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Inventory access</p>
-          <h1 className="font-playfair text-5xl font-semibold text-foreground">Your atelier is not open yet.</h1>
+          <h1 className="font-display text-5xl font-semibold text-foreground">Your atelier is not open yet.</h1>
           <p className="mx-auto max-w-2xl text-base leading-8 text-muted-foreground">
             Submit a vendor application first. Once your boutique is in review, this inventory workspace will open for draft creation.
           </p>
           <div>
             <Link
               href="/vendor/apply"
-              className="inline-flex h-11 items-center justify-center rounded-sm bg-foreground px-6 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+              className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-6 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Apply now
             </Link>
@@ -337,7 +346,7 @@ export default function VendorInventoryPage() {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Inventory atelier
               </p>
-              <h1 className="mt-4 max-w-3xl font-playfair text-5xl font-semibold leading-tight text-foreground md:text-6xl">
+              <h1 className="mt-4 max-w-3xl font-display text-5xl font-semibold leading-tight text-foreground md:text-6xl">
                 Build the collection before you unveil it.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-8 text-muted-foreground">
@@ -353,7 +362,7 @@ export default function VendorInventoryPage() {
         </div>
 
         {!profile.canPublish ? (
-          <div className="mt-8 max-w-3xl rounded-sm border border-amber-400/40 bg-muted/30 px-5 py-5">
+          <div className="mt-8 max-w-3xl rounded-xl border border-amber-400/40 bg-muted/30 px-5 py-5">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
               <RocketIcon className="size-3.5" />
               Draft mode
@@ -367,16 +376,74 @@ export default function VendorInventoryPage() {
 
       <VendorFulfillmentStudio settings={fulfillmentSettings} onSaved={setFulfillmentSettings} />
 
-      <div className="mt-10 space-y-12">
+      <div className="mt-10 space-y-6">
+        {costumes.length > 0 && (
+          <div className="space-y-3">
+            <ResultsToolbar
+              count={costumes.length}
+              total={costumes.length}
+              sort="_newest"
+              view={view}
+              showSort={false}
+              onSortChange={() => {}}
+              onViewChange={setView}
+            />
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "all", label: "All" },
+                  { value: "draft", label: "Drafts" },
+                  { value: "active", label: "Live" },
+                  { value: "moderated", label: "Moderated" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStatusFilter(value)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    statusFilter === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {statusChips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {statusChips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {chip.label}
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("all")}
+                  className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {grouped.drafts.length === 0 && grouped.active.length === 0 && grouped.moderated.length === 0 ? (
-          <div className="rounded-sm border border-border bg-card px-8 py-16 text-center">
-            <p className="font-playfair text-4xl font-semibold text-foreground">No listings yet.</p>
+          <div className="rounded-xl border border-border bg-card px-8 py-16 text-center">
+            <p className="font-display text-4xl font-semibold text-foreground">No listings yet.</p>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-muted-foreground">
               Start with a private draft. Add your strongest photography, shape the story, then publish when everything feels gallery-ready.
             </p>
           </div>
         ) : null}
 
+        {(statusFilter === "all" || statusFilter === "draft") && (
         <Section
           title="Private drafts"
           description="Invisible to shoppers until you choose to publish them."
@@ -388,7 +455,9 @@ export default function VendorInventoryPage() {
           onUnpublish={handleUnpublish}
           vendorSettings={fulfillmentSettings}
         />
+        )}
 
+        {(statusFilter === "all" || statusFilter === "active") && (
         <Section
           title="Live listings"
           description="Public pieces that can move through the reservation flow."
@@ -400,7 +469,9 @@ export default function VendorInventoryPage() {
           onUnpublish={handleUnpublish}
           vendorSettings={fulfillmentSettings}
         />
+        )}
 
+        {(statusFilter === "all" || statusFilter === "moderated") && (
         <Section
           title="Moderated listings"
           description="Held back from shoppers until the admin team clears them."
@@ -412,6 +483,7 @@ export default function VendorInventoryPage() {
           onUnpublish={handleUnpublish}
           vendorSettings={fulfillmentSettings}
         />
+        )}
       </div>
 
       <EditCostumeModal
@@ -460,7 +532,7 @@ export default function VendorInventoryPage() {
                     </div>
 
                     <div className="space-y-3">
-                      <DialogTitle className="font-playfair text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+                      <DialogTitle className="font-display text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
                         Release this piece from the collection?
                       </DialogTitle>
                       <DialogDescription className="max-w-[52ch] text-sm leading-7 text-muted-foreground">
@@ -471,10 +543,10 @@ export default function VendorInventoryPage() {
                   </DialogHeader>
 
                   <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
-                    <div className="rounded-sm border border-border bg-muted/20 p-4">
+                    <div className="rounded-xl border border-border bg-muted/20 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="min-w-0 space-y-2">
-                          <p className="truncate font-playfair text-2xl font-semibold text-foreground">
+                          <p className="truncate font-display text-2xl font-semibold text-foreground">
                             {costumePendingDelete.name}
                           </p>
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -486,7 +558,7 @@ export default function VendorInventoryPage() {
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                             {costumePendingDelete.pricing_mode === "PACKAGE" ? "Package pricing" : "Daily rate"}
                           </p>
-                          <p className="mt-2 font-playfair text-2xl font-semibold text-foreground">
+                          <p className="mt-2 font-display text-2xl font-semibold text-foreground">
                             PHP {pricingSummary.amount.toLocaleString()}
                           </p>
                           <p className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -497,7 +569,7 @@ export default function VendorInventoryPage() {
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-sm border border-border bg-background px-4 py-4">
+                      <div className="rounded-xl border border-border bg-background px-4 py-4">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                           If untouched
                         </p>
@@ -505,7 +577,7 @@ export default function VendorInventoryPage() {
                           The listing is removed completely from inventory.
                         </p>
                       </div>
-                      <div className="rounded-sm border border-border bg-background px-4 py-4">
+                      <div className="rounded-xl border border-border bg-background px-4 py-4">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                           If previously reserved
                         </p>
@@ -522,7 +594,7 @@ export default function VendorInventoryPage() {
                       variant="outline"
                       onClick={() => setCostumePendingDelete(null)}
                       disabled={deleteSubmitting}
-                      className="h-10 rounded-sm px-5 text-[10px] font-semibold uppercase tracking-widest"
+                      className="h-10 rounded-xl px-5 text-[10px] font-semibold uppercase tracking-widest"
                     >
                       Keep listing
                     </Button>
@@ -531,7 +603,7 @@ export default function VendorInventoryPage() {
                       variant="destructive"
                       onClick={() => void handleConfirmDelete()}
                       disabled={deleteSubmitting}
-                      className="h-10 rounded-sm px-5 text-[10px] font-semibold uppercase tracking-widest"
+                      className="h-10 rounded-xl px-5 text-[10px] font-semibold uppercase tracking-widest"
                     >
                       {deleteSubmitting ? "Processing..." : "Delete or archive"}
                     </Button>

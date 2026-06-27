@@ -46,7 +46,7 @@ function StatusChip({ status }: { status: string }) {
     : "border-border bg-muted/50 text-muted-foreground";
 
   return (
-    <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>
+    <span className={`rounded-xl border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>
       {status}
     </span>
   );
@@ -62,16 +62,16 @@ function KpiCard({
   trend?: { dir: "up" | "down"; text: string };
 }) {
   return (
-    <div className="flex flex-col gap-5 rounded-sm border border-border bg-card p-6">
+    <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
           {label}
         </p>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border">
           <Icon className="size-3.5 text-muted-foreground" />
         </div>
       </div>
-      <p className="font-playfair text-4xl font-semibold tracking-tight text-foreground leading-none">
+      <p className="font-display text-4xl font-semibold tracking-tight text-foreground leading-none">
         {value}
       </p>
       {(sub || trend) && (
@@ -105,7 +105,7 @@ function MiniBarChart({ data, label }: { data: number[]; label: string }) {
         {data.map((v, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1">
             <div
-              className="w-full rounded-sm bg-foreground/80 transition-all duration-300"
+              className="w-full rounded-xl bg-primary/80 transition-all duration-300"
               style={{ height: `${(v / max) * 52}px`, minHeight: v > 0 ? "4px" : "0" }}
             />
             <span className="text-[8px] text-muted-foreground">{days[i]}</span>
@@ -197,11 +197,11 @@ export default function AdminOverviewPage() {
           <Skeleton className="h-9 w-48" />
         </div>
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-sm" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
         </div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <Skeleton className="h-48 col-span-2 rounded-sm" />
-          <Skeleton className="h-48 rounded-sm" />
+          <Skeleton className="h-48 col-span-2 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       </div>
     );
@@ -217,7 +217,7 @@ export default function AdminOverviewPage() {
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Platform overview
         </p>
-        <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
           Overview
         </h1>
       </div>
@@ -255,11 +255,11 @@ export default function AdminOverviewPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
 
         {/* Reservations trend */}
-        <div className="xl:col-span-2 rounded-sm border border-border bg-card p-6 space-y-6">
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card p-6 space-y-6">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">7-day activity</p>
-              <p className="mt-1 font-playfair text-2xl font-semibold text-foreground">Reservations vs Quoted Value</p>
+              <p className="mt-1 font-display text-2xl font-semibold text-foreground">Reservations vs Quoted Value</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
@@ -269,11 +269,11 @@ export default function AdminOverviewPage() {
         </div>
 
         {/* Status breakdown */}
-        <div className="rounded-sm border border-border bg-card p-6">
+        <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Reservation status
           </p>
-          <p className="mt-1 font-playfair text-2xl font-semibold text-foreground mb-6">
+          <p className="mt-1 font-display text-2xl font-semibold text-foreground mb-6">
             Breakdown
           </p>
           {Object.keys(statusGroups).length === 0 ? (
@@ -292,7 +292,7 @@ export default function AdminOverviewPage() {
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-foreground transition-all duration-500"
+                        className="h-full rounded-full bg-primary transition-all duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -305,12 +305,12 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* ── Recent activity ── */}
-      <div className="rounded-sm border border-border bg-card">
+      <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-6 py-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Recent activity
           </p>
-          <p className="mt-0.5 font-playfair text-xl font-semibold text-foreground">
+          <p className="mt-0.5 font-display text-xl font-semibold text-foreground">
             Latest transactions
           </p>
         </div>
@@ -325,7 +325,7 @@ export default function AdminOverviewPage() {
                 <p className="text-[11px] text-muted-foreground">{item.sub}</p>
               </div>
               <div className="flex items-center gap-4 shrink-0">
-                <span className="font-playfair text-sm font-semibold text-foreground">{item.amount}</span>
+                <span className="font-display text-sm font-semibold text-foreground">{item.amount}</span>
                 <StatusChip status={item.status} />
                 <span className="text-[10px] text-muted-foreground hidden sm:block">{fmt(item.date)}</span>
               </div>
@@ -336,18 +336,18 @@ export default function AdminOverviewPage() {
 
       {/* ── Pending alerts ── */}
       {pendingCount > 0 && (
-        <div className="rounded-sm border border-amber-400/30 bg-amber-50/50 dark:bg-amber-900/10 p-6">
+        <div className="rounded-xl border border-amber-400/30 bg-amber-50/50 dark:bg-amber-900/10 p-6">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
             Action required
           </p>
-          <p className="mt-1 font-playfair text-xl font-semibold text-foreground">
+          <p className="mt-1 font-display text-xl font-semibold text-foreground">
             {pendingCount} item{pendingCount !== 1 ? "s" : ""} need your attention
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {pendingCount > 0 && (
               <a
                 href="/admin/vendors"
-                className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-5 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+                className="inline-flex h-9 items-center rounded-xl border border-foreground bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Review {pendingCount} vendor{pendingCount !== 1 ? "s" : ""}
               </a>

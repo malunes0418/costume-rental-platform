@@ -42,7 +42,7 @@ export function VendorApplicationPreview({
   if (!profile) {
     return (
       <div className="rounded-sm border border-border bg-card p-5">
-        <p className="font-playfair text-2xl font-semibold text-foreground">No submission found.</p>
+        <p className="font-display text-2xl font-semibold text-foreground">No submission found.</p>
         <p className="mt-2 text-sm leading-7 text-muted-foreground">
           We could not find a vendor submission on file for this account yet.
         </p>
@@ -54,14 +54,14 @@ export function VendorApplicationPreview({
     <div className="space-y-5">
       <div className="rounded-sm border border-border bg-muted/30 p-5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Application status</p>
-        <p className="mt-3 font-playfair text-3xl font-semibold text-foreground">{status}</p>
+        <p className="mt-3 font-display text-3xl font-semibold text-foreground">{status}</p>
         <p className="mt-2 text-sm leading-7 text-muted-foreground">{statusCopy(status)}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-sm border border-border bg-card p-5">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Business name</p>
-          <p className="mt-3 font-playfair text-2xl font-semibold text-foreground">
+          <p className="mt-3 font-display text-2xl font-semibold text-foreground">
             {profile.business_name || "Not provided"}
           </p>
         </div>
@@ -130,7 +130,7 @@ export function VendorApplicationPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto border-border bg-background p-0 shadow-none">
         <DialogHeader className="border-b border-border px-6 py-5 text-left">
-          <DialogTitle className="font-playfair text-3xl font-semibold text-foreground">
+          <DialogTitle className="font-display text-3xl font-semibold text-foreground">
             Submitted application
           </DialogTitle>
           <DialogDescription className="text-sm leading-7 text-muted-foreground">

@@ -1,107 +1,156 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { ApiError } from "../lib/api";
 import { CostumeCard, CostumeCardSkeleton } from "../components/CostumeCard";
 import { listCostumes, type Costume, type CostumeListQuery } from "../lib/costumes";
 import { myWishlist } from "../lib/account";
 import { useAuth } from "../lib/auth";
+import { useLandingShell } from "../lib/landing-shell";
+import { getCostumePricingSummary } from "../lib/pricing";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { MagnifyingGlassIcon as Search, ChevronLeftIcon as ChevronLeft, ChevronRightIcon as ChevronRight, ExclamationTriangleIcon as AlertCircle } from "@radix-ui/react-icons";
+  ChevronLeftIcon as ChevronLeft,
+  ChevronRightIcon as ChevronRight,
+  ExclamationTriangleIcon as AlertCircle,
+  MagnifyingGlassIcon as Search,
+} from "@radix-ui/react-icons";
+import { HeroSplash } from "@/components/brand/HeroSplash";
 import { cn } from "@/lib/utils";
+import { FilterSidebar, type MarketplaceFilters } from "@/components/marketplace/FilterSidebar";
+import { FilterChips } from "@/components/marketplace/FilterChips";
+import { ResultsToolbar, type ViewMode } from "@/components/marketplace/ResultsToolbar";
 
-const sortOptions = [
-  { value: "_newest",   label: "Newest" },
-  { value: "price_asc", label: "Price: Low → High" },
-  { value: "price_desc",label: "Price: High → Low" },
-] as const;
+const PAGE_SIZE = 12;
 
-const categoryFilters = [
-  { value: "",          label: "All" },
-  { value: "superhero", label: "Superhero" },
-  { value: "halloween", label: "Halloween" },
-  { value: "historical",label: "Historical" },
-  { value: "fantasy",   label: "Fantasy" },
-  { value: "anime",     label: "Anime" },
-  { value: "theatrical",label: "Theatrical" },
-  { value: "vintage",   label: "Vintage" },
-  { value: "sci_fi",    label: "Sci-Fi" },
-];
+function parseNumber(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
 
-// Animated spotlight words
-const spotlightWords = ["Extraordinary", "Theatrical", "Unforgettable", "Iconic"];
-
-export default function Home() {
+function MarketplacePageInner() {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { setHeroActive, revealNav, resetHeroNav } = useLandingShell();
   const router = useRouter();
-  const [query, setQuery]         = useState<CostumeListQuery>({ page: 1, pageSize: 12 });
-  const [qText, setQText]         = useState("");
-  const [items, setItems]         = useState<Costume[]>([]);
-  const [total, setTotal]         = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [wordIdx, setWordIdx]     = useState(0);
-  const [wordVisible, setWordVisible] = useState(true);
-  const [savedIds, setSavedIds]   = useState<Set<number>>(new Set());
-  const isApprovedVendor = user?.vendor_status === "APPROVED";
-  const listingScope = query.ownerId === user?.id ? "mine" : "all";
-  const scopeLabel = listingScope === "mine" ? "Viewing your catalog" : "Viewing the full catalog";
+  const searchParams = useSearchParams();
 
-  const canPrev = (query.page || 1) > 1;
-  const canNext = useMemo(() => {
-    const page     = query.page || 1;
-    const pageSize = query.pageSize || 12;
-    return page * pageSize < total;
-  }, [query.page, query.pageSize, total]);
+  const q = searchParams.get("q") || undefined;
+  const category = searchParams.get("category") || undefined;
+  const size = searchParams.get("size") || undefined;
+  const gender = searchParams.get("gender") || undefined;
+  const theme = searchParams.get("theme") || undefined;
+  const sort = searchParams.get("sort") || undefined;
+  const view = (searchParams.get("view") as ViewMode) || "grid";
+  const page = Math.max(1, parseNumber(searchParams.get("page")) ?? 1);
+  const priceMin = parseNumber(searchParams.get("priceMin"));
+  const priceMax = parseNumber(searchParams.get("priceMax"));
+
+  const [items, setItems] = useState<Costume[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
+  const [ownerScope, setOwnerScope] = useState<"all" | "mine">("all");
+
+  const isApprovedVendor = user?.vendor_status === "APPROVED";
+
+  const serverQuery = useMemo<CostumeListQuery>(() => {
+    const query: CostumeListQuery = {
+      page,
+      pageSize: PAGE_SIZE,
+      q,
+      category,
+      size,
+      gender,
+      theme,
+      sort: sort === "price_asc" || sort === "price_desc" ? sort : undefined,
+    };
+    if (isApprovedVendor && ownerScope === "mine" && user) {
+      query.ownerId = user.id;
+    }
+    return query;
+  }, [page, q, category, size, gender, theme, sort, isApprovedVendor, ownerScope, user]);
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined | null>, resetPage = true) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, val] of Object.entries(updates)) {
+        if (val === undefined || val === null || val === "") {
+          params.delete(key);
+        } else {
+          params.set(key, val);
+        }
+      }
+      if (resetPage) params.delete("page");
+      const qs = params.toString();
+      router.replace(qs ? `/?${qs}` : "/");
+    },
+    [router, searchParams]
+  );
+
+  const filters: MarketplaceFilters = useMemo(
+    () => ({ category, size, gender, theme, priceMin, priceMax }),
+    [category, size, gender, theme, priceMin, priceMax]
+  );
+
+  const priceBounds = useMemo(() => {
+    if (items.length === 0) return { min: 0, max: 10000 };
+    const prices = items.map((c) => getCostumePricingSummary(c).amount);
+    return {
+      min: Math.floor(Math.min(...prices)),
+      max: Math.ceil(Math.max(...prices)),
+    };
+  }, [items]);
+
+  const facets = useMemo(() => {
+    const sizes = new Set<string>();
+    const genders = new Set<string>();
+    const themes = new Set<string>();
+    for (const item of items) {
+      if (item.size) sizes.add(item.size);
+      if (item.gender) genders.add(item.gender);
+      if (item.theme) themes.add(item.theme);
+    }
+    return {
+      sizes: [...sizes].sort(),
+      genders: [...genders].sort(),
+      themes: [...themes].sort(),
+    };
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const lo = priceMin ?? priceBounds.min;
+    const hi = priceMax ?? priceBounds.max;
+    return items.filter((c) => {
+      const amount = getCostumePricingSummary(c).amount;
+      return amount >= lo && amount <= hi;
+    });
+  }, [items, priceMin, priceMax, priceBounds]);
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (user?.role === "ADMIN") {
-      router.replace("/admin");
-    }
+    if (user?.role === "ADMIN") router.replace("/admin");
   }, [user, isAuthLoading, router]);
 
-
-  // Cycling spotlight words
   useEffect(() => {
-    const interval = setInterval(() => {
-      setWordVisible(false);
-      setTimeout(() => {
-        setWordIdx((i) => (i + 1) % spotlightWords.length);
-        setWordVisible(true);
-      }, 300);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch wishlist IDs so hearts show correct state
-  useEffect(() => {
-    if (!user) { setSavedIds(new Set()); return; }
+    if (!user) {
+      setSavedIds(new Set());
+      return;
+    }
     myWishlist()
-      .then((items) => setSavedIds(new Set(items.map((i) => i.costume_id))))
+      .then((list) => setSavedIds(new Set(list.map((i) => i.costume_id))))
       .catch(() => {});
   }, [user]);
-
-  useEffect(() => {
-    if (isAuthLoading || isApprovedVendor) return;
-    setQuery((q) => (q.ownerId === undefined ? q : { ...q, ownerId: undefined, page: 1 }));
-  }, [isApprovedVendor, isAuthLoading]);
 
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     setError(null);
-    listCostumes(query)
+    listCostumes(serverQuery)
       .then((res) => {
         if (cancelled) return;
         setItems(res.data);
@@ -112,261 +161,314 @@ export default function Home() {
         setError(e instanceof ApiError ? e.message : "Failed to load costumes");
       })
       .finally(() => {
-        if (cancelled) return;
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [query]);
+    return () => {
+      cancelled = true;
+    };
+  }, [serverQuery]);
 
-  if (user?.role === "ADMIN") {
-    return null;
+  const canPrev = page > 1;
+  const canNext = page * PAGE_SIZE < total;
+
+  const showHero = useMemo(
+    () =>
+      !q &&
+      !category &&
+      !size &&
+      !gender &&
+      !theme &&
+      !sort &&
+      view === "grid" &&
+      page === 1 &&
+      priceMin === undefined &&
+      priceMax === undefined,
+    [q, category, size, gender, theme, sort, view, page, priceMin, priceMax]
+  );
+
+  const scrollToMarketplace = useCallback(() => {
+    document.getElementById("marketplace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  useEffect(() => {
+    setHeroActive(showHero);
+    if (showHero) {
+      resetHeroNav();
+    } else {
+      revealNav();
+    }
+  }, [showHero, setHeroActive, revealNav, resetHeroNav]);
+
+  useEffect(() => {
+    if (!showHero) return;
+    const hero = document.getElementById("hero-splash");
+    if (!hero) return;
+
+    let ticking = false;
+
+    const syncNavWithScroll = () => {
+      const heroBottom = hero.getBoundingClientRect().bottom;
+      if (heroBottom > window.innerHeight * 0.5) {
+        resetHeroNav();
+      } else {
+        revealNav();
+      }
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        syncNavWithScroll();
+        ticking = false;
+      });
+    };
+
+    syncNavWithScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [showHero, revealNav, resetHeroNav]);
+
+  function handleFilterChange(next: Partial<MarketplaceFilters>) {
+    const updates: Record<string, string | null> = {};
+    const keys = ["category", "size", "gender", "theme"] as const;
+    for (const key of keys) {
+      if (key in next) {
+        updates[key] = next[key] || null;
+      }
+    }
+    if ("priceMin" in next) {
+      updates.priceMin = next.priceMin !== undefined ? String(next.priceMin) : null;
+    }
+    if ("priceMax" in next) {
+      updates.priceMax = next.priceMax !== undefined ? String(next.priceMax) : null;
+    }
+    updateParams(updates);
   }
 
+  function handleRemoveFilter(key: keyof MarketplaceFilters | "q") {
+    if (key === "q") {
+      updateParams({ q: null });
+      return;
+    }
+    if (key === "priceMin" || key === "priceMax") {
+      updateParams({ priceMin: null, priceMax: null });
+      return;
+    }
+    updateParams({ [key]: null });
+  }
+
+  function handleClearAll() {
+    router.replace("/");
+  }
+
+  if (user?.role === "ADMIN") return null;
+
   return (
-    <div className="flex flex-1 flex-col bg-background">
-
-      {/* ─── Hero ─── */}
-      <section className="relative px-6 pb-24 pt-32 text-center max-w-[1000px] mx-auto flex flex-col items-center">
-        <div className="animate-fade-up">
-          <div className="inline-flex items-center rounded-sm border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Premium Costume Rentals
-          </div>
-        </div>
-
-        <h1
-          className="animate-fade-up-delay-1 mt-10 font-playfair font-semibold text-foreground tracking-tight"
-          style={{
-            fontSize: "clamp(3rem, 8vw, 6.5rem)",
-            lineHeight: 1.05,
-          }}
-        >
-          Wear Something{" "}
-          <span
-            className="inline-block italic text-muted-foreground"
-            style={{
-              minWidth: "8ch",
-              transition: "opacity 400ms ease, transform 400ms ease",
-              opacity: wordVisible ? 1 : 0,
-              transform: wordVisible ? "translateY(0)" : "translateY(12px)",
-            }}
-          >
-            {spotlightWords[wordIdx]}
-          </span>
-        </h1>
-
-        <p className="animate-fade-up-delay-2 mt-8 max-w-[600px] text-lg leading-relaxed text-muted-foreground">
-          Browse curated costumes for parties, shoots, events, and theatre.
-          Book with clear pricing and instant availability.
-        </p>
-
-        {/* Search bar */}
-        <form
-          id="costume-search-form"
-          className="animate-fade-up-delay-3 mt-16 w-full max-w-[800px]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setQuery((q) => ({ ...q, q: qText.trim() || undefined, page: 1 }));
-          }}
-        >
-          <div className="flex flex-col md:flex-row items-center gap-4 rounded-md border border-border bg-card p-2">
-            <Search className="ml-3 h-5 w-5 text-muted-foreground shrink-0 hidden md:block" />
-            <Input
-              id="search-input"
-              value={qText}
-              onChange={(e) => setQText(e.target.value)}
-              placeholder="Search: pirate, vintage, superhero…"
-              aria-label="Search costumes"
-              className="flex-1 h-12 border-0 bg-transparent text-base focus-visible:ring-0 px-4 md:px-2 rounded-none placeholder:text-muted-foreground/60 shadow-none"
-            />
-            <div className="h-8 w-px bg-border hidden md:block" />
-            <Select
-              value={query.sort || "_newest"}
-              onValueChange={(val: string) =>
-                setQuery((q) => ({
-                  ...q,
-                  sort: (val === "_newest" ? undefined : val) as CostumeListQuery["sort"],
-                  page: 1,
-                }))
-              }
-            >
-              <SelectTrigger
-                id="sort-select"
-                aria-label="Sort costumes"
-                className="w-full md:w-[200px] h-12 border-0 bg-transparent focus:ring-0 rounded-none text-base shadow-none"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border shadow-none">
-                {sortOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value} className="text-foreground">
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              id="search-btn"
-              type="submit"
-              className="w-full md:w-auto h-12 px-8 rounded-md bg-foreground text-background font-semibold tracking-widest uppercase text-xs hover:bg-foreground/90"
-            >
-              Search
-            </Button>
-          </div>
-        </form>
-
-        {/* Stats */}
-        <div className="animate-fade-up-delay-3 mt-20 flex flex-wrap justify-center gap-16 md:gap-32 border-t border-border pt-12 w-full max-w-[800px]">
-          {[
-            { label: "Costumes",   value: total > 0 ? `${total}+` : "..." },
-            { label: "Categories", value: "12+" },
-            { label: "Avg. Rating",value: "4.9 ★" },
-          ].map(({ label, value }) => (
-            <div key={label} className="text-center flex flex-col gap-3">
-              <div className="text-3xl md:text-5xl font-semibold font-playfair text-foreground">
-                {value}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {label}
-              </div>
+    <div className="marketplace-shell flex flex-1 flex-col">
+      {showHero ? (
+        <HeroSplash onBrowse={scrollToMarketplace} />
+      ) : (
+        <div className="border-b border-border bg-card/60">
+          <div className="marketplace-content flex flex-wrap items-center justify-between gap-3 py-4">
+            <div>
+              <h1 className="font-display text-xl font-semibold text-foreground md:text-2xl">
+                Snap Into Character
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Browse curated costumes for parties, shoots, and theatre.
+              </p>
             </div>
-          ))}
+            {total > 0 && (
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {total} costume{total === 1 ? "" : "s"} available
+              </p>
+            )}
+          </div>
         </div>
-      </section>
+      )}
 
-      {/* ─── Category pills ─── */}
-      <section className="px-6 pb-16 pt-8" aria-label="Filter by category">
-        <div className="mx-auto flex max-w-[1200px] gap-8 overflow-x-auto justify-start md:justify-center">
-          {categoryFilters.map(({ value, label }) => {
-            const isActive = (query.category || "") === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                id={`category-${value || "all"}`}
-                onClick={() =>
-                  setQuery((q) => ({ ...q, category: value || undefined, page: 1 }))
-                }
-                className={cn(
-                  "shrink-0 text-xs font-semibold uppercase tracking-widest whitespace-nowrap pb-2 transition-all",
-                  isActive
-                    ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground border-b-2 border-transparent hover:text-foreground"
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ─── Listings ─── */}
-      <section
-        className="mx-auto w-full max-w-[1200px] px-6 pb-32 pt-8"
-        aria-label="Costume listings"
+      <div
+        id="marketplace"
+        className="marketplace-content scroll-mt-[calc(var(--navbar-height)+1rem)]"
       >
-        {isApprovedVendor && user ? (
-          <div className="mb-10 flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-6">
-              {[
-                { value: "all", label: "All Listings" },
-                { value: "mine", label: "My Listings" },
-              ].map(({ value, label }) => {
-                const isActive = listingScope === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setQuery((q) => ({
-                        ...q,
-                        ownerId: value === "mine" ? user.id : undefined,
-                        page: 1,
-                      }))
-                    }
-                    className={cn(
-                      "pb-2 text-xs font-semibold uppercase tracking-widest transition-all",
-                      isActive
-                        ? "border-b-2 border-foreground text-foreground"
-                        : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+        {showHero && (
+          <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-6">
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
+                Marketplace
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Filter, sort, and find your next look.
+              </p>
             </div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              {scopeLabel}
+            {total > 0 && (
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {total} costume{total === 1 ? "" : "s"} available
+              </p>
+            )}
+          </header>
+        )}
+        {isApprovedVendor && user && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-4">
+              {(["all", "mine"] as const).map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => {
+                    setOwnerScope(scope);
+                    updateParams({});
+                  }}
+                  className={cn(
+                    "pb-1 text-xs font-semibold uppercase tracking-widest transition-colors",
+                    ownerScope === scope
+                      ? "border-b-2 border-primary text-primary"
+                      : "border-b-2 border-transparent text-muted-foreground hover:text-primary"
+                  )}
+                >
+                  {scope === "all" ? "All Listings" : "My Listings"}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {ownerScope === "mine" ? "Viewing your catalog" : "Viewing the full catalog"}
             </p>
           </div>
-        ) : null}
-
-        {/* Error */}
-        {error && (
-          <Alert variant="destructive" className="mb-10 rounded-md border-border bg-transparent">
-            <AlertCircle className="size-4" />
-            <AlertDescription className="text-sm">{error}</AlertDescription>
-          </Alert>
         )}
 
-        {/* Grid */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-6 gap-y-12">
-          {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => <CostumeCardSkeleton key={i} />)
-            : items.length
-              ? items.map((c) => <CostumeCard key={c.id} costume={c} savedIds={savedIds} />)
-              : (
-                <div className="col-span-full rounded-md border border-border bg-transparent p-24 text-center">
-                  <div className="mb-6 flex justify-center text-muted-foreground/30">
-                    <Search className="size-12" />
-                  </div>
-                  <p className="font-playfair text-3xl text-foreground">
-                    {listingScope === "mine" ? "No listings yet." : "No costumes found."}
-                  </p>
-                  <p className="mt-4 text-muted-foreground">
-                    {listingScope === "mine"
-                      ? "You do not have any listings that match the current filters."
-                      : "Try adjusting your filters or search terms."}
-                  </p>
-                </div>
-              )}
-        </div>
+        <div className="flex gap-6 lg:gap-8">
+          <FilterSidebar
+            filters={filters}
+            facets={facets}
+            priceBounds={priceBounds}
+            onChange={handleFilterChange}
+            className="hidden lg:block"
+          />
 
-        {/* Pagination */}
-        {(canPrev || canNext) && (
-          <div className="mt-20 flex items-center justify-center gap-6">
-            <Button
-              id="prev-page-btn"
-              type="button"
-              variant="outline"
-              disabled={!canPrev || isLoading}
-              onClick={() =>
-                setQuery((q) => ({ ...q, page: Math.max(1, (q.page || 1) - 1) }))
+          <div className="min-w-0 flex-1 space-y-4">
+            <ResultsToolbar
+              count={filteredItems.length}
+              total={total}
+              sort={sort || "_newest"}
+              view={view}
+              onSortChange={(val) =>
+                updateParams({ sort: val === "_newest" ? null : val })
               }
-              className="h-12 px-6 rounded-md border border-border bg-transparent text-xs font-semibold uppercase tracking-widest text-foreground hover:bg-muted"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Prev
-            </Button>
-            <span className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-              Page {query.page || 1} {total > 0 && `of ${Math.ceil(total / (query.pageSize || 12))}`}
-            </span>
-            <Button
-              id="next-page-btn"
-              type="button"
-              disabled={!canNext || isLoading}
-              onClick={() =>
-                setQuery((q) => ({ ...q, page: (q.page || 1) + 1 }))
-              }
-              className="h-12 px-6 rounded-md border-0 bg-foreground text-background text-xs font-semibold uppercase tracking-widest hover:bg-foreground/90"
-            >
-              Next
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
+              onViewChange={(v) => updateParams({ view: v === "grid" ? null : v })}
+            />
+
+            <FilterChips
+              filters={filters}
+              query={q}
+              priceBounds={priceBounds}
+              onRemove={handleRemoveFilter}
+              onClearAll={handleClearAll}
+            />
+
+            {error && (
+              <Alert variant="destructive" className="rounded-xl">
+                <AlertCircle className="size-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {view === "grid" ? (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
+                {isLoading
+                  ? Array.from({ length: 6 }).map((_, i) => <CostumeCardSkeleton key={i} />)
+                  : filteredItems.length
+                    ? filteredItems.map((c) => (
+                        <CostumeCard key={c.id} costume={c} savedIds={savedIds} variant="grid" />
+                      ))
+                    : (
+                      <EmptyState scope={ownerScope} />
+                    )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => <CostumeCardSkeleton key={i} variant="list" />)
+                  : filteredItems.length
+                    ? filteredItems.map((c) => (
+                        <CostumeCard key={c.id} costume={c} savedIds={savedIds} variant="list" />
+                      ))
+                    : (
+                      <EmptyState scope={ownerScope} />
+                    )}
+              </div>
+            )}
+
+            {(canPrev || canNext) && (
+              <div className="flex items-center justify-center gap-4 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canPrev || isLoading}
+                  onClick={() => updateParams({ page: String(page - 1) }, false)}
+                  className="rounded-xl"
+                >
+                  <ChevronLeft className="mr-1 size-4" />
+                  Prev
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page}
+                  {total > 0 && ` of ${Math.ceil(total / PAGE_SIZE)}`}
+                </span>
+                <Button
+                  type="button"
+                  disabled={!canNext || isLoading}
+                  onClick={() => updateParams({ page: String(page + 1) }, false)}
+                  className="rounded-xl"
+                >
+                  Next
+                  <ChevronRight className="ml-1 size-4" />
+                </Button>
+              </div>
+            )}
           </div>
-        )}
-      </section>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function EmptyState({ scope }: { scope: "all" | "mine" }) {
+  return (
+    <div className="col-span-full rounded-xl border border-border bg-card p-16 text-center">
+      <div className="mb-4 flex justify-center text-muted-foreground/30">
+        <Search className="size-10" />
+      </div>
+      <p className="font-display text-2xl text-foreground">
+        {scope === "mine" ? "No listings yet." : "No costumes found."}
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {scope === "mine"
+          ? "You do not have any listings that match the current filters."
+          : "Try adjusting your filters or search terms."}
+      </p>
+      <Link href="/" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
+        Clear all filters
+      </Link>
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="marketplace-shell flex flex-1 items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading marketplace…</p>
+        </div>
+      }
+    >
+      <MarketplacePageInner />
+    </Suspense>
   );
 }

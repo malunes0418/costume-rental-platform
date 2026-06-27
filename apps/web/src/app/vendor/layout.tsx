@@ -122,7 +122,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   }
 
   const Sidebar = () => (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-background">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-20 items-center border-b border-border px-6">
         <div className="space-y-2">
           <BrandLogo size="md" />
@@ -135,14 +135,14 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
       <div className="space-y-4 border-b border-border bg-muted/30 px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="truncate font-playfair text-2xl font-semibold text-foreground">{storeName}</p>
+            <p className="truncate font-display text-xl font-semibold text-foreground">{storeName}</p>
             <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
           </div>
           <ThemeToggle />
         </div>
         <span
           className={cn(
-            "inline-flex rounded-sm border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
+            "inline-flex rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-widest",
             statusMeta(vendorStatus)
           )}
         >
@@ -150,7 +150,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         </span>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4" aria-label="Vendor navigation">
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-4" aria-label="Vendor navigation">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/vendor" ? pathname === href : pathname.startsWith(href);
           return (
@@ -159,9 +159,9 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
               href={href}
               onClick={() => setSidebarOpen(false)}
               className={cn(
-                "flex items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors",
                 isActive
-                  ? "bg-foreground text-background"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -174,7 +174,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
       <div className="space-y-3 border-t border-border px-4 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
@@ -185,14 +185,14 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         <div className="grid grid-cols-2 gap-2">
           <Link
             href="/"
-            className="flex h-9 items-center justify-center rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+            className="flex h-9 items-center justify-center rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
           >
             Storefront
           </Link>
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-sm border border-destructive/30 px-3 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
+            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 px-3 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10"
           >
             <ExitIcon className="size-3" />
             Log out
@@ -204,8 +204,8 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   if (!isApprovedVendor) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-background">
+      <div className="min-h-screen page-bg">
+        <header className="border-b border-border bg-card">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5">
             <div>
               <Link href="/" aria-label="SnapCos home">
@@ -218,7 +218,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  "inline-flex rounded-sm border px-2 py-1 text-[9px] font-semibold uppercase tracking-widest",
+                  "inline-flex rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-widest",
                   statusMeta(vendorStatus)
                 )}
               >
@@ -234,7 +234,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden page-bg">
       <div className="hidden md:flex">
         <Sidebar />
       </div>
@@ -242,7 +242,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
-            className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-brand-ink/20 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-10 flex h-full">
@@ -257,12 +257,12 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
             type="button"
             aria-label="Open menu"
             onClick={() => setSidebarOpen(true)}
-            className="flex size-9 items-center justify-center rounded-sm border border-border text-foreground"
+            className="flex size-9 items-center justify-center rounded-xl border border-border text-foreground"
           >
             <HamburgerMenuIcon className="size-4" />
           </button>
           <div className="text-center">
-            <p className="font-playfair text-sm font-semibold text-foreground">{storeName}</p>
+            <p className="font-display text-sm font-semibold text-foreground">{storeName}</p>
             <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
               {vendorStatus}
             </p>
@@ -270,7 +270,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
           <ThemeToggle />
         </div>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-muted/40">{children}</main>
       </div>
     </div>
   );

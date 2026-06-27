@@ -58,7 +58,7 @@ function NotificationsPageSkeleton() {
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Your account
           </p>
-          <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
+          <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
             Notifications
           </h1>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -192,14 +192,14 @@ function NotificationsPageContent() {
           <Bell className="size-16" />
         </div>
         <div className="max-w-sm space-y-3">
-          <h1 className="font-playfair text-4xl font-semibold text-foreground">Notifications</h1>
+          <h1 className="font-display text-4xl font-semibold text-foreground">Notifications</h1>
           <p className="text-muted-foreground">
             Sign in to see updates about reservations, payments, and vendor activity.
           </p>
         </div>
         <Link
           href="/login?next=/notifications"
-          className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+          className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Log in to continue
         </Link>
@@ -214,7 +214,7 @@ function NotificationsPageContent() {
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
             Your account
           </p>
-          <h1 className="mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
+          <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
             Notifications
           </h1>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
@@ -261,7 +261,7 @@ function NotificationsPageContent() {
             <Bell className="size-12" />
           </div>
           <div className="space-y-2">
-            <p className="font-playfair text-3xl font-semibold text-foreground">All clear</p>
+            <p className="font-display text-3xl font-semibold text-foreground">All clear</p>
             <p className="text-muted-foreground">
               New reservation and payment updates will show up here.
             </p>
@@ -297,7 +297,7 @@ function NotificationsPageContent() {
                           <span
                             className={cn(
                               "size-1.5 rounded-full",
-                              notification.is_read ? "bg-transparent" : "bg-foreground"
+                              notification.is_read ? "bg-transparent" : "bg-primary"
                             )}
                           />
                           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -340,7 +340,7 @@ function NotificationsPageContent() {
                 </div>
 
                 <div className="space-y-3">
-                  <h2 className="font-playfair text-3xl font-semibold leading-tight text-foreground">
+                  <h2 className="font-display text-3xl font-semibold leading-tight text-foreground">
                     {selectedNotification.title}
                   </h2>
                   <p className="text-sm leading-relaxed text-muted-foreground">
@@ -361,7 +361,7 @@ function NotificationsPageContent() {
                   <Bell className="size-10" />
                 </div>
                 <div className="space-y-2">
-                  <p className="font-playfair text-2xl font-semibold text-foreground">
+                  <p className="font-display text-2xl font-semibold text-foreground">
                     Select a notification
                   </p>
                   <p className="text-sm text-muted-foreground">

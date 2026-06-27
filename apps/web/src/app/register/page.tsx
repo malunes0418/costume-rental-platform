@@ -15,6 +15,8 @@ import {
 import { GoogleAuthLink } from "@/components/auth/GoogleAuthLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Sparkle } from "@/components/brand/Sparkle";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultPostLoginPath } from "../../lib/authRedirects";
@@ -68,7 +70,7 @@ export default function RegisterPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
         <div className="w-full max-w-[400px] animate-fade-up">
           <div className="mb-10 space-y-2">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Create account</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Create account</h1>
             <p className="text-sm text-muted-foreground">
               Join SnapCos and start renting extraordinary costumes.
             </p>
@@ -112,7 +114,7 @@ export default function RegisterPage() {
                 type="text"
                 autoComplete="name"
                 placeholder="Your name"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-md border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
               />
             </div>
 
@@ -131,7 +133,7 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
-                className="h-12 rounded-sm border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-md border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
               />
             </div>
 
@@ -151,7 +153,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   required
                   placeholder="........"
-                  className="h-12 rounded-sm border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-foreground/30 focus-visible:ring-0"
+                  className="h-12 rounded-md border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
                 />
                 <button
                   type="button"
@@ -165,11 +167,11 @@ export default function RegisterPage() {
               <p className="text-[10px] text-muted-foreground">Use at least 8 characters.</p>
             </div>
 
-            <button
+            <Button
               id="register-submit-btn"
               type="submit"
               disabled={isSubmitting || !email.trim() || !password.trim()}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-2 h-12 w-full text-xs font-semibold uppercase tracking-widest"
             >
               {isSubmitting ? (
                 <>
@@ -179,7 +181,7 @@ export default function RegisterPage() {
               ) : (
                 "Create account"
               )}
-            </button>
+            </Button>
 
             <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
               By creating an account, you agree to our{" "}
@@ -206,14 +208,15 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-l border-border bg-muted/30 px-12 py-16">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-l border-border bg-primary/5 px-12 py-16">
         <div className="flex flex-1 items-center">
           <div className="space-y-10">
             <div className="space-y-4">
-              <p className="font-playfair text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+              <Sparkle size="lg" animated className="text-accent" />
+              <p className="font-display text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
                 Wear something
                 <br />
-                extraordinary.
+                <span className="text-primary italic">extraordinary.</span>
               </p>
               <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
                 Thousands of premium costumes available for rent - from theatrical period pieces to fantasy ensembles.
@@ -223,7 +226,7 @@ export default function RegisterPage() {
             <ul className="space-y-4">
               {TRUST_POINTS.map((point) => (
                 <li key={point} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border border-border text-foreground">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
                     <CheckIcon className="size-3" />
                   </span>
                   <span className="text-sm text-muted-foreground">{point}</span>

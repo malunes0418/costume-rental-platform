@@ -15,8 +15,8 @@ import { applyForVendor, getVendorProfile, type VendorProfile } from "@/lib/vend
 
 function detailBlock(title: string, copy: string) {
   return (
-    <div className="rounded-sm border border-border bg-card p-5">
-      <p className="font-playfair text-2xl font-semibold text-foreground">{title}</p>
+    <div className="rounded-xl border border-border bg-card p-5">
+      <p className="font-display text-2xl font-semibold text-foreground">{title}</p>
       <p className="mt-2 text-sm leading-7 text-muted-foreground">{copy}</p>
     </div>
   );
@@ -64,9 +64,9 @@ export default function VendorApply() {
     return (
       <div className="mx-auto max-w-[1200px] px-6 py-16">
         <div className="space-y-4">
-          <Skeleton className="h-4 w-32 rounded-sm" />
-          <Skeleton className="h-16 w-96 rounded-sm" />
-          <Skeleton className="h-64 w-full rounded-sm" />
+          <Skeleton className="h-4 w-32 rounded-xl" />
+          <Skeleton className="h-16 w-96 rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -98,13 +98,13 @@ export default function VendorApply() {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Submitted Application
               </p>
-              <h1 className="max-w-3xl font-playfair text-5xl font-semibold leading-tight text-foreground md:text-6xl">
+              <h1 className="max-w-3xl font-display text-5xl font-semibold leading-tight text-foreground md:text-6xl">
                 {heading}
               </h1>
               <p className="max-w-xl text-base leading-8 text-muted-foreground">{copy}</p>
             </div>
 
-            <div className="rounded-sm border border-border bg-muted/30 p-5">
+            <div className="rounded-xl border border-border bg-muted/30 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Next step</p>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
                 {profile.vendorStatus === "APPROVED"
@@ -174,7 +174,7 @@ export default function VendorApply() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               Vendor Application
             </p>
-            <h1 className="max-w-3xl font-playfair text-5xl font-semibold leading-tight text-foreground md:text-6xl">
+            <h1 className="max-w-3xl font-display text-5xl font-semibold leading-tight text-foreground md:text-6xl">
               Apply with trust, not friction.
             </h1>
             <p className="max-w-xl text-base leading-8 text-muted-foreground">
@@ -201,7 +201,7 @@ export default function VendorApply() {
         <section className="border border-border bg-card p-6 md:p-8">
           <div className="border-b border-border pb-6">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Boutique profile</p>
-            <p className="mt-3 max-w-2xl font-playfair text-3xl font-semibold text-foreground">
+            <p className="mt-3 max-w-2xl font-display text-3xl font-semibold text-foreground">
               Tell us who you are and what kind of wardrobe you are bringing in.
             </p>
           </div>
@@ -220,7 +220,7 @@ export default function VendorApply() {
                 onChange={(event) => setBusinessName(event.target.value)}
                 placeholder="Maison Masquerade"
                 required
-                className="h-12 rounded-sm border-border bg-transparent text-base text-foreground shadow-none focus-visible:border-foreground/30 focus-visible:ring-0"
+                className="h-12 rounded-xl border-border bg-transparent text-base text-foreground shadow-none focus-visible:border-foreground/30 focus-visible:ring-0"
               />
             </div>
 
@@ -237,7 +237,7 @@ export default function VendorApply() {
                 onChange={(event) => setBio(event.target.value)}
                 rows={6}
                 placeholder="Describe the world your costumes belong to, the quality of the collection, and the occasions they are best suited for."
-                className="w-full resize-y rounded-sm border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30"
+                className="w-full resize-y rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30"
               />
             </div>
 
@@ -250,10 +250,10 @@ export default function VendorApply() {
               </Label>
               <label
                 htmlFor="id-document"
-                className="flex cursor-pointer flex-col gap-4 rounded-sm border border-dashed border-border bg-muted/30 px-5 py-6 transition-colors hover:bg-muted"
+                className="flex cursor-pointer flex-col gap-4 rounded-xl border border-dashed border-border bg-muted/30 px-5 py-6 transition-colors hover:bg-muted"
               >
                 <div className="flex items-start gap-4">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-background text-foreground">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-foreground">
                     <UploadIcon className="size-4" />
                   </span>
                   <div className="min-w-0">
@@ -281,7 +281,7 @@ export default function VendorApply() {
               <button
                 type="submit"
                 disabled={loading || !businessName.trim() || !documentFile}
-                className="flex h-12 w-full items-center justify-center rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-12 w-full items-center justify-center rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {loading ? "Submitting for review..." : "Submit application"}
               </button>

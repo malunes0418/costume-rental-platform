@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
-import { DM_Sans, Newsreader } from "next/font/google";
+import { DM_Sans, Fraunces } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { ConditionalNavbar } from "../components/ConditionalNavbar";
 import { ThemeProvider } from "../components/theme-provider";
 import { CartProvider } from "../lib/CartContext";
 import { AuthProvider } from "../lib/auth";
+import { LandingShellProvider } from "../lib/landing-shell";
 import "./globals.css";
 
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
+const fraunces = Fraunces({
+  variable: "--font-display",
   subsets: ["latin"],
-  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
   style: ["normal", "italic"],
 });
 
 const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"],
 });
@@ -54,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${dmSans.variable} h-full`}
+      className={`${fraunces.variable} ${dmSans.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
@@ -65,9 +66,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <CartProvider>
-              <ConditionalNavbar />
-              <div className="flex flex-1 flex-col">{children}</div>
+            <LandingShellProvider>
+              <CartProvider>
+                <ConditionalNavbar />
+                <div className="flex flex-1 flex-col">{children}</div>
               <Toaster position="top-right" />
               <div
                 aria-hidden="true"
@@ -83,7 +85,8 @@ export default function RootLayout({
                   backgroundSize: "128px",
                 }}
               />
-            </CartProvider>
+              </CartProvider>
+            </LandingShellProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

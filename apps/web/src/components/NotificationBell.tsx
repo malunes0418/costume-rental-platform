@@ -136,7 +136,7 @@ export function NotificationBell() {
         {unreadCount > 0 && (
           <span
             aria-hidden="true"
-            className="absolute right-2 top-2 size-1.5 rounded-full bg-foreground ring-1 ring-background"
+            className="absolute right-2 top-2 size-1.5 rounded-full bg-primary ring-1 ring-background"
           />
         )}
       </button>
@@ -158,7 +158,7 @@ export function NotificationBell() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <div className="flex items-center gap-3">
-              <p className="font-playfair text-base font-semibold text-foreground">
+              <p className="font-display text-base font-semibold text-foreground">
                 Notifications
               </p>
               {unreadCount > 0 && (
@@ -198,7 +198,7 @@ export function NotificationBell() {
                   <Bell className="size-8" />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-playfair text-lg font-semibold text-foreground">
+                  <p className="font-display text-lg font-semibold text-foreground">
                     All clear
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -224,7 +224,7 @@ export function NotificationBell() {
                         className={cn(
                           "mt-1.5 size-1.5 shrink-0 rounded-full transition-opacity",
                           !n.is_read
-                            ? "bg-foreground opacity-100"
+                            ? "bg-primary opacity-100"
                             : "opacity-0"
                         )}
                       />

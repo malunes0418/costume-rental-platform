@@ -4,11 +4,11 @@
 SnapCos (formerly CostumeStay) is a full-stack, multi-platform costume rental application that operates on a flat-fee subscription SaaS model. It connects costume vendors with renters through a unified, premium, and minimalist experience across web and mobile platforms.
 
 ## Design Philosophy
-The platform embraces an editorial, utilitarian minimalist design system:
-- **Color Palette:** Warm monochrome.
-- **Typography:** Refined hierarchies using *Newsreader* and *DM Sans*.
-- **UI Elements:** Crisp 1px borders, clean layouts, avoiding heavy shadows or cluttered aesthetics.
-- **Focus:** High-end, seamless user journeys with strict visual consistency between the mobile app and the web frontend.
+The platform embraces a logo-true theatrical design system — "Snap Into Character":
+- **Color Palette:** Spotlight Coral (primary), Stage Gold (accent), Curtain Black (structure), warm canvas backgrounds.
+- **Typography:** *Fraunces* for theatrical display hierarchy; *DM Sans* for UI and body text.
+- **UI Elements:** Sparkle/snap motifs, coral-tinted hover shadows, 0.75rem radius, confident brand color in chrome.
+- **Focus:** Playful, fashion-forward web-only experience with SaaS-grade vendor workflows (no Expo mobile app in this repo).
 
 ## Platform Architecture
 SnapCos is built using a modern monorepo architecture, comprising three main pillars:

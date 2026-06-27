@@ -150,7 +150,7 @@ export function VendorFulfillmentStudio({
         <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
           Fulfillment direction
         </p>
-        <h2 className="max-w-xl font-playfair text-4xl font-semibold leading-tight text-foreground">
+        <h2 className="max-w-xl font-display text-4xl font-semibold leading-tight text-foreground">
           Set the handoff rhythm before each piece enters circulation.
         </h2>
         <p className="max-w-[58ch] text-sm leading-8 text-muted-foreground">

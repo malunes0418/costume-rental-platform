@@ -43,7 +43,7 @@ function fmt(d?: string) {
 function StatusChip({ status }: { status: ReservationStatus }) {
   const meta = getReservationStatusMeta(status);
   return (
-    <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${meta.className}`}>
+    <span className={`rounded-xl border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${meta.className}`}>
       {meta.label}
     </span>
   );
@@ -100,7 +100,7 @@ export default function AdminReservationsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
             Reservations
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -115,9 +115,9 @@ export default function AdminReservationsPage() {
               type="button"
               onClick={() => setFilter(status)}
               className={cn(
-                "rounded-sm border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
+                "rounded-xl border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
                 filter === status
-                  ? "border-foreground bg-foreground text-background"
+                  ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground"
               )}
             >
@@ -130,11 +130,11 @@ export default function AdminReservationsPage() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-sm" />
+            <Skeleton key={index} className="h-20 w-full rounded-xl" />
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-sm border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           {items.length === 0 && (
             <p className="px-6 py-16 text-center text-sm text-muted-foreground">
               No reservations match this filter.
@@ -158,7 +158,7 @@ export default function AdminReservationsPage() {
                 return (
                   <tr key={reservation.id} className="group transition-colors hover:bg-muted/30">
                     <td className="p-4">
-                      <p className="font-playfair text-base font-semibold text-foreground">#{reservation.id}</p>
+                      <p className="font-display text-base font-semibold text-foreground">#{reservation.id}</p>
                       <StatusChip status={reservation.status} />
                     </td>
                     <td className="p-4">
@@ -177,14 +177,14 @@ export default function AdminReservationsPage() {
                       {fmt(reservation.start_date)} →<br />
                       {fmt(reservation.end_date)}
                     </td>
-                    <td className="p-4 font-playfair font-semibold text-foreground">
+                    <td className="p-4 font-display font-semibold text-foreground">
                       ₱{Number(reservation.total_price).toLocaleString()}
                     </td>
                     <td className="p-4 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedRes(reservation)}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
                         <MagnifyingGlassIcon className="size-3.5" /> Details
                       </button>
@@ -200,18 +200,18 @@ export default function AdminReservationsPage() {
               <div key={reservation.id} className="space-y-3 p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-playfair text-base font-semibold text-foreground">#{reservation.id}</p>
+                    <p className="font-display text-base font-semibold text-foreground">#{reservation.id}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{reservation.User?.name || `User #${reservation.user_id}`}</p>
                   </div>
                   <div className="text-right">
                     <StatusChip status={reservation.status} />
-                    <p className="mt-1 font-playfair font-semibold text-foreground">₱{Number(reservation.total_price).toLocaleString()}</p>
+                    <p className="mt-1 font-display font-semibold text-foreground">₱{Number(reservation.total_price).toLocaleString()}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedRes(reservation)}
-                  className="flex h-8 w-full items-center justify-center gap-1.5 rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted"
+                  className="flex h-8 w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted"
                 >
                   <MagnifyingGlassIcon className="size-3.5" /> View Details
                 </button>
@@ -224,7 +224,7 @@ export default function AdminReservationsPage() {
       <Dialog open={!!selectedRes} onOpenChange={(open: boolean) => !open && setSelectedRes(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="font-playfair text-2xl">Reservation #{selectedRes?.id}</DialogTitle>
+            <DialogTitle className="font-display text-2xl">Reservation #{selectedRes?.id}</DialogTitle>
             <DialogDescription>
               View detailed information and moderate this reservation lifecycle.
             </DialogDescription>
@@ -250,11 +250,11 @@ export default function AdminReservationsPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Total Price</p>
-                  <p className="font-playfair text-lg font-semibold">₱{Number(selectedRes.total_price).toLocaleString()}</p>
+                  <p className="font-display text-lg font-semibold">₱{Number(selectedRes.total_price).toLocaleString()}</p>
                 </div>
               </div>
 
-              <div className="rounded-sm border border-border bg-muted/20 p-4">
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
                 <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Costume Details</p>
                 <div className="space-y-2">
                   {selectedRes.items?.map((item, index) => {
@@ -272,7 +272,7 @@ export default function AdminReservationsPage() {
               </div>
 
               {selectedRes.fulfillment ? (
-                <div className="rounded-sm border border-border bg-muted/20 p-4">
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
                   <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fulfillment</p>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
@@ -345,11 +345,11 @@ export default function AdminReservationsPage() {
               ) : null}
 
               {selectedRes.adjustments?.length ? (
-                <div className="rounded-sm border border-border bg-muted/20 p-4">
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
                   <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Reservation Adjustments</p>
                   <div className="space-y-3">
                     {selectedRes.adjustments?.map((adjustment) => (
-                      <div key={adjustment.id} className="rounded-sm border border-border bg-background px-4 py-3 text-sm">
+                      <div key={adjustment.id} className="rounded-xl border border-border bg-background px-4 py-3 text-sm">
                         <p className="font-semibold text-foreground">
                           Outside-area surcharge · ₱{Number(adjustment.amount).toLocaleString()}
                         </p>
@@ -380,7 +380,7 @@ export default function AdminReservationsPage() {
                             key={nextStatus}
                             onClick={() => handleUpdateStatus(selectedRes.id, nextStatus)}
                             disabled={actioning}
-                            className="flex h-9 items-center rounded-sm border border-foreground/20 px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                            className="flex h-9 items-center rounded-xl border border-foreground/20 px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
                           >
                             Mark {meta.label}
                           </button>

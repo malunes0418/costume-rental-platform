@@ -75,12 +75,12 @@ export default function WishlistPage() {
             <Heart className="mx-auto size-16" />
           </div>
           <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Wishlist</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Wishlist</h1>
             <p className="text-muted-foreground">Sign in to save and revisit your favourite costumes.</p>
           </div>
           <Link
             href="/login?next=/wishlist"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Log in to continue
           </Link>
@@ -97,12 +97,12 @@ export default function WishlistPage() {
             <Heart className="mx-auto size-16" />
           </div>
           <div className="space-y-3">
-            <h1 className="font-playfair text-4xl font-semibold text-foreground">Unavailable</h1>
+            <h1 className="font-display text-4xl font-semibold text-foreground">Unavailable</h1>
             <p className="text-muted-foreground">Administrators cannot use the wishlist feature.</p>
           </div>
           <Link
             href="/"
-            className="inline-flex h-12 items-center rounded-md bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Return Home
           </Link>
@@ -118,7 +118,7 @@ export default function WishlistPage() {
           <p className="animate-fade-up text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Your account
           </p>
-          <h1 className="animate-fade-up-delay-1 mt-4 font-playfair text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
+          <h1 className="animate-fade-up-delay-1 mt-4 font-display text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
             Wishlist
           </h1>
           <p className="animate-fade-up-delay-2 mt-4 text-base leading-relaxed text-muted-foreground">
@@ -187,7 +187,7 @@ export default function WishlistPage() {
 
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-playfair text-lg font-semibold text-foreground">
+                    <p className="truncate font-display text-lg font-semibold text-foreground">
                       {costume?.name || `Costume #${it.costume_id}`}
                     </p>
                     {tags.length > 0 && (
@@ -230,7 +230,7 @@ export default function WishlistPage() {
             <Heart className="size-12" />
           </div>
           <div className="space-y-2">
-            <p className="font-playfair text-3xl font-semibold text-foreground">
+            <p className="font-display text-3xl font-semibold text-foreground">
               Nothing saved yet.
             </p>
             <p className="text-muted-foreground">
@@ -239,7 +239,7 @@ export default function WishlistPage() {
           </div>
           <Link
             href="/"
-            className="inline-flex h-12 items-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/85"
+            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Browse costumes
           </Link>

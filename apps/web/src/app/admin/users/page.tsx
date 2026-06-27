@@ -17,11 +17,11 @@ function fmt(d?: string) {
 function RoleChip({ role }: { role: string }) {
   const r = role?.toUpperCase();
   const cls =
-    r === "ADMIN" ? "border-foreground bg-foreground text-background"
+    r === "ADMIN" ? "border-primary bg-primary text-primary-foreground"
     : r === "VENDOR" ? "border-border text-foreground"
     : r === "SUSPENDED" ? "border-destructive/30 bg-destructive/10 text-destructive"
     : "border-border/50 text-muted-foreground";
-  return <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{role}</span>;
+  return <span className={`rounded-xl border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>{role}</span>;
 }
 
 export default function AdminUsersPage() {
@@ -64,7 +64,7 @@ export default function AdminUsersPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Admin</p>
-          <h1 className="mt-2 font-playfair text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
             Users
           </h1>
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
@@ -83,24 +83,24 @@ export default function AdminUsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or email…"
-            className="pl-9 h-9 text-xs rounded-sm border-border bg-card focus-visible:ring-0 shadow-sm"
+            className="pl-9 h-9 text-xs rounded-xl border-border bg-card focus-visible:ring-0 shadow-sm"
           />
         </div>
       </div>
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-sm" />)}
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
         </div>
       ) : (
-        <div className="rounded-sm border border-border divide-y divide-border bg-card">
+        <div className="rounded-xl border border-border divide-y divide-border bg-card">
           {items.length === 0 && (
             <p className="px-6 py-16 text-center text-sm text-muted-foreground">No users found.</p>
           )}
           {items.map((u) => (
             <div key={u.id} className="flex items-center justify-between gap-4 px-6 py-4 group transition-colors hover:bg-muted/30">
               <div className="flex items-center gap-4 min-w-0">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-[10px] font-bold uppercase text-foreground">
                   {u.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "U"}
                 </span>
                 <div className="min-w-0">
@@ -114,7 +114,7 @@ export default function AdminUsersPage() {
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex size-8 items-center justify-center rounded-sm transition-colors hover:bg-muted text-muted-foreground hover:text-foreground">
+                    <button className="flex size-8 items-center justify-center rounded-xl transition-colors hover:bg-muted text-muted-foreground hover:text-foreground">
                       <DotsHorizontalIcon className="size-4" />
                     </button>
                   </DropdownMenuTrigger>

@@ -3,22 +3,26 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SavedLocationInput } from "@/lib/fulfillment";
+import { cn } from "@/lib/utils";
 
 export function SavedLocationFields({
   value,
   onChange,
-  showDefaultToggle = true
+  showDefaultToggle = true,
+  layout = "double"
 }: {
   value: SavedLocationInput;
   onChange: (value: SavedLocationInput) => void;
   showDefaultToggle?: boolean;
+  layout?: "single" | "double";
 }) {
+  const isSingle = layout === "single";
   function update<K extends keyof SavedLocationInput>(key: K, nextValue: SavedLocationInput[K]) {
     onChange({ ...value, [key]: nextValue });
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className={isSingle ? "grid gap-4" : "grid gap-4 md:grid-cols-2"}>
       <div className="space-y-2">
         <Label className="text-xs uppercase tracking-widest text-muted-foreground">Label</Label>
         <Input
@@ -55,7 +59,7 @@ export function SavedLocationFields({
           className="h-11 rounded-sm"
         />
       </div>
-      <div className="space-y-2 md:col-span-2">
+      <div className={isSingle ? "space-y-2" : "space-y-2 md:col-span-2"}>
         <Label className="text-xs uppercase tracking-widest text-muted-foreground">Address line 1</Label>
         <Input
           value={value.address_line_1}
@@ -118,7 +122,7 @@ export function SavedLocationFields({
           className="h-11 rounded-sm"
         />
       </div>
-      <div className="space-y-2 md:col-span-2">
+      <div className={isSingle ? "space-y-2" : "space-y-2 md:col-span-2"}>
         <Label className="text-xs uppercase tracking-widest text-muted-foreground">Notes</Label>
         <textarea
           value={value.notes || ""}
@@ -129,7 +133,7 @@ export function SavedLocationFields({
       </div>
 
       {showDefaultToggle ? (
-        <label className="flex items-center gap-3 md:col-span-2">
+        <label className={isSingle ? "flex items-center gap-3" : "flex items-center gap-3 md:col-span-2"}>
           <input
             type="checkbox"
             checked={Boolean(value.is_default)}

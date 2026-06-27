@@ -257,7 +257,7 @@ export function CartDrawer() {
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-6">
           <div className="space-y-1">
-            <h2 className="font-playfair text-2xl font-semibold tracking-tight">
+            <h2 className="font-display text-2xl font-semibold tracking-tight">
               {step === "CART" ? "Your Curation" : step === "UPLOAD" ? "Vendor Payment" : "Confirmed"}
             </h2>
             {step === "CART" && (
@@ -292,11 +292,11 @@ export function CartDrawer() {
               <div className="flex size-16 items-center justify-center rounded-full border border-border bg-muted/30">
                 <ImageIcon className="h-6 w-6 opacity-50" />
               </div>
-              <p className="font-playfair text-xl text-foreground">Your curation is empty.</p>
+              <p className="font-display text-xl text-foreground">Your curation is empty.</p>
               <p className="text-sm">Add costumes to your cart and pay each vendor separately.</p>
               <button
                 onClick={closeCart}
-                className="mt-4 border-b border-foreground pb-1 text-xs font-semibold uppercase tracking-widest transition-opacity hover:opacity-70"
+                className="mt-4 border-b border-primary pb-1 text-xs font-semibold uppercase tracking-widest text-primary transition-opacity hover:opacity-70"
               >
                 Continue Browsing
               </button>
@@ -307,7 +307,7 @@ export function CartDrawer() {
                 <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
                   <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
                     <div>
-                      <p className="font-playfair text-xl font-semibold text-foreground">{group.vendorName}</p>
+                      <p className="font-display text-xl font-semibold text-foreground">{group.vendorName}</p>
                       <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         {group.items.length} item{group.items.length === 1 ? "" : "s"} · PHP {group.subtotal.toLocaleString()}
                       </p>
@@ -315,7 +315,7 @@ export function CartDrawer() {
                     <button
                       type="button"
                       onClick={() => handleProceedToPayment(group.vendorId)}
-                      className="inline-flex h-9 items-center rounded-sm border border-foreground bg-foreground px-4 text-[10px] font-semibold uppercase tracking-widest text-background transition-colors hover:bg-foreground/90"
+                      className="inline-flex h-9 items-center rounded-md border border-primary bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
                     </button>
@@ -349,7 +349,7 @@ export function CartDrawer() {
                           <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate font-playfair text-lg font-semibold text-foreground">{name}</p>
+                                <p className="truncate font-display text-lg font-semibold text-foreground">{name}</p>
                                 <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                   {isPendingPayment ? "Ready for receipt" : "In Cart"}
                                 </p>
@@ -404,7 +404,7 @@ export function CartDrawer() {
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {selectedGroup.vendorName}
                   </p>
-                  <p className="font-playfair text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
+                  <p className="font-display text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">
                     Upload one receipt for {selectedGroup.items.length} costume{selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
                   </p>
@@ -434,12 +434,12 @@ export function CartDrawer() {
                   htmlFor="receipt-upload"
                   className={cn(
                     "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-border bg-muted/20 transition-colors hover:bg-muted/50",
-                    file && "border-solid border-foreground bg-muted/10"
+                    file && "border-solid border-primary bg-muted/10"
                   )}
                 >
                   {file ? (
                     <div className="z-10 flex flex-col items-center gap-2 p-4 text-center">
-                      <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-foreground text-background">
+                      <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
                         <UploadIcon className="h-5 w-5" />
                       </div>
                       <p className="max-w-[220px] truncate text-sm font-semibold">{file.name}</p>
@@ -472,14 +472,14 @@ export function CartDrawer() {
                 </svg>
               </div>
               <div className="space-y-2">
-                <p className="font-playfair text-3xl font-semibold">Payment Received</p>
+                <p className="font-display text-3xl font-semibold">Payment Received</p>
                 <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
                   Your receipt has been sent to the vendor for verification. We&apos;ll notify you once it is complete.
                 </p>
               </div>
               <a
                 href="/reservations"
-                className="mt-4 inline-flex h-12 items-center justify-center rounded-sm bg-foreground px-8 text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90"
+                className="mt-4 inline-flex h-12 items-center justify-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90"
               >
                 View Reservations
               </a>
@@ -492,7 +492,7 @@ export function CartDrawer() {
             <button
               onClick={handleUploadAndPay}
               disabled={isProcessing || !file}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-foreground text-xs font-semibold uppercase tracking-widest text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
             >
               {isProcessing ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
