@@ -11,7 +11,11 @@
     "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all",
     "test": "vitest run",
     "test:watch": "vitest",
-    "openapi:export": "npx ts-node export-openapi.ts"
+    "openapi:export": "npx ts-node export-openapi.ts",
+    "seed:images": "node seed_scripts/fetch-seed-images.mjs",
+    "seed:sql": "node seed_scripts/fetch-seed-images.mjs && node seed_scripts/generate-seed-sql.mjs",
+    "seed:import": "node seed_scripts/import-seed-sql.mjs",
+    "seed:verify": "node seed_scripts/verify-seed.mjs"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",

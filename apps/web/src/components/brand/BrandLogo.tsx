@@ -1,8 +1,6 @@
-"use client";
-
 import Image from "next/image";
-import { useTheme } from "next-themes";
 
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { cn } from "@/lib/utils";
 
 type BrandLogoVariant = "full" | "mark";
@@ -15,28 +13,23 @@ type BrandLogoProps = {
   variant?: BrandLogoVariant;
 };
 
-const LOCKUP_LIGHT = {
-  src: "/brand/snapcos-lockup-light.png",
-  width: 1520,
-  height: 555,
-} as const;
-
-const LOCKUP_DARK = {
-  src: "/brand/snapcos-lockup-dark.png",
-  width: 1520,
-  height: 555,
-} as const;
-
 const MARK_IMAGE = {
-  src: "/brand/snapcos-mark.png",
+  light: "/brand/snapcos-mark.png",
+  dark: "/brand/snapcos-mark-dark.png",
   width: 445,
   height: 555,
 } as const;
 
 const LOCKUP_CLASSES: Record<BrandLogoSize, string> = {
-  sm: "h-8",
-  md: "h-9",
-  lg: "h-11",
+  sm: "h-8 gap-1.5",
+  md: "h-9 gap-2",
+  lg: "h-11 gap-2.5",
+};
+
+const LOCKUP_MARK_CLASSES: Record<BrandLogoSize, string> = {
+  sm: "h-[1.65rem] w-auto",
+  md: "h-[1.85rem] w-auto",
+  lg: "h-[2.25rem] w-auto",
 };
 
 const MARK_BOX_CLASSES: Record<BrandLogoSize, string> = {
@@ -51,6 +44,54 @@ const MARK_IMAGE_CLASSES: Record<BrandLogoSize, string> = {
   lg: "size-7",
 };
 
+function BrandMarkGraphic({
+  priority = false,
+  className,
+  onDarkBackground = false,
+}: {
+  priority?: boolean;
+  className?: string;
+  /** When true, swaps to a light-toned mark on dark surfaces (e.g. navbar lockup). */
+  onDarkBackground?: boolean;
+}) {
+  const imageProps = {
+    alt: "",
+    "aria-hidden": true as const,
+    height: MARK_IMAGE.height,
+    priority,
+    width: MARK_IMAGE.width,
+  };
+
+  if (!onDarkBackground) {
+    return (
+      <Image
+        {...imageProps}
+        className={cn("shrink-0 object-contain", className)}
+        src={MARK_IMAGE.light}
+      />
+    );
+  }
+
+  return (
+    <span className={cn("inline-flex shrink-0 items-center", className)}>
+      <span className="inline-flex h-full dark:hidden">
+        <Image
+          {...imageProps}
+          className="h-full w-auto object-contain"
+          src={MARK_IMAGE.light}
+        />
+      </span>
+      <span className="hidden h-full dark:inline-flex">
+        <Image
+          {...imageProps}
+          className="h-full w-auto object-contain"
+          src={MARK_IMAGE.dark}
+        />
+      </span>
+    </span>
+  );
+}
+
 function BrandMark({ priority = false, size = "md" }: Pick<BrandLogoProps, "priority" | "size">) {
   return (
     <span
@@ -59,31 +100,27 @@ function BrandMark({ priority = false, size = "md" }: Pick<BrandLogoProps, "prio
         MARK_BOX_CLASSES[size]
       )}
     >
-      <Image
-        alt="SnapCos mark"
-        className={cn("object-contain", MARK_IMAGE_CLASSES[size])}
-        height={MARK_IMAGE.height}
+      <BrandMarkGraphic
+        className={MARK_IMAGE_CLASSES[size]}
         priority={priority}
-        src={MARK_IMAGE.src}
-        width={MARK_IMAGE.width}
       />
     </span>
   );
 }
 
 function BrandLockup({ priority = false, size = "md" }: Pick<BrandLogoProps, "priority" | "size">) {
-  const { resolvedTheme } = useTheme();
-  const lockup = resolvedTheme === "dark" ? LOCKUP_DARK : LOCKUP_LIGHT;
-
   return (
-    <Image
-      alt="SnapCos"
-      className={cn("block w-auto object-contain", LOCKUP_CLASSES[size])}
-      height={lockup.height}
-      priority={priority}
-      src={lockup.src}
-      width={lockup.width}
-    />
+    <span
+      aria-label="SnapCos"
+      className={cn("inline-flex items-center select-none", LOCKUP_CLASSES[size])}
+    >
+      <BrandMarkGraphic
+        className={LOCKUP_MARK_CLASSES[size]}
+        onDarkBackground
+        priority={priority}
+      />
+      <BrandWordmark size={size} />
+    </span>
   );
 }
 

@@ -7,6 +7,10 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon as AlertCircle,
   ImageIcon,
+  LayersIcon,
+  MagicWandIcon,
+  PersonIcon,
+  RulerSquareIcon,
   StarFilledIcon
 } from "@radix-ui/react-icons";
 
@@ -327,6 +331,33 @@ export default function CostumeDetailPage() {
     data.costume.size ? `Size ${data.costume.size}` : null
   ].filter(Boolean) as string[];
 
+  const rentalDetails = [
+    {
+      label: "Category",
+      value: data.costume.category || "Not specified",
+      icon: LayersIcon,
+      iconVariant: "coral" as const
+    },
+    {
+      label: "Theme",
+      value: data.costume.theme || "Not specified",
+      icon: MagicWandIcon,
+      iconVariant: "gold" as const
+    },
+    {
+      label: "Size",
+      value: data.costume.size || "Not specified",
+      icon: RulerSquareIcon,
+      iconVariant: "coral" as const
+    },
+    {
+      label: "Audience",
+      value: data.costume.gender || "Flexible fit",
+      icon: PersonIcon,
+      iconVariant: "gold" as const
+    }
+  ];
+
   const metaLine = [data.costume.category, data.costume.size, data.costume.theme].filter(Boolean).join(" · ");
   const categoryHref = data.costume.category
     ? `/?category=${encodeURIComponent(data.costume.category)}`
@@ -365,7 +396,7 @@ export default function CostumeDetailPage() {
 
         <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-10">
           <section className="animate-fade-up space-y-6">
-            <div className="rounded-xl border border-border bg-card p-3 shadow-coral-hover">
+            <div className="panel-card p-3">
               <div className="grid gap-4 lg:grid-cols-[84px_minmax(0,1fr)] lg:items-start">
                 <div className="order-2 flex gap-3 overflow-x-auto px-1 pb-1 pt-1 lg:order-1 lg:max-h-[min(70vh,560px)] lg:shrink-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-1.5 lg:py-1">
                   {galleryImages.length > 0 ? (
@@ -416,8 +447,8 @@ export default function CostumeDetailPage() {
 
                     {data.costume.category ? (
                       <Badge
-                        variant="default"
-                        className="pointer-events-none absolute left-3 top-3 rounded-md border-0 bg-primary/90 text-[10px] uppercase tracking-widest text-primary-foreground backdrop-blur-sm"
+                        variant="coralSoft"
+                        className="pointer-events-none absolute left-3 top-3 rounded-md border-0 text-[10px] font-medium backdrop-blur-sm"
                       >
                         {data.costume.category}
                       </Badge>
@@ -435,7 +466,7 @@ export default function CostumeDetailPage() {
                     ) : null}
 
                     {galleryImages.length > 1 ? (
-                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-border bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground backdrop-blur-sm">
+                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-border bg-background/90 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm">
                         {selectedImageIndex + 1} / {galleryImages.length}
                       </div>
                     ) : null}
@@ -450,8 +481,9 @@ export default function CostumeDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-6 shadow-coral-hover">
-              <h2 className="font-display text-xl font-semibold text-foreground">Description</h2>
+            <div className="panel-card p-6">
+              <p className="section-eyebrow">About this costume</p>
+              <h2 className="section-heading mt-1">Description</h2>
               {data.costume.description ? (
                 <p className="mt-4 whitespace-pre-line leading-7 text-muted-foreground">{data.costume.description}</p>
               ) : (
@@ -461,27 +493,33 @@ export default function CostumeDetailPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-6 shadow-coral-hover">
-              <h2 className="font-display text-xl font-semibold text-foreground">Rental details</h2>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Category</dt>
-                  <dd className="mt-2 text-foreground">{data.costume.category || "Not specified"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Theme</dt>
-                  <dd className="mt-2 text-foreground">{data.costume.theme || "Not specified"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Size</dt>
-                  <dd className="mt-2 text-foreground">{data.costume.size || "Not specified"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Audience</dt>
-                  <dd className="mt-2 text-foreground">{data.costume.gender || "Flexible fit"}</dd>
-                </div>
+            <div className="panel-card p-6">
+              <p className="section-eyebrow">What you get</p>
+              <h2 className="section-heading mt-1">Rental details</h2>
+              <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+                {rentalDetails.map((detail) => {
+                  const Icon = detail.icon;
+                  return (
+                    <div key={detail.label} className="detail-chip bg-card">
+                      <div
+                        className={cn(
+                          "detail-chip-icon",
+                          detail.iconVariant === "coral" ? "detail-chip-icon--coral" : "detail-chip-icon--gold"
+                        )}
+                      >
+                        <Icon className="size-4" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-xs font-medium text-muted-foreground">
+                          {detail.label}
+                        </dt>
+                        <dd className="mt-1 font-medium text-foreground">{detail.value}</dd>
+                      </div>
+                    </div>
+                  );
+                })}
               </dl>
-              <div className="mt-6 rounded-lg border border-border bg-muted/30 px-4 py-4 text-sm leading-7 text-muted-foreground">
+              <div className="mt-6 rounded-lg border border-border/60 border-l-4 border-l-primary bg-gradient-to-br from-brand-coral-soft to-brand-gold-soft px-4 py-4 text-sm leading-7 text-muted-foreground">
                 <p className="font-medium text-foreground">{pricingSummary?.label}</p>
                 <p className="mt-1">
                   {data.costume.pricing_mode === "PACKAGE"
@@ -494,13 +532,14 @@ export default function CostumeDetailPage() {
             <section className="space-y-8">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-2xl font-semibold text-foreground md:text-3xl">Reviews</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="section-eyebrow">Community</p>
+                  <h2 className="section-heading mt-1 text-2xl md:text-3xl">Reviews</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
                     Based on {data.ratingCount} review{data.ratingCount === 1 ? "" : "s"}
                   </p>
                 </div>
                 {data.avgRating ? (
-                  <div className="text-right">
+                  <div className="rounded-xl bg-gradient-to-br from-brand-coral-soft to-brand-gold-soft px-5 py-4 text-right">
                     <p className="font-display text-4xl font-semibold text-foreground">{data.avgRating.toFixed(1)}</p>
                     <StarRating rating={data.avgRating} className="mt-1 justify-end" />
                   </div>
@@ -509,7 +548,7 @@ export default function CostumeDetailPage() {
 
               {reviews.length > 0 ? (
                 <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-                  <div className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-coral-hover">
+                  <div className="panel-card space-y-4 p-6">
                     <p className="text-sm font-medium text-foreground">Rating breakdown</p>
                     <div className="space-y-2">
                       {[5, 4, 3, 2, 1].map((star) => {
@@ -520,10 +559,7 @@ export default function CostumeDetailPage() {
                           <div key={star} className="flex items-center gap-3 text-sm">
                             <span className="w-8 shrink-0 text-muted-foreground">{star}★</span>
                             <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-primary transition-all"
-                                style={{ width: `${percent}%` }}
-                              />
+                              <div className="rating-bar-fill" style={{ width: `${percent}%` }} />
                             </div>
                             <span className="w-8 shrink-0 text-right text-muted-foreground">{count}</span>
                           </div>
@@ -542,10 +578,7 @@ export default function CostumeDetailPage() {
                       const reviewDate = formatReviewDate(review.created_at);
 
                       return (
-                        <article
-                          key={review.id}
-                          className="rounded-xl border border-border bg-card p-5 shadow-coral-hover"
-                        >
+                        <article key={review.id} className="panel-card p-5">
                           <div className="flex items-start gap-3">
                             {review.User?.avatar_url ? (
                               <img
@@ -577,7 +610,11 @@ export default function CostumeDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center shadow-coral-hover">
+                <div className="panel-card border-dashed px-6 py-12 text-center">
+                  <StarFilledIcon
+                    className="mx-auto mb-3 size-8 text-accent animate-sparkle"
+                    aria-hidden="true"
+                  />
                   <p className="font-display text-lg font-semibold text-foreground">No reviews yet</p>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Be the first renter to share feedback after your reservation.
@@ -609,22 +646,26 @@ export default function CostumeDetailPage() {
           </section>
 
           <aside className="animate-fade-up-delay-1 xl:sticky xl:top-[calc(var(--navbar-height)+1.5rem)] xl:self-start">
-            <div className="rounded-xl border border-border bg-card p-6 shadow-coral-hover">
+            <div className="panel-card p-6">
               <div className="space-y-4 border-b border-border pb-6">
                 <div className="flex flex-wrap items-center gap-2">
-                  {detailPills.map((pill) => (
-                    <Badge key={pill} variant="default" className="rounded-md text-[10px] uppercase tracking-widest">
+                  {detailPills.map((pill, index) => (
+                    <Badge
+                      key={pill}
+                      variant={index % 2 === 0 ? "coralSoft" : "goldSoft"}
+                      className="rounded-md text-[10px] font-medium"
+                    >
                       {pill}
                     </Badge>
                   ))}
                   {isOwnCostume ? (
-                    <Badge variant="gold" className="rounded-md text-[10px] uppercase tracking-widest">
+                    <Badge variant="goldSoft" className="rounded-md text-[10px] font-medium">
                       Your listing
                     </Badge>
                   ) : null}
                 </div>
 
-                <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+                <h1 className="font-display text-2xl tracking-tight text-foreground md:text-3xl">
                   {data.costume.name}
                 </h1>
 
@@ -633,12 +674,15 @@ export default function CostumeDetailPage() {
                   {metaLine ? <span aria-hidden="true">·</span> : null}
                   <span className="inline-flex items-center gap-2">
                     {data.avgRating ? (
-                      <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-coral-soft px-2.5 py-0.5">
                         <StarRating rating={data.avgRating} />
-                        <span>{data.avgRating.toFixed(1)}</span>
-                      </>
+                        <span className="font-medium text-primary">{data.avgRating.toFixed(1)}</span>
+                      </span>
                     ) : (
-                      <span>New listing</span>
+                      <Badge variant="goldSoft" className="rounded-md text-[10px] font-medium">
+                        <StarFilledIcon className="animate-sparkle" aria-hidden="true" />
+                        New listing
+                      </Badge>
                     )}
                   </span>
                   <span aria-hidden="true">·</span>
@@ -647,13 +691,15 @@ export default function CostumeDetailPage() {
                   </span>
                 </div>
 
-                <div className="flex items-end justify-between gap-4 pt-1">
-                  <p className="font-display text-3xl font-semibold tracking-tight text-primary">
-                    {fmtMoney(pricingSummary?.amount ?? 0)}
-                  </p>
-                  <p className="max-w-[9rem] text-right text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    {pricingSummary?.label}
-                  </p>
+                <div className="rounded-lg bg-brand-coral-soft px-4 py-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <p className="font-display text-3xl tracking-tight text-primary">
+                      {fmtMoney(pricingSummary?.amount ?? 0)}
+                    </p>
+                    <p className="max-w-[9rem] text-right text-xs font-medium text-muted-foreground">
+                      {pricingSummary?.label}
+                    </p>
+                  </div>
                 </div>
 
                 <p className="text-sm leading-relaxed text-muted-foreground">
@@ -674,9 +720,9 @@ export default function CostumeDetailPage() {
 
                 {data.costume.owner ? (
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest">Listed by</span>
+                    <span className="text-xs font-medium text-muted-foreground">Listed by</span>
                     <span className="font-medium text-foreground">{vendorDisplayName}</span>
-                    <Badge variant="default" className="rounded-md text-[10px] uppercase tracking-widest">
+                    <Badge variant="goldSoft" className="rounded-md text-[10px] font-medium">
                       Verified vendor
                     </Badge>
                   </p>
@@ -684,7 +730,7 @@ export default function CostumeDetailPage() {
 
                 <div className="grid gap-3">
                   <Button
-                    className="h-11 text-xs font-semibold uppercase tracking-widest"
+                    className="h-11 font-semibold"
                     onClick={() => openWizard("reserve")}
                     disabled={isOwnCostume}
                   >
@@ -692,7 +738,7 @@ export default function CostumeDetailPage() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-11 text-xs font-semibold uppercase tracking-widest"
+                    className="h-11 font-semibold"
                     onClick={() => openWizard("cart")}
                     disabled={isOwnCostume}
                   >

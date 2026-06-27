@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { ConditionalNavbar } from "../components/ConditionalNavbar";
@@ -9,17 +9,10 @@ import { AuthProvider } from "../lib/auth";
 import { LandingShellProvider } from "../lib/landing-shell";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
-});
-
-const dmSans = DM_Sans({
+const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -55,7 +48,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${dmSans.variable} h-full`}
+      className={`${jakarta.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">

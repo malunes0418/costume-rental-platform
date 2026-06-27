@@ -35,7 +35,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
 
   if (variant === "list") {
     return (
-      <article className="group flex overflow-hidden rounded-xl border border-border bg-card shadow-coral-hover transition-shadow">
+      <article className="panel-card group flex overflow-hidden transition-shadow">
         <Link
           href={`/costumes/${costume.id}`}
           className="relative w-32 shrink-0 overflow-hidden bg-muted sm:w-40"
@@ -59,12 +59,12 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               {costume.category && (
-                <Badge variant="default" className="rounded-md text-[10px] uppercase tracking-widest">
+                <Badge variant="coralSoft" className="rounded-md text-[10px] font-medium">
                   {costume.category}
                 </Badge>
               )}
               {isOwnCostume && (
-                <Badge variant="gold" className="rounded-md text-[10px] uppercase tracking-widest">
+                <Badge variant="goldSoft" className="rounded-md text-[10px] font-medium">
                   Your listing
                 </Badge>
               )}
@@ -109,8 +109,8 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
     <article className="group flex flex-col">
       <div
         className={cn(
-          "relative w-full overflow-hidden rounded-lg border border-border bg-muted shadow-coral-hover transition-shadow",
-          compact ? "aspect-[4/5]" : "aspect-[3/4] rounded-xl"
+          "panel-card relative w-full overflow-hidden bg-muted",
+          compact ? "aspect-[4/5] rounded-lg" : "aspect-[3/4] rounded-xl"
         )}
       >
         <Link
@@ -135,9 +135,9 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
 
         {costume.category && (
           <Badge
-            variant="default"
+            variant="coralSoft"
             className={cn(
-              "pointer-events-none absolute rounded-md border-0 bg-primary/90 uppercase tracking-widest text-primary-foreground backdrop-blur-sm",
+              "pointer-events-none absolute rounded-md border-0 font-medium backdrop-blur-sm",
               compact
                 ? "left-2 top-2 text-[9px]"
                 : "left-3 top-3 text-[10px]"
@@ -149,9 +149,9 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
 
         {isOwnCostume ? (
           <Badge
-            variant="gold"
+            variant="goldSoft"
             className={cn(
-              "pointer-events-none absolute rounded-md uppercase tracking-widest",
+              "pointer-events-none absolute rounded-md font-medium backdrop-blur-sm",
               compact ? "right-2 top-2 text-[9px]" : "right-3 top-3 text-[10px]"
             )}
           >
@@ -183,7 +183,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
         <Link href={`/costumes/${costume.id}`} tabIndex={-1} aria-hidden="true">
           <p
             className={cn(
-              "line-clamp-2 font-display font-semibold leading-snug text-foreground transition-colors group-hover:text-primary",
+              "line-clamp-2 font-display leading-snug text-foreground transition-colors group-hover:text-primary",
               compact ? "text-sm" : "text-base"
             )}
           >
@@ -193,7 +193,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
         {meta.length > 0 && (
           <p className="truncate text-[11px] text-muted-foreground">{meta.join(" · ")}</p>
         )}
-        <p className={cn("font-display font-semibold text-primary", compact ? "text-sm" : "text-lg")}>
+        <p className={cn("font-display text-primary", compact ? "text-sm" : "text-lg")}>
           ₱{pricingSummary.amount.toLocaleString()}
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">{pricingSummary.label}</span>
         </p>
@@ -205,7 +205,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
 export function CostumeCardSkeleton({ variant = "grid" }: { variant?: "grid" | "list" }) {
   if (variant === "list") {
     return (
-      <div className="flex overflow-hidden rounded-xl border border-border bg-card">
+      <div className="panel-card flex overflow-hidden">
         <Skeleton className="w-32 shrink-0 sm:w-40" />
         <div className="flex flex-1 flex-col gap-3 p-4">
           <Skeleton className="h-4 w-24" />
