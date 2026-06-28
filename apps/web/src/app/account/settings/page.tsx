@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { GearIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
 
@@ -57,7 +57,17 @@ function emptyLocationDraft(): SavedLocationInput {
   };
 }
 
-export default function AccountSettingsPage() {
+function AccountSettingsPageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl px-6 pb-24 pt-16">
+      <Skeleton className="mb-8 h-10 w-64" />
+      <Skeleton className="mb-4 h-48 w-full" />
+      <Skeleton className="h-48 w-full" />
+    </div>
+  );
+}
+
+function AccountSettingsPageContent() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -223,13 +233,7 @@ export default function AccountSettingsPage() {
   }
 
   if (isAuthLoading || isLoading) {
-    return (
-      <div className="mx-auto w-full max-w-3xl px-6 pb-24 pt-16">
-        <Skeleton className="mb-8 h-10 w-64" />
-        <Skeleton className="mb-4 h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
+    return <AccountSettingsPageSkeleton />;
   }
 
   if (!user) {
@@ -412,5 +416,13 @@ export default function AccountSettingsPage() {
         </Button>
       </section>
     </div>
+  );
+}
+
+export default function AccountSettingsPage() {
+  return (
+    <Suspense fallback={<AccountSettingsPageSkeleton />}>
+      <AccountSettingsPageContent />
+    </Suspense>
   );
 }
