@@ -14,6 +14,7 @@ interface WishlistButtonProps {
   /** Size variant; defaults to "md" */
   size?: "sm" | "md";
   className?: string;
+  onSavedChange?: (saved: boolean) => void;
 }
 
 export function WishlistButton({
@@ -22,6 +23,7 @@ export function WishlistButton({
   initialSaved = false,
   size = "md",
   className,
+  onSavedChange,
 }: WishlistButtonProps) {
   const { user } = useAuth();
   const [saved, setSaved] = useState(initialSaved);
@@ -59,9 +61,11 @@ export function WishlistButton({
     try {
       if (wasSaved) {
         await removeWishlist(costumeId);
+        onSavedChange?.(false);
         toast.success("Removed from wishlist.");
       } else {
         await addWishlist(costumeId);
+        onSavedChange?.(true);
         toast.success("Saved to wishlist.");
       }
     } catch {

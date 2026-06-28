@@ -48,6 +48,21 @@ export interface UserSavedLocationRequest {
 export type UserSavedLocationResponse = UserSavedLocationAttributes;
 export type UserSavedLocationListResponse = UserSavedLocationAttributes[];
 
+export interface UserFulfillmentPreferencesRequest {
+  default_saved_location_id?: number | null;
+  default_delivery_window_slot?: FulfillmentWindowSlot | null;
+  default_return_window_slot?: FulfillmentWindowSlot | null;
+}
+
+export interface UserFulfillmentPreferencesResponse {
+  user_id: number;
+  default_saved_location_id: number | null;
+  default_delivery_window_slot: FulfillmentWindowSlot | null;
+  default_return_window_slot: FulfillmentWindowSlot | null;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
 export interface ReservationPaymentMetadata {
   purpose: PaymentPurpose;
   reservation_adjustment_id?: number | null;

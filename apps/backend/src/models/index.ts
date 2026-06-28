@@ -16,13 +16,18 @@ import { Subscription } from "./Subscription";
 import { VendorFulfillmentSettings } from "./VendorFulfillmentSettings";
 import { CostumeFulfillmentOverride } from "./CostumeFulfillmentOverride";
 import { UserSavedLocation } from "./UserSavedLocation";
+import { UserFulfillmentPreferences } from "./UserFulfillmentPreferences";
 import { ReservationFulfillment } from "./ReservationFulfillment";
 import { ReservationAdjustment } from "./ReservationAdjustment";
+import { VendorPaymentMethod } from "./VendorPaymentMethod";
 User.hasMany(OAuthAccount, { foreignKey: "user_id" });
 OAuthAccount.belongsTo(User, { foreignKey: "user_id" });
 
 User.hasOne(VendorProfile, { foreignKey: "user_id" });
 VendorProfile.belongsTo(User, { foreignKey: "user_id" });
+
+User.hasMany(VendorPaymentMethod, { foreignKey: "user_id", as: "paymentMethods" });
+VendorPaymentMethod.belongsTo(User, { foreignKey: "user_id" });
 
 User.hasOne(Subscription, { foreignKey: "user_id" });
 Subscription.belongsTo(User, { foreignKey: "user_id" });
@@ -32,6 +37,18 @@ VendorFulfillmentSettings.belongsTo(User, { foreignKey: "vendor_id", as: "vendor
 
 User.hasMany(UserSavedLocation, { foreignKey: "user_id", as: "savedLocations" });
 UserSavedLocation.belongsTo(User, { foreignKey: "user_id" });
+
+User.hasOne(UserFulfillmentPreferences, { foreignKey: "user_id", as: "fulfillmentPreferences" });
+UserFulfillmentPreferences.belongsTo(User, { foreignKey: "user_id" });
+
+UserSavedLocation.hasMany(UserFulfillmentPreferences, {
+  foreignKey: "default_saved_location_id",
+  as: "defaultForPreferences"
+});
+UserFulfillmentPreferences.belongsTo(UserSavedLocation, {
+  foreignKey: "default_saved_location_id",
+  as: "defaultSavedLocation"
+});
 
 User.hasMany(Costume, { foreignKey: "owner_id", as: "costumes" });
 Costume.belongsTo(User, { foreignKey: "owner_id", as: "owner" });
@@ -134,6 +151,8 @@ export const db = {
   VendorFulfillmentSettings,
   CostumeFulfillmentOverride,
   UserSavedLocation,
+  UserFulfillmentPreferences,
   ReservationFulfillment,
-  ReservationAdjustment
+  ReservationAdjustment,
+  VendorPaymentMethod
 };

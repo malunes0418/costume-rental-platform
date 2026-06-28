@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import {
   MessageCreateRequest,
   VendorApplyRequest,
+  VendorPaymentMethodInput,
   VendorReservationSurchargeRequest
 } from "../dto/vendor.dto";
 import type { CostumeFulfillmentOverrideRequest } from "../dto/fulfillment.dto";
@@ -21,6 +22,7 @@ import { ReservationFulfillment } from "../models/ReservationFulfillment";
 import { ReservationItem } from "../models/ReservationItem";
 import { User } from "../models/User";
 import { VendorProfile } from "../models/VendorProfile";
+import { VendorPaymentMethod } from "../models/VendorPaymentMethod";
 import { NotificationService } from "./NotificationService";
 import {
   normalizeCostumePricingConfig,
@@ -32,7 +34,11 @@ import { HandoffService } from "./HandoffService";
 import { assertInitialPaymentApprovedForVendorReview } from "./reservationPaymentGuards";
 
 type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
-type BlockingReason = "APPLICATION_REQUIRED" | "APPLICATION_UNDER_REVIEW" | "APPLICATION_REJECTED";
+type BlockingReason =
+  | "APPLICATION_REQUIRED"
+  | "APPLICATION_UNDER_REVIEW"
+  | "APPLICATION_REJECTED"
+  | "PAYMENT_DETAILS_REQUIRED";
 
 type VendorCapabilityResponse = {
   profile: VendorProfile | null;
@@ -74,8 +80,20 @@ export class VendorService {
     return fulfillment;
   }
 
-  private buildCapabilities(status: VendorStatus): Omit<VendorCapabilityResponse, "profile" | "status" | "vendorStatus"> {
+  private buildCapabilities(
+    status: VendorStatus,
+    hasPaymentMethod = false
+  ): Omit<VendorCapabilityResponse, "profile" | "status" | "vendorStatus"> {
     if (status === "APPROVED") {
+      if (!hasPaymentMethod) {
+        return {
+          canManageDrafts: true,
+          canPublish: false,
+          canAcceptReservations: false,
+          blockingReasons: ["PAYMENT_DETAILS_REQUIRED"]
+        };
+      }
+
       return {
         canManageDrafts: true,
         canPublish: true,
@@ -256,7 +274,8 @@ export class VendorService {
     }
 
     const profile = await VendorProfile.findOne({ where: { user_id: userId } });
-    const capabilities = this.buildCapabilities(user.vendor_status as VendorStatus);
+    const hasPaymentMethod = await this.vendorHasActivePaymentMethod(userId);
+    const capabilities = this.buildCapabilities(user.vendor_status as VendorStatus, hasPaymentMethod);
 
     return {
       profile,
@@ -605,5 +624,136 @@ export class VendorService {
       sender_id: senderId,
       content: data.content
     });
+  }
+
+  async vendorHasActivePaymentMethod(userId: number) {
+    const count = await VendorPaymentMethod.count({
+      where: { user_id: userId, is_active: true }
+    });
+    return count > 0;
+  }
+
+  async listPaymentMethods(userId: number) {
+    return VendorPaymentMethod.findAll({
+      where: { user_id: userId },
+      order: [
+        ["sort_order", "ASC"],
+        ["created_at", "ASC"]
+      ]
+    });
+  }
+
+  async getPublicPaymentMethods(vendorUserId: number) {
+    const vendor = await User.findByPk(vendorUserId);
+    if (!vendor || vendor.vendor_status !== "APPROVED") {
+      throw new Error("Vendor not found");
+    }
+
+    return VendorPaymentMethod.findAll({
+      where: { user_id: vendorUserId, is_active: true },
+      order: [
+        ["sort_order", "ASC"],
+        ["created_at", "ASC"]
+      ],
+      attributes: [
+        "id",
+        "method_type",
+        "label",
+        "account_name",
+        "account_number",
+        "bank_name",
+        "qr_image_url",
+        "instructions",
+        "sort_order"
+      ]
+    });
+  }
+
+  private normalizePaymentMethodInput(data: VendorPaymentMethodInput) {
+    const methodType = data.method_type;
+    if (!["GCASH", "MAYA", "BANK", "OTHER"].includes(methodType)) {
+      throw new Error("Invalid payment method type");
+    }
+
+    const label =
+      data.label?.trim() ||
+      (methodType === "GCASH"
+        ? "GCash"
+        : methodType === "MAYA"
+          ? "Maya"
+          : methodType === "BANK"
+            ? "Bank transfer"
+            : "");
+    const accountName = data.account_name?.trim();
+    const accountNumber = data.account_number?.trim();
+
+    if (!label) throw new Error("Payment method label is required");
+    if (!accountName) throw new Error("Account name is required");
+    if (!accountNumber) throw new Error("Account number is required");
+
+    if (methodType === "BANK" && !data.bank_name?.trim()) {
+      throw new Error("Bank name is required for bank transfers");
+    }
+
+    return {
+      method_type: methodType,
+      label,
+      account_name: accountName,
+      account_number: accountNumber,
+      bank_name: data.bank_name?.trim() || null,
+      instructions: data.instructions?.trim() || null,
+      is_active: data.is_active !== false,
+      sort_order: Number.isFinite(Number(data.sort_order)) ? Number(data.sort_order) : 0
+    };
+  }
+
+  async createPaymentMethod(userId: number, data: VendorPaymentMethodInput, qrImageUrl?: string) {
+    const normalized = this.normalizePaymentMethodInput(data);
+
+    return VendorPaymentMethod.create({
+      user_id: userId,
+      ...normalized,
+      qr_image_url: qrImageUrl || null
+    });
+  }
+
+  async updatePaymentMethod(
+    userId: number,
+    methodId: number,
+    data: VendorPaymentMethodInput,
+    qrImageUrl?: string
+  ) {
+    const method = await VendorPaymentMethod.findOne({
+      where: { id: methodId, user_id: userId }
+    });
+    if (!method) throw new Error("Payment method not found");
+
+    const normalized = this.normalizePaymentMethodInput(data);
+
+    method.method_type = normalized.method_type;
+    method.label = normalized.label;
+    method.account_name = normalized.account_name;
+    method.account_number = normalized.account_number;
+    method.bank_name = normalized.bank_name;
+    method.instructions = normalized.instructions;
+    method.is_active = normalized.is_active;
+    method.sort_order = normalized.sort_order;
+
+    if (qrImageUrl) {
+      method.qr_image_url = qrImageUrl;
+    }
+
+    await method.save();
+    return method;
+  }
+
+  async deletePaymentMethod(userId: number, methodId: number) {
+    const method = await VendorPaymentMethod.findOne({
+      where: { id: methodId, user_id: userId }
+    });
+    if (!method) throw new Error("Payment method not found");
+
+    await method.destroy();
+    return { message: "Payment method deleted." };
   }
 }

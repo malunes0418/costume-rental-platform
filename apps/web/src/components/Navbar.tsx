@@ -22,6 +22,7 @@ import {
   ChevronDownIcon as ChevronDown,
   LockClosedIcon as Shield,
   MagnifyingGlassIcon as Search,
+  GearIcon as Settings,
 } from "@radix-ui/react-icons";
 import { CreditCard, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -189,7 +190,7 @@ function NavbarInner() {
             {user && <NotificationBell />}
             {user && user.role !== "ADMIN" && (
               <button
-                onClick={openCart}
+                onClick={() => openCart()}
                 aria-label="Open cart"
                 className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
@@ -245,6 +246,12 @@ function NavbarInner() {
                   {user?.role !== "ADMIN" && (
                     <>
                       <div className="py-1.5">
+                        <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
+                          <Link href="/account/settings">
+                            <Settings className="size-3.5 shrink-0" />
+                            Settings
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/reservations">
                             <CalendarDays className="size-3.5 shrink-0" />
@@ -354,6 +361,7 @@ function NavbarInner() {
                           ? [
                               { href: "/reservations", label: "Reservations" },
                               { href: "/wishlist", label: "Wishlist" },
+                              { href: "/account/settings", label: "Settings" },
                             ]
                           : []),
                         ...(user?.role === "ADMIN"

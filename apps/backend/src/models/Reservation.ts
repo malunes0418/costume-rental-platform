@@ -13,8 +13,8 @@ export interface ReservationAttributes {
   vendor_status: ReservationVendorStatus;
   total_price: number;
   currency: string;
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   created_at?: Date;
   updated_at?: Date;
   fulfillment?: ReservationFulfillmentAttributes | null;
@@ -65,8 +65,8 @@ Reservation.init(
     },
     total_price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     currency: { type: DataTypes.STRING(10), allowNull: false, defaultValue: "PHP" },
-    start_date: { type: DataTypes.DATEONLY, allowNull: false },
-    end_date: { type: DataTypes.DATEONLY, allowNull: false },
+    start_date: { type: DataTypes.DATEONLY, allowNull: true },
+    end_date: { type: DataTypes.DATEONLY, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },

@@ -4,7 +4,9 @@ import type {
   ReservationFulfillment,
   ReservationFulfillmentSelectionInput,
   SavedLocation,
-  SavedLocationInput
+  SavedLocationInput,
+  FulfillmentPreferences,
+  FulfillmentPreferencesInput
 } from "./fulfillment";
 import type { Costume } from "./costumes";
 import type { PricingMode } from "./pricing";
@@ -34,8 +36,8 @@ export type ReservationWithItems = {
   user_id: number;
   status: ReservationStatus;
   vendor_status?: VendorReservationStatus;
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   total_price: number;
   currency: string;
   created_at?: string;
@@ -94,6 +96,33 @@ export function addReservationToCart(payload: AddToCartPayload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload)
   });
+}
+
+export function addCostumeToCart(costumeId: number, quantity?: number) {
+  return apiFetch<{
+    reservation: ReservationWithItems;
+    item: ReservationItem;
+    alreadyInCart: boolean;
+  }>("/api/reservations/cart/items", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ costumeId, quantity })
+  });
+}
+
+export function configureCartReservation(
+  reservationId: number,
+  payload: Omit<AddToCartPayload, "costumeId" | "quantity">
+) {
+  return apiFetch<{ reservation: ReservationWithItems }>(`/api/reservations/cart/${reservationId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function isCartReservationDraft(reservation: ReservationWithItems) {
+  return !reservation.start_date || !reservation.end_date || !reservation.fulfillment;
 }
 
 export function checkoutReservation(reservationId: number) {
@@ -200,6 +229,18 @@ export function updateSavedLocation(locationId: number, payload: SavedLocationIn
 export function deleteSavedLocation(locationId: number) {
   return apiFetch<{ success: true }>(`/api/account/locations/${locationId}`, {
     method: "DELETE"
+  });
+}
+
+export function getFulfillmentPreferences() {
+  return apiFetch<FulfillmentPreferences>("/api/account/fulfillment-preferences");
+}
+
+export function updateFulfillmentPreferences(payload: FulfillmentPreferencesInput) {
+  return apiFetch<FulfillmentPreferences>("/api/account/fulfillment-preferences", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
   });
 }
 

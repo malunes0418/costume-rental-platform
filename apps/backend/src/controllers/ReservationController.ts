@@ -6,9 +6,11 @@ import { VendorService } from "../services/VendorService";
 import {
   AddToCartRequest,
   AddToCartResponse,
+  AddCostumeToCartRequest,
   ApiResponse,
   CheckoutRequest,
   CheckoutResponse,
+  ConfigureCartReservationRequest,
   MyReservationsResponse,
   RemoveReservationResponse
 } from "../dto";
@@ -20,6 +22,28 @@ export class ReservationController {
   async addToCart(req: Request, res: Response) {
     try {
       const result = await reservationService.addToCart(req.user!.id, req.body as AddToCartRequest);
+      ApiResponse.ok(res, result as AddToCartResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async addCostumeToCart(req: Request, res: Response) {
+    try {
+      const result = await reservationService.addCostumeToCart(req.user!.id, req.body as AddCostumeToCartRequest);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async configureCartReservation(req: Request, res: Response) {
+    try {
+      const result = await reservationService.configureCartReservation(
+        req.user!.id,
+        Number(req.params.reservationId),
+        req.body as ConfigureCartReservationRequest
+      );
       ApiResponse.ok(res, result as AddToCartResponse);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   CardStackIcon,
   ExitIcon,
+  GearIcon,
   HamburgerMenuIcon,
   StackIcon,
   StarIcon,
@@ -29,6 +30,7 @@ type NavItem = {
 const BASE_NAV: NavItem[] = [
   { href: "/vendor", label: "Overview", icon: StackIcon },
   { href: "/vendor/inventory", label: "Inventory", icon: ArchiveIcon },
+  { href: "/vendor/settings", label: "Settings", icon: GearIcon },
   { href: "/vendor/subscription", label: "Subscription", icon: StarIcon },
 ];
 

@@ -4,7 +4,7 @@ import { PaymentService } from "../services/PaymentService";
 import { NotificationService } from "../services/NotificationService";
 import { ApiResponse } from "../dto";
 import type { ReviewPaymentRequest } from "../dto";
-import { VendorApplyRequest, MessageCreateRequest } from "../dto/vendor.dto";
+import { VendorApplyRequest, MessageCreateRequest, VendorPaymentMethodInput } from "../dto/vendor.dto";
 
 const vendorService = new VendorService();
 const paymentService = new PaymentService(new NotificationService());
@@ -209,6 +209,70 @@ export class VendorController {
     try {
       const userId = (req as any).user.id;
       const result = await vendorService.createMessage(Number(req.params.id), userId, req.body as MessageCreateRequest);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async getPublicPaymentMethods(req: Request, res: Response) {
+    try {
+      const vendorId = Number(req.params.vendorId);
+      if (!Number.isFinite(vendorId) || vendorId <= 0) {
+        throw new Error("Invalid vendor id");
+      }
+      const result = await vendorService.getPublicPaymentMethods(vendorId);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async listPaymentMethods(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const result = await vendorService.listPaymentMethods(userId);
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async createPaymentMethod(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const qrImageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      const result = await vendorService.createPaymentMethod(
+        userId,
+        req.body as VendorPaymentMethodInput,
+        qrImageUrl
+      );
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async updatePaymentMethod(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const qrImageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      const result = await vendorService.updatePaymentMethod(
+        userId,
+        Number(req.params.id),
+        req.body as VendorPaymentMethodInput,
+        qrImageUrl
+      );
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async deletePaymentMethod(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const result = await vendorService.deletePaymentMethod(userId, Number(req.params.id));
       ApiResponse.ok(res, result);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);

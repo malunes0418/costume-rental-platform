@@ -67,6 +67,101 @@ export type SavedLocation = {
 
 export type SavedLocationInput = Omit<SavedLocation, "id" | "user_id" | "created_at" | "updated_at">;
 
+export type FulfillmentPreferences = {
+  user_id: number;
+  default_saved_location_id: number | null;
+  default_delivery_window_slot: FulfillmentWindowSlot | null;
+  default_return_window_slot: FulfillmentWindowSlot | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type FulfillmentPreferencesInput = {
+  default_saved_location_id?: number | null;
+  default_delivery_window_slot?: FulfillmentWindowSlot | null;
+  default_return_window_slot?: FulfillmentWindowSlot | null;
+};
+
+export function normalizeSavedLocationId(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function hasCompleteDeliveryProfile(
+  prefs: FulfillmentPreferences | null | undefined,
+  locations: SavedLocation[]
+): boolean {
+  const locationId = normalizeSavedLocationId(prefs?.default_saved_location_id);
+  return Boolean(
+    locationId &&
+      prefs?.default_delivery_window_slot &&
+      prefs?.default_return_window_slot &&
+      locations.some((location) => location.id === locationId)
+  );
+}
+
+export function locationSelectionFromPreferences(
+  prefs: FulfillmentPreferences,
+  overrides?: {
+    saved_location_id?: number | null;
+    outbound_location?: ReservationFulfillmentLocationSelectionInput | null;
+  }
+): ReservationFulfillmentLocationSelectionInput {
+  if (overrides?.outbound_location) {
+    return overrides.outbound_location;
+  }
+
+  const savedLocationId =
+    normalizeSavedLocationId(overrides?.saved_location_id) ??
+    normalizeSavedLocationId(prefs.default_saved_location_id);
+
+  if (!savedLocationId) {
+    throw new Error("Choose a default delivery address in account settings.");
+  }
+
+  return { saved_location_id: savedLocationId };
+}
+
+export function buildFulfillmentPayloadFromPreferences(
+  prefs: FulfillmentPreferences,
+  effective: Pick<EffectiveCostumeFulfillment, "outbound_mode" | "return_mode">,
+  overrides?: {
+    saved_location_id?: number | null;
+    delivery_window_slot?: FulfillmentWindowSlot;
+    return_window_slot?: FulfillmentWindowSlot;
+    outbound_location?: ReservationFulfillmentLocationSelectionInput | null;
+    return_location?: ReservationFulfillmentLocationSelectionInput | null;
+  }
+): ReservationFulfillmentSelectionInput {
+  const { outbound_method, return_method, use_same_location_for_return } =
+    resolveDeliveryBookingMethods(effective);
+  const deliverySlot = overrides?.delivery_window_slot ?? prefs.default_delivery_window_slot!;
+  const returnSlot = overrides?.return_window_slot ?? prefs.default_return_window_slot!;
+  const locationSelection = locationSelectionFromPreferences(prefs, overrides);
+
+  const payload: ReservationFulfillmentSelectionInput = {
+    outbound_method,
+    return_method,
+    return_window_slot: returnSlot,
+    return_location: null,
+    use_same_location_for_return
+  };
+
+  if (outbound_method === "DELIVERY") {
+    payload.delivery_window_slot = deliverySlot;
+    payload.outbound_location = locationSelection;
+  } else {
+    payload.pickup_window_slot = deliverySlot;
+  }
+
+  if (return_method === "DELIVERY" && !use_same_location_for_return) {
+    payload.return_location = overrides?.return_location ?? locationSelection;
+  }
+
+  return payload;
+}
+
 export type VendorFulfillmentSettings = {
   id: number;
   vendor_id: number;
@@ -183,6 +278,47 @@ export type ReservationAdjustment = {
 
 export function modeAllowsMethod(mode: FulfillmentMode, method: FulfillmentMethod) {
   return mode === "BOTH" || mode === method;
+}
+
+/** Preferred outbound/return methods for the delivery-first renter booking flow. */
+export function resolveDeliveryBookingMethods(
+  effective: Pick<EffectiveCostumeFulfillment, "outbound_mode" | "return_mode">
+): {
+  outbound_method: FulfillmentMethod;
+  return_method: FulfillmentMethod;
+  use_same_location_for_return: boolean;
+} {
+  const outbound_method: FulfillmentMethod = modeAllowsMethod(effective.outbound_mode, "DELIVERY")
+    ? "DELIVERY"
+    : "PICKUP";
+  const return_method: FulfillmentMethod = modeAllowsMethod(effective.return_mode, "DELIVERY")
+    ? "DELIVERY"
+    : "PICKUP";
+
+  return {
+    outbound_method,
+    return_method,
+    use_same_location_for_return: outbound_method === "DELIVERY" && return_method === "DELIVERY"
+  };
+}
+
+export function fulfillmentFeesForBookingMethods(
+  effective: Pick<
+    EffectiveCostumeFulfillment,
+    "outbound_pickup_fee" | "outbound_delivery_fee" | "return_pickup_fee" | "return_delivery_fee"
+  >,
+  methods: Pick<ReservationFulfillmentSelectionInput, "outbound_method" | "return_method">
+) {
+  const outboundFee =
+    methods.outbound_method === "PICKUP"
+      ? Number(effective.outbound_pickup_fee)
+      : Number(effective.outbound_delivery_fee);
+  const returnFee =
+    methods.return_method === "PICKUP"
+      ? Number(effective.return_pickup_fee)
+      : Number(effective.return_delivery_fee);
+
+  return outboundFee + returnFee;
 }
 
 export function narrowingOptionsForMode(mode: FulfillmentMode) {

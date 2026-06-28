@@ -7,6 +7,8 @@ const router = Router();
 const controller = new ReservationController();
 
 router.post("/cart", authMiddleware, (req, res) => controller.addToCart(req, res));
+router.post("/cart/items", authMiddleware, (req, res) => controller.addCostumeToCart(req, res));
+router.patch("/cart/:reservationId", authMiddleware, (req, res) => controller.configureCartReservation(req, res));
 router.post("/checkout", authMiddleware, (req, res) => controller.checkout(req, res));
 router.get("/my", authMiddleware, (req, res) => controller.myReservations(req, res));
 router.get("/:id/handoff-proofs/:type", authMiddleware, (req, res) => controller.handoffProof(req, res));

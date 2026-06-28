@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, ExclamationTriangleIcon as AlertCircle } from "@radix-ui/react-icons";
+import { CalendarIcon, ChevronDownIcon, ExclamationTriangleIcon as AlertCircle } from "@radix-ui/react-icons";
 import { toast } from "sonner";
 
 import { SavedLocationFields } from "@/components/SavedLocationFields";
@@ -27,18 +28,22 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { addReservationToCart } from "@/lib/account";
+import { addReservationToCart, configureCartReservation, getFulfillmentPreferences } from "@/lib/account";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/CartContext";
 import type { CostumeDetailResponse } from "@/lib/costumes";
 import { getAvailability } from "@/lib/costumes";
 import {
-  FULFILLMENT_METHOD_LABELS,
   FULFILLMENT_WINDOW_LABELS,
+  buildFulfillmentPayloadFromPreferences,
+  formatLocationSummary,
+  fulfillmentFeesForBookingMethods,
+  hasCompleteDeliveryProfile,
   isLocationOutsideServiceAreas,
   modeAllowsMethod,
-  type FulfillmentMethod,
+  resolveDeliveryBookingMethods,
+  type FulfillmentPreferences,
   type FulfillmentWindowSlot,
   type ReservationFulfillmentSelectionInput,
   type SavedLocation,
@@ -50,13 +55,12 @@ import { cn } from "@/lib/utils";
 const currencyFormatter = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 });
 const WINDOW_OPTIONS: FulfillmentWindowSlot[] = ["MORNING", "AFTERNOON", "EVENING"];
 
-type WizardStep = "dates" | "handoff" | "location" | "review";
+type WizardStep = "dates" | "delivery" | "review";
 export type ReservationWizardIntent = "reserve" | "cart";
 
 const STEP_LABELS: Record<WizardStep, string> = {
   dates: "Dates",
-  handoff: "Handoff",
-  location: "Location",
+  delivery: "Delivery",
   review: "Review"
 };
 
@@ -82,10 +86,6 @@ function emptyLocationDraft(): SavedLocationInput {
   };
 }
 
-function methodOptionsForMode(mode: CostumeDetailResponse["effective_fulfillment"]["outbound_mode"]) {
-  return (["PICKUP", "DELIVERY"] as FulfillmentMethod[]).filter((method) => modeAllowsMethod(mode, method));
-}
-
 function locationComplete(location: SavedLocationInput) {
   return (
     location.label.trim() &&
@@ -100,9 +100,11 @@ export interface ReservationWizardProps {
   costumeId: number;
   data: CostumeDetailResponse;
   savedLocations: SavedLocation[];
+  fulfillmentPreferences?: FulfillmentPreferences | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   intent: ReservationWizardIntent;
+  reservationId?: number;
   initialStartDate?: Date;
   initialEndDate?: Date;
 }
@@ -111,9 +113,11 @@ export function ReservationWizard({
   costumeId,
   data,
   savedLocations,
+  fulfillmentPreferences: fulfillmentPreferencesProp,
   open,
   onOpenChange,
   intent,
+  reservationId,
   initialStartDate,
   initialEndDate
 }: ReservationWizardProps) {
@@ -127,47 +131,75 @@ export function ReservationWizard({
   const [isEndDateOpen, setIsEndDateOpen] = useState(false);
   const [shouldAutoOpenEndDate, setShouldAutoOpenEndDate] = useState(false);
 
-  const [outboundMethod, setOutboundMethod] = useState<FulfillmentMethod>("PICKUP");
-  const [returnMethod, setReturnMethod] = useState<FulfillmentMethod>("PICKUP");
-  const [pickupWindowSlot, setPickupWindowSlot] = useState<FulfillmentWindowSlot>("AFTERNOON");
+  const [loadedPreferences, setLoadedPreferences] = useState<FulfillmentPreferences | null>(null);
+  const fulfillmentPreferences = fulfillmentPreferencesProp ?? loadedPreferences;
   const [deliveryWindowSlot, setDeliveryWindowSlot] = useState<FulfillmentWindowSlot>("AFTERNOON");
   const [returnWindowSlot, setReturnWindowSlot] = useState<FulfillmentWindowSlot>("AFTERNOON");
   const [outboundLocationMode, setOutboundLocationMode] = useState<"saved" | "new">("saved");
-  const [returnLocationMode, setReturnLocationMode] = useState<"saved" | "new">("saved");
   const [selectedOutboundLocationId, setSelectedOutboundLocationId] = useState<number | null>(null);
-  const [selectedReturnLocationId, setSelectedReturnLocationId] = useState<number | null>(null);
   const [newOutboundLocation, setNewOutboundLocation] = useState<SavedLocationInput>(() => emptyLocationDraft());
-  const [newReturnLocation, setNewReturnLocation] = useState<SavedLocationInput>(() => emptyLocationDraft());
-  const [useSameLocationForReturn, setUseSameLocationForReturn] = useState(true);
+  const [showDeliveryOverride, setShowDeliveryOverride] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const profileComplete = useMemo(
+    () => hasCompleteDeliveryProfile(fulfillmentPreferences, savedLocations),
+    [fulfillmentPreferences, savedLocations]
+  );
+
+  const activeSteps = useMemo<WizardStep[]>(
+    () => (profileComplete ? ["dates", "review"] : ["dates", "delivery", "review"]),
+    [profileComplete]
+  );
 
   useEffect(() => {
     if (!open) return;
     setStep("dates");
     setStartDate(initialStartDate);
     setEndDate(initialEndDate);
+    setShowDeliveryOverride(false);
+  }, [open, initialStartDate, initialEndDate]);
 
-    const outboundOptions = methodOptionsForMode(data.effective_fulfillment.outbound_mode);
-    const returnOptions = methodOptionsForMode(data.effective_fulfillment.return_mode);
-    setOutboundMethod(outboundOptions[0] || "PICKUP");
-    setReturnMethod(returnOptions[0] || "PICKUP");
-  }, [open, data, initialStartDate, initialEndDate]);
+  useEffect(() => {
+    if (!open || !user || fulfillmentPreferencesProp !== undefined) return;
+
+    let cancelled = false;
+    getFulfillmentPreferences()
+      .then((preferences) => {
+        if (cancelled) return;
+        setLoadedPreferences(preferences);
+        if (preferences.default_delivery_window_slot) {
+          setDeliveryWindowSlot(preferences.default_delivery_window_slot);
+        }
+        if (preferences.default_return_window_slot) {
+          setReturnWindowSlot(preferences.default_return_window_slot);
+        }
+        if (preferences.default_saved_location_id) {
+          setSelectedOutboundLocationId(preferences.default_saved_location_id);
+          setOutboundLocationMode("saved");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedPreferences(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user, fulfillmentPreferencesProp]);
 
   useEffect(() => {
     const defaultLocation = savedLocations.find((location) => location.is_default) || savedLocations[0];
     if (!defaultLocation) {
       setOutboundLocationMode("new");
-      setReturnLocationMode("new");
       setSelectedOutboundLocationId(null);
-      setSelectedReturnLocationId(null);
       return;
     }
 
-    setSelectedOutboundLocationId(defaultLocation.id);
-    setSelectedReturnLocationId(defaultLocation.id);
-    setOutboundLocationMode("saved");
-    setReturnLocationMode("saved");
-  }, [savedLocations, open]);
+    if (!fulfillmentPreferences?.default_saved_location_id) {
+      setSelectedOutboundLocationId(defaultLocation.id);
+      setOutboundLocationMode("saved");
+    }
+  }, [savedLocations, open, fulfillmentPreferences?.default_saved_location_id]);
 
   useEffect(() => {
     if (isStartDateOpen || !shouldAutoOpenEndDate) return;
@@ -177,19 +209,6 @@ export function ReservationWizard({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [isStartDateOpen, shouldAutoOpenEndDate]);
-
-  const outboundNeedsLocation = outboundMethod === "DELIVERY";
-  const canReuseReturnLocation =
-    outboundMethod === "DELIVERY" && returnMethod === "DELIVERY" && useSameLocationForReturn;
-  const returnNeedsSeparateLocation = returnMethod === "DELIVERY" && !canReuseReturnLocation;
-  const needsLocationStep = outboundNeedsLocation || returnNeedsSeparateLocation;
-
-  const activeSteps = useMemo<WizardStep[]>(() => {
-    const steps: WizardStep[] = ["dates", "handoff"];
-    if (needsLocationStep) steps.push("location");
-    steps.push("review");
-    return steps;
-  }, [needsLocationStep]);
 
   const stepIndex = activeSteps.indexOf(step);
 
@@ -201,37 +220,28 @@ export function ReservationWizard({
     () => (rentalDays > 0 ? calculateCostumePrice(data.costume, rentalDays) : null),
     [data.costume, rentalDays]
   );
-  const fulfillmentFees = useMemo(() => {
-    const outboundFee =
-      outboundMethod === "PICKUP"
-        ? Number(data.effective_fulfillment.outbound_pickup_fee)
-        : Number(data.effective_fulfillment.outbound_delivery_fee);
-    const returnFee =
-      returnMethod === "PICKUP"
-        ? Number(data.effective_fulfillment.return_pickup_fee)
-        : Number(data.effective_fulfillment.return_delivery_fee);
-    return outboundFee + returnFee;
-  }, [data, outboundMethod, returnMethod]);
+  const bookingMethods = useMemo(
+    () => resolveDeliveryBookingMethods(data.effective_fulfillment),
+    [data.effective_fulfillment]
+  );
+  const fulfillmentFees = useMemo(
+    () => fulfillmentFeesForBookingMethods(data.effective_fulfillment, bookingMethods),
+    [data.effective_fulfillment, bookingMethods]
+  );
   const totalPreview = useMemo(() => Number(quote?.subtotal || 0) + fulfillmentFees, [quote, fulfillmentFees]);
 
-  const vendorLocationLine = useMemo(() => {
-    if (!data.effective_fulfillment.primary_location) return null;
-    return [
-      data.effective_fulfillment.primary_location.address_line_1,
-      data.effective_fulfillment.primary_location.barangay,
-      data.effective_fulfillment.primary_location.city
-    ]
-      .filter(Boolean)
-      .join(", ");
-  }, [data]);
+  const effectiveLocationId =
+    selectedOutboundLocationId ?? fulfillmentPreferences?.default_saved_location_id ?? null;
+  const selectedLocation = savedLocations.find((entry) => entry.id === effectiveLocationId);
 
   const outboundLocationOutsideServiceArea = useMemo(() => {
-    if (outboundMethod !== "DELIVERY") return false;
     const serviceAreas = data.effective_fulfillment.service_areas;
     if (!serviceAreas?.length) return false;
 
     let location: { area?: string | null; city?: string | null; province?: string | null } | null = null;
-    if (outboundLocationMode === "saved" && selectedOutboundLocationId) {
+    if (profileComplete && !showDeliveryOverride && selectedLocation) {
+      location = { area: selectedLocation.area, city: selectedLocation.city, province: selectedLocation.province };
+    } else if (outboundLocationMode === "saved" && selectedOutboundLocationId) {
       const saved = savedLocations.find((entry) => entry.id === selectedOutboundLocationId);
       if (saved) location = { area: saved.area, city: saved.city, province: saved.province };
     } else if (outboundLocationMode === "new" && locationComplete(newOutboundLocation)) {
@@ -244,7 +254,9 @@ export function ReservationWizard({
     return isLocationOutsideServiceAreas(location, serviceAreas);
   }, [
     data,
-    outboundMethod,
+    profileComplete,
+    showDeliveryOverride,
+    selectedLocation,
     outboundLocationMode,
     selectedOutboundLocationId,
     savedLocations,
@@ -298,44 +310,58 @@ export function ReservationWizard({
   }
 
   function buildFulfillmentPayload(): ReservationFulfillmentSelectionInput {
-    return {
-      outbound_method: outboundMethod,
-      return_method: returnMethod,
-      pickup_window_slot: outboundMethod === "PICKUP" ? pickupWindowSlot : null,
-      delivery_window_slot: outboundMethod === "DELIVERY" ? deliveryWindowSlot : null,
+    if (profileComplete && fulfillmentPreferences && !showDeliveryOverride) {
+      return buildFulfillmentPayloadFromPreferences(fulfillmentPreferences, data.effective_fulfillment);
+    }
+
+    if (profileComplete && fulfillmentPreferences && showDeliveryOverride) {
+      return buildFulfillmentPayloadFromPreferences(fulfillmentPreferences, data.effective_fulfillment, {
+        saved_location_id: selectedOutboundLocationId,
+        delivery_window_slot: deliveryWindowSlot,
+        return_window_slot: returnWindowSlot,
+        outbound_location:
+          outboundLocationMode === "new" && locationComplete(newOutboundLocation)
+            ? buildLocationSelection(outboundLocationMode, selectedOutboundLocationId, newOutboundLocation)
+            : selectedOutboundLocationId
+              ? { saved_location_id: selectedOutboundLocationId }
+              : undefined
+      });
+    }
+
+    const { outbound_method, return_method, use_same_location_for_return } = bookingMethods;
+
+    const payload: ReservationFulfillmentSelectionInput = {
+      outbound_method,
+      return_method,
       return_window_slot: returnWindowSlot,
-      outbound_location:
-        outboundMethod === "DELIVERY"
-          ? buildLocationSelection(outboundLocationMode, selectedOutboundLocationId, newOutboundLocation)
-          : null,
-      return_location:
-        returnMethod === "DELIVERY" && !canReuseReturnLocation
-          ? buildLocationSelection(returnLocationMode, selectedReturnLocationId, newReturnLocation)
-          : null,
-      use_same_location_for_return: canReuseReturnLocation
+      return_location: null,
+      use_same_location_for_return
     };
+
+    if (outbound_method === "DELIVERY") {
+      payload.delivery_window_slot = deliveryWindowSlot;
+      payload.outbound_location = buildLocationSelection(
+        outboundLocationMode,
+        selectedOutboundLocationId,
+        newOutboundLocation
+      );
+    } else {
+      payload.pickup_window_slot = deliveryWindowSlot;
+    }
+
+    return payload;
   }
 
-  function validateLocationStep(): boolean {
-    if (outboundNeedsLocation) {
-      if (outboundLocationMode === "saved" && !selectedOutboundLocationId) {
-        toast.error("Choose a saved delivery location.");
-        return false;
-      }
-      if (outboundLocationMode === "new" && !locationComplete(newOutboundLocation)) {
-        toast.error("Complete the outbound delivery address.");
-        return false;
-      }
+  function validateDeliveryStep(): boolean {
+    if (profileComplete && !showDeliveryOverride) return true;
+
+    if (outboundLocationMode === "saved" && !selectedOutboundLocationId) {
+      toast.error("Choose a delivery address.");
+      return false;
     }
-    if (returnNeedsSeparateLocation) {
-      if (returnLocationMode === "saved" && !selectedReturnLocationId) {
-        toast.error("Choose a return pickup location.");
-        return false;
-      }
-      if (returnLocationMode === "new" && !locationComplete(newReturnLocation)) {
-        toast.error("Complete the return pickup address.");
-        return false;
-      }
+    if (outboundLocationMode === "new" && !locationComplete(newOutboundLocation)) {
+      toast.error("Complete the delivery address.");
+      return false;
     }
     return true;
   }
@@ -346,29 +372,21 @@ export function ReservationWizard({
         toast.error("Please choose start and end dates.");
         return;
       }
-      setStep("handoff");
+      setStep(profileComplete ? "review" : "delivery");
       return;
     }
-    if (step === "handoff") {
-      setStep(needsLocationStep ? "location" : "review");
-      return;
-    }
-    if (step === "location") {
-      if (!validateLocationStep()) return;
+    if (step === "delivery") {
+      if (!validateDeliveryStep()) return;
       setStep("review");
     }
   }
 
   function goBack() {
     if (step === "review") {
-      setStep(needsLocationStep ? "location" : "handoff");
+      setStep(profileComplete && !showDeliveryOverride ? "dates" : "delivery");
       return;
     }
-    if (step === "location") {
-      setStep("handoff");
-      return;
-    }
-    if (step === "handoff") {
+    if (step === "delivery") {
       setStep("dates");
     }
   }
@@ -382,16 +400,28 @@ export function ReservationWizard({
       toast.error("Please choose dates first.");
       return;
     }
-    if (needsLocationStep && !validateLocationStep()) return;
+    if (!modeAllowsMethod(data.effective_fulfillment.outbound_mode, "DELIVERY")) {
+      toast.error("This costume is pickup-only and cannot be booked with delivery.");
+      return;
+    }
+    if (!validateDeliveryStep()) return;
 
     setIsSubmitting(true);
     try {
-      await addReservationToCart({
-        costumeId,
+      const payload = {
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
         fulfillment: buildFulfillmentPayload()
-      });
+      };
+
+      if (reservationId) {
+        await configureCartReservation(reservationId, payload);
+      } else {
+        await addReservationToCart({
+          costumeId,
+          ...payload
+        });
+      }
       triggerRefresh();
       const openDrawer = intent === "reserve";
       toast.success(openDrawer ? "Added to cart." : "Costume added to cart.");
@@ -404,8 +434,11 @@ export function ReservationWizard({
     }
   }
 
+  const settingsReturnUrl = `/costumes/${costumeId}`;
+  const canOpen = open && !!user;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={canOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto rounded-xl sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="font-display">
@@ -443,12 +476,41 @@ export function ReservationWizard({
         {step === "dates" ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">When do you need this costume?</p>
+            {!profileComplete ? (
+              <Alert className="rounded-lg border-amber-400/40 bg-amber-50/60 dark:bg-amber-950/20">
+                <AlertCircle className="size-4 text-amber-700 dark:text-amber-300" />
+                <AlertTitle className="text-sm">Set up delivery defaults</AlertTitle>
+                <AlertDescription className="text-sm">
+                  Save your address and time windows once in{" "}
+                  <Link
+                    href={`/account/settings?next=${encodeURIComponent(settingsReturnUrl)}`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    account settings
+                  </Link>{" "}
+                  to skip delivery details on future bookings.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Start date</Label>
-                <Popover open={isStartDateOpen} onOpenChange={(open: boolean) => { setIsStartDateOpen(open); if (open) { setIsEndDateOpen(false); setShouldAutoOpenEndDate(false); } }}>
+                <Popover
+                  modal
+                  open={isStartDateOpen}
+                  onOpenChange={(nextOpen: boolean) => {
+                    setIsStartDateOpen(nextOpen);
+                    if (nextOpen) {
+                      setIsEndDateOpen(false);
+                      setShouldAutoOpenEndDate(false);
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-11 w-full justify-start font-normal", !startDate && "text-muted-foreground")}>
+                    <Button
+                      variant="outline"
+                      className={cn("h-11 w-full justify-start font-normal", !startDate && "text-muted-foreground")}
+                    >
                       <CalendarIcon className="mr-2 size-4" />
                       {startDate ? format(startDate, "MMM d, yyyy") : "Pick a date"}
                     </Button>
@@ -460,9 +522,19 @@ export function ReservationWizard({
               </div>
               <div className="space-y-2">
                 <Label>End date</Label>
-                <Popover open={isEndDateOpen} onOpenChange={(open: boolean) => { setIsEndDateOpen(open); if (open) setIsStartDateOpen(false); }}>
+                <Popover
+                  modal
+                  open={isEndDateOpen}
+                  onOpenChange={(nextOpen: boolean) => {
+                    setIsEndDateOpen(nextOpen);
+                    if (nextOpen) setIsStartDateOpen(false);
+                  }}
+                >
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("h-11 w-full justify-start font-normal", !endDate && "text-muted-foreground")}>
+                    <Button
+                      variant="outline"
+                      className={cn("h-11 w-full justify-start font-normal", !endDate && "text-muted-foreground")}
+                    >
                       <CalendarIcon className="mr-2 size-4" />
                       {endDate ? format(endDate, "MMM d, yyyy") : "Pick a date"}
                     </Button>
@@ -479,74 +551,106 @@ export function ReservationWizard({
           </div>
         ) : null}
 
-        {step === "handoff" ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">How should this costume reach you and return?</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Outbound</Label>
-                <Select value={outboundMethod} onValueChange={(value: string) => setOutboundMethod(value as FulfillmentMethod)}>
-                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+        {step === "delivery" ? (
+          <div className="space-y-6">
+            <Alert className="rounded-lg border-amber-400/40 bg-amber-50/60 dark:bg-amber-950/20">
+              <AlertCircle className="size-4 text-amber-700 dark:text-amber-300" />
+              <AlertTitle className="text-sm">Complete your delivery profile</AlertTitle>
+              <AlertDescription className="text-sm">
+                <Link
+                  href={`/account/settings?next=${encodeURIComponent(settingsReturnUrl)}`}
+                  className="font-medium underline underline-offset-2"
+                >
+                  Set defaults in account settings
+                </Link>{" "}
+                to skip this step next time.
+              </AlertDescription>
+            </Alert>
+            <p className="text-sm text-muted-foreground">Where should we deliver this costume?</p>
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={outboundLocationMode === "saved" ? "default" : "outline"}
+                  onClick={() => setOutboundLocationMode("saved")}
+                >
+                  Saved location
+                </Button>
+                <Button
+                  type="button"
+                  variant={outboundLocationMode === "new" ? "default" : "outline"}
+                  onClick={() => setOutboundLocationMode("new")}
+                >
+                  New address
+                </Button>
+              </div>
+              {outboundLocationMode === "saved" && savedLocations.length > 0 ? (
+                <Select
+                  value={selectedOutboundLocationId ? String(selectedOutboundLocationId) : undefined}
+                  onValueChange={(value: string) => setSelectedOutboundLocationId(Number(value))}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Choose location" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {methodOptionsForMode(data.effective_fulfillment.outbound_mode).map((m) => (
-                      <SelectItem key={m} value={m}>{FULFILLMENT_METHOD_LABELS[m]}</SelectItem>
+                    {savedLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={String(loc.id)}>
+                        {loc.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Return</Label>
-                <Select value={returnMethod} onValueChange={(value: string) => setReturnMethod(value as FulfillmentMethod)}>
-                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {methodOptionsForMode(data.effective_fulfillment.return_mode).map((m) => (
-                      <SelectItem key={m} value={m}>{FULFILLMENT_METHOD_LABELS[m]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              ) : null}
+              {outboundLocationMode === "new" ? (
+                <SavedLocationFields layout="single" value={newOutboundLocation} onChange={setNewOutboundLocation} />
+              ) : null}
             </div>
-            {outboundMethod === "PICKUP" ? (
-              <div className="space-y-2">
-                <Label>Pickup window</Label>
-                <Select value={pickupWindowSlot} onValueChange={(value: string) => setPickupWindowSlot(value as FulfillmentWindowSlot)}>
-                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {WINDOW_OPTIONS.map((slot) => (
-                      <SelectItem key={slot} value={slot}>{FULFILLMENT_WINDOW_LABELS[slot]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Delivery window</Label>
-                <Select value={deliveryWindowSlot} onValueChange={(value: string) => setDeliveryWindowSlot(value as FulfillmentWindowSlot)}>
-                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <Select
+                  value={deliveryWindowSlot}
+                  onValueChange={(value: string) => setDeliveryWindowSlot(value as FulfillmentWindowSlot)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {WINDOW_OPTIONS.map((slot) => (
-                      <SelectItem key={slot} value={slot}>{FULFILLMENT_WINDOW_LABELS[slot]}</SelectItem>
+                      <SelectItem key={slot} value={slot}>
+                        {FULFILLMENT_WINDOW_LABELS[slot]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label>Return window</Label>
-              <Select value={returnWindowSlot} onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}>
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {WINDOW_OPTIONS.map((slot) => (
-                    <SelectItem key={slot} value={slot}>{FULFILLMENT_WINDOW_LABELS[slot]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Return pickup window</Label>
+                <Select
+                  value={returnWindowSlot}
+                  onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WINDOW_OPTIONS.map((slot) => (
+                      <SelectItem key={slot} value={slot}>
+                        {FULFILLMENT_WINDOW_LABELS[slot]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            {vendorLocationLine ? (
-              <p className="text-sm text-muted-foreground">
-                Vendor handoff: <span className="text-foreground">{vendorLocationLine}</span>
-              </p>
-            ) : null}
+
+            <p className="text-sm text-muted-foreground">
+              {bookingMethods.return_method === "DELIVERY"
+                ? "Return pickup uses the same address as delivery."
+                : "Return is at the vendor location on your end date."}
+            </p>
+
             {outboundLocationOutsideServiceArea ? (
               <Alert className="rounded-lg border-orange-400/40 bg-orange-50/60 dark:bg-orange-950/20">
                 <AlertCircle className="size-4 text-orange-700 dark:text-orange-300" />
@@ -559,80 +663,105 @@ export function ReservationWizard({
           </div>
         ) : null}
 
-        {step === "location" ? (
-          <div className="space-y-6">
-            {outboundNeedsLocation ? (
-              <div className="space-y-4">
-                <p className="text-sm font-medium text-foreground">Outbound delivery location</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button type="button" variant={outboundLocationMode === "saved" ? "default" : "outline"} onClick={() => setOutboundLocationMode("saved")}>
-                    Saved location
-                  </Button>
-                  <Button type="button" variant={outboundLocationMode === "new" ? "default" : "outline"} onClick={() => setOutboundLocationMode("new")}>
-                    New address
-                  </Button>
-                </div>
-                {outboundLocationMode === "saved" && savedLocations.length > 0 ? (
-                  <Select value={selectedOutboundLocationId ? String(selectedOutboundLocationId) : undefined} onValueChange={(value: string) => setSelectedOutboundLocationId(Number(value))}>
-                    <SelectTrigger className="h-11"><SelectValue placeholder="Choose location" /></SelectTrigger>
-                    <SelectContent>
-                      {savedLocations.map((loc) => (
-                        <SelectItem key={loc.id} value={String(loc.id)}>{loc.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-                {outboundLocationMode === "new" ? (
-                  <SavedLocationFields layout="single" value={newOutboundLocation} onChange={setNewOutboundLocation} />
-                ) : null}
-              </div>
-            ) : null}
-
-            {outboundMethod === "DELIVERY" && returnMethod === "DELIVERY" ? (
-              <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                <input type="checkbox" checked={useSameLocationForReturn} onChange={(e) => setUseSameLocationForReturn(e.target.checked)} className="size-4" />
-                <span className="text-sm">Use same location for return pickup</span>
-              </label>
-            ) : null}
-
-            {returnNeedsSeparateLocation ? (
-              <div className="space-y-4 border-t border-border pt-6">
-                <p className="text-sm font-medium text-foreground">Return pickup location</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button type="button" variant={returnLocationMode === "saved" ? "default" : "outline"} onClick={() => setReturnLocationMode("saved")}>
-                    Saved location
-                  </Button>
-                  <Button type="button" variant={returnLocationMode === "new" ? "default" : "outline"} onClick={() => setReturnLocationMode("new")}>
-                    New address
-                  </Button>
-                </div>
-                {returnLocationMode === "saved" && savedLocations.length > 0 ? (
-                  <Select value={selectedReturnLocationId ? String(selectedReturnLocationId) : undefined} onValueChange={(value: string) => setSelectedReturnLocationId(Number(value))}>
-                    <SelectTrigger className="h-11"><SelectValue placeholder="Choose location" /></SelectTrigger>
-                    <SelectContent>
-                      {savedLocations.map((loc) => (
-                        <SelectItem key={loc.id} value={String(loc.id)}>{loc.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-                {returnLocationMode === "new" ? (
-                  <SavedLocationFields layout="single" value={newReturnLocation} onChange={setNewReturnLocation} />
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         {step === "review" ? (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {startDate && endDate ? (
-                <Badge variant="outline">{format(startDate, "MMM d")} – {format(endDate, "MMM d, yyyy")}</Badge>
+                <Badge variant="outline">
+                  {format(startDate, "MMM d")} – {format(endDate, "MMM d, yyyy")}
+                </Badge>
               ) : null}
-              <Badge variant="outline">{FULFILLMENT_METHOD_LABELS[outboundMethod]} out</Badge>
-              <Badge variant="outline">{FULFILLMENT_METHOD_LABELS[returnMethod]} return</Badge>
+              <Badge variant="outline">Delivery to you</Badge>
+              <Badge variant="outline">
+                {bookingMethods.return_method === "DELIVERY"
+                  ? "Return pickup at same address"
+                  : "Return at vendor location"}
+              </Badge>
             </div>
+
+            {profileComplete && selectedLocation ? (
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
+                <p className="font-medium text-foreground">Using your saved delivery defaults</p>
+                <p className="mt-1 text-muted-foreground">{formatLocationSummary(selectedLocation)}</p>
+                <p className="mt-1 text-muted-foreground">
+                  {FULFILLMENT_WINDOW_LABELS[deliveryWindowSlot]} ·{" "}
+                  {FULFILLMENT_WINDOW_LABELS[returnWindowSlot]} return
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 h-8 px-0 text-xs font-semibold uppercase tracking-widest"
+                  onClick={() => setShowDeliveryOverride((current) => !current)}
+                >
+                  <ChevronDownIcon
+                    className={cn("mr-1 size-3 transition-transform", showDeliveryOverride && "rotate-180")}
+                  />
+                  Change delivery details
+                </Button>
+              </div>
+            ) : null}
+
+            {showDeliveryOverride ? (
+              <div className="space-y-4 rounded-xl border border-dashed border-border p-4">
+                {savedLocations.length > 0 ? (
+                  <Select
+                    value={selectedOutboundLocationId ? String(selectedOutboundLocationId) : undefined}
+                    onValueChange={(value: string) => setSelectedOutboundLocationId(Number(value))}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Choose location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {savedLocations.map((loc) => (
+                        <SelectItem key={loc.id} value={String(loc.id)}>
+                          {loc.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Delivery window</Label>
+                    <Select
+                      value={deliveryWindowSlot}
+                      onValueChange={(value: string) => setDeliveryWindowSlot(value as FulfillmentWindowSlot)}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WINDOW_OPTIONS.map((slot) => (
+                          <SelectItem key={slot} value={slot}>
+                            {FULFILLMENT_WINDOW_LABELS[slot]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Return pickup window</Label>
+                    <Select
+                      value={returnWindowSlot}
+                      onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WINDOW_OPTIONS.map((slot) => (
+                          <SelectItem key={slot} value={slot}>
+                            {FULFILLMENT_WINDOW_LABELS[slot]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {quote ? (
               <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
                 <div className="flex justify-between text-sm">
@@ -652,6 +781,16 @@ export function ReservationWizard({
                   <span className="font-display text-xl font-semibold text-primary">{fmtMoney(totalPreview)}</span>
                 </div>
               </div>
+            ) : null}
+
+            {outboundLocationOutsideServiceArea ? (
+              <Alert className="rounded-lg border-orange-400/40 bg-orange-50/60 dark:bg-orange-950/20">
+                <AlertCircle className="size-4 text-orange-700 dark:text-orange-300" />
+                <AlertTitle className="text-sm">Outside service area</AlertTitle>
+                <AlertDescription className="text-sm">
+                  Delivery may incur an outside-area surcharge during vendor review.
+                </AlertDescription>
+              </Alert>
             ) : null}
           </div>
         ) : null}

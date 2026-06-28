@@ -13,6 +13,7 @@ import {
   RulerSquareIcon,
   StarFilledIcon
 } from "@radix-ui/react-icons";
+import { toast } from "sonner";
 
 import { CostumeCard } from "@/components/CostumeCard";
 import {
@@ -24,11 +25,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listSavedLocations, myWishlist } from "../../../lib/account";
+import { addCostumeToCart, getFulfillmentPreferences, listSavedLocations, myWishlist } from "../../../lib/account";
 import { ApiError } from "../../../lib/api";
 import { resolveApiAsset } from "../../../lib/assets";
 import { useAuth } from "../../../lib/auth";
-import type { SavedLocation } from "../../../lib/fulfillment";
+import { useCart } from "../../../lib/CartContext";
+import type { FulfillmentPreferences, SavedLocation } from "../../../lib/fulfillment";
 import {
   getCostume,
   listCostumeReviews,
@@ -107,6 +109,7 @@ export default function CostumeDetailPage() {
   const id = Number(params.id);
 
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { openCart, triggerRefresh } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -115,6 +118,7 @@ export default function CostumeDetailPage() {
   const [relatedItems, setRelatedItems] = useState<Costume[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(() => new Set());
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [fulfillmentPreferences, setFulfillmentPreferences] = useState<FulfillmentPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -122,6 +126,7 @@ export default function CostumeDetailPage() {
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardIntent, setWizardIntent] = useState<ReservationWizardIntent>("reserve");
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [initialStartDate, setInitialStartDate] = useState<Date | undefined>();
   const [initialEndDate, setInitialEndDate] = useState<Date | undefined>();
 
@@ -160,14 +165,16 @@ export default function CostumeDetailPage() {
   useEffect(() => {
     if (!user || user.role === "ADMIN") {
       setSavedLocations([]);
+      setFulfillmentPreferences(null);
       return;
     }
 
     let cancelled = false;
-    listSavedLocations()
-      .then((locations) => {
+    Promise.all([listSavedLocations(), getFulfillmentPreferences()])
+      .then(([locations, prefs]) => {
         if (cancelled) return;
         setSavedLocations(locations);
+        setFulfillmentPreferences(prefs);
       })
       .catch(() => {});
 
@@ -271,8 +278,46 @@ export default function CostumeDetailPage() {
 
   function openWizard(intent: ReservationWizardIntent) {
     if (isOwnCostume) return;
+    if (!user) {
+      const next = `/costumes/${id}`;
+      toast.message(intent === "reserve" ? "Reserve this look" : "Add to cart", {
+        description: "Log in to reserve costumes and manage your cart.",
+        action: {
+          label: "Log in",
+          onClick: () => window.location.assign(`/login?next=${encodeURIComponent(next)}`)
+        }
+      });
+      return;
+    }
     setWizardIntent(intent);
     setWizardOpen(true);
+  }
+
+  async function handleAddToCart() {
+    if (isOwnCostume || isAddingToCart) return;
+    if (!user) {
+      const next = `/costumes/${id}`;
+      toast.message("Add to cart", {
+        description: "Log in to save costumes to your cart.",
+        action: {
+          label: "Log in",
+          onClick: () => window.location.assign(`/login?next=${encodeURIComponent(next)}`)
+        }
+      });
+      return;
+    }
+
+    setIsAddingToCart(true);
+    try {
+      const result = await addCostumeToCart(id);
+      triggerRefresh();
+      toast.success(result.alreadyInCart ? "Already in your cart." : "Added to cart.");
+      openCart();
+    } catch (nextError: unknown) {
+      toast.error(nextError instanceof Error ? nextError.message : "Failed to add to cart");
+    } finally {
+      setIsAddingToCart(false);
+    }
   }
 
   if (user?.role === "ADMIN") {
@@ -705,7 +750,7 @@ export default function CostumeDetailPage() {
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {data.costume.pricing_mode === "PACKAGE"
                     ? `Includes ${data.costume.package_included_days} day${data.costume.package_included_days === 1 ? "" : "s"}. ${packagePricingNote}`
-                    : "Reserve to choose dates, fulfillment, and see your full quote."}
+                    : "Delivery and return pickup included. Choose dates and your address to see your full quote."}
                 </p>
               </div>
 
@@ -739,10 +784,10 @@ export default function CostumeDetailPage() {
                   <Button
                     variant="outline"
                     className="h-11 font-semibold"
-                    onClick={() => openWizard("cart")}
-                    disabled={isOwnCostume}
+                    onClick={() => void handleAddToCart()}
+                    disabled={isOwnCostume || isAddingToCart}
                   >
-                    Add to cart
+                    {isAddingToCart ? "Adding..." : "Add to cart"}
                   </Button>
                 </div>
               </div>
@@ -755,6 +800,7 @@ export default function CostumeDetailPage() {
         costumeId={id}
         data={data}
         savedLocations={savedLocations}
+        fulfillmentPreferences={fulfillmentPreferences}
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         intent={wizardIntent}

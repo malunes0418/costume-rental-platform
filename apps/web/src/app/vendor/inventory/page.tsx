@@ -361,7 +361,23 @@ export default function VendorInventoryPage() {
           />
         </div>
 
-        {!profile.canPublish ? (
+        {!profile.canPublish && profile.blockingReasons.includes("PAYMENT_DETAILS_REQUIRED") ? (
+          <div className="mt-8 max-w-3xl rounded-xl border border-amber-400/40 bg-amber-50/50 px-5 py-5 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+              <RocketIcon className="size-3.5" />
+              Payment details required
+            </div>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+              Publishing is locked until you add at least one active payment method in settings.
+            </p>
+            <Link
+              href="/vendor/settings"
+              className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Add payment details
+            </Link>
+          </div>
+        ) : !profile.canPublish ? (
           <div className="mt-8 max-w-3xl rounded-xl border border-amber-400/40 bg-muted/30 px-5 py-5">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
               <RocketIcon className="size-3.5" />

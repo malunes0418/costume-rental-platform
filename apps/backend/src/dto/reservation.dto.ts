@@ -13,6 +13,17 @@ export interface AddToCartRequest {
   fulfillment: ReservationFulfillmentSelectionRequest;
 }
 
+export interface AddCostumeToCartRequest {
+  costumeId: number;
+  quantity?: number;
+}
+
+export interface ConfigureCartReservationRequest {
+  startDate: string;
+  endDate: string;
+  fulfillment: ReservationFulfillmentSelectionRequest;
+}
+
 export interface CheckoutRequest {
   reservationId: number;
 }

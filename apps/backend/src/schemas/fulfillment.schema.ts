@@ -139,3 +139,36 @@ registry.registerPath({
   },
   responses: { 200: { description: "Saved location deleted" } }
 });
+
+const fulfillmentPreferencesSchema = z.object({
+  default_saved_location_id: z.number().nullable().optional(),
+  default_delivery_window_slot: fulfillmentWindowSlotSchema.nullable().optional(),
+  default_return_window_slot: fulfillmentWindowSlotSchema.nullable().optional()
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/account/fulfillment-preferences",
+  tags: ["Account"],
+  summary: "Get user fulfillment preferences",
+  security: [{ bearerAuth: [] }],
+  responses: { 200: { description: "User fulfillment preferences" } }
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/account/fulfillment-preferences",
+  tags: ["Account"],
+  summary: "Create or update user fulfillment preferences",
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: fulfillmentPreferencesSchema
+        }
+      }
+    }
+  },
+  responses: { 200: { description: "User fulfillment preferences saved" } }
+});

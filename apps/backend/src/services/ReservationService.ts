@@ -1,6 +1,12 @@
 import type { Request } from "express";
 import { Op } from "sequelize";
-import type { AddToCartRequest, CheckoutRequest, CostumeAvailabilityQuery } from "../dto";
+import type {
+  AddToCartRequest,
+  AddCostumeToCartRequest,
+  CheckoutRequest,
+  ConfigureCartReservationRequest,
+  CostumeAvailabilityQuery
+} from "../dto";
 import {
   deriveVendorReservationStatus,
   isBlockingReservationStatus,
@@ -131,105 +137,200 @@ export class ReservationService {
     }
   }
 
-  async addToCart(userId: number, body: AddToCartRequest) {
-    const { costumeId, quantity, startDate, endDate, fulfillment } = body;
-    const costumeIdNum = Number(costumeId);
-    const qty = this.normalizeReservationQuantity(quantity);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+  private costumePricingConfig(costume: Costume) {
+    return {
+      pricing_mode: costume.pricing_mode,
+      base_price_per_day: costume.base_price_per_day,
+      package_price: costume.package_price,
+      package_included_days: costume.package_included_days,
+      package_unused_day_discount: costume.package_unused_day_discount,
+      package_extra_day_charge: costume.package_extra_day_charge
+    };
+  }
+
+  private snapshotPricingForCostume(costume: Costume, quantity: number) {
+    const placeholderDays =
+      costume.pricing_mode === "PACKAGE"
+        ? Math.max(1, Number(costume.package_included_days) || 1)
+        : 1;
+    return calculateReservationPrice(this.costumePricingConfig(costume), placeholderDays, quantity);
+  }
+
+  private async findCartReservationForCostume(userId: number, costumeId: number) {
+    return Reservation.findOne({
+      where: { user_id: userId, status: "CART" },
+      include: [
+        {
+          model: ReservationItem,
+          as: "items",
+          where: { costume_id: costumeId },
+          required: true
+        }
+      ]
+    });
+  }
+
+  private async applyCartConfiguration(
+    userId: number,
+    reservation: Reservation,
+    item: ReservationItem,
+    costume: Costume,
+    body: ConfigureCartReservationRequest
+  ) {
+    const start = new Date(body.startDate);
+    const end = new Date(body.endDate);
+    await this.validateAvailability(costume.id, start, end, item.quantity);
+    const days = countDaysInclusive(start, end);
+    const pricing = calculateReservationPrice(this.costumePricingConfig(costume), days, item.quantity);
+    const preparedFulfillment = await this.fulfillmentService.prepareReservationFulfillment({
+      userId,
+      costume,
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+      selection: body.fulfillment
+    });
+    const totalWithFulfillment =
+      pricing.subtotal + Number(preparedFulfillment.outbound_fee) + Number(preparedFulfillment.return_fee);
+
+    reservation.start_date = start.toISOString().slice(0, 10);
+    reservation.end_date = end.toISOString().slice(0, 10);
+    reservation.total_price = totalWithFulfillment;
+    await reservation.save();
+
+    item.price_per_day = pricing.pricePerDaySnapshot;
+    item.pricing_mode = pricing.pricingMode;
+    item.package_base_price = pricing.packageBasePrice;
+    item.package_included_days = pricing.packageIncludedDays;
+    item.package_unused_day_discount = pricing.packageUnusedDayDiscount;
+    item.package_extra_day_charge = pricing.packageExtraDayCharge;
+    item.subtotal = pricing.subtotal;
+    await item.save();
+
+    await this.fulfillmentService.upsertReservationFulfillment(reservation.id, preparedFulfillment);
+  }
+
+  async addCostumeToCart(userId: number, body: AddCostumeToCartRequest) {
+    const costumeIdNum = Number(body.costumeId);
+    const qty = this.normalizeReservationQuantity(body.quantity);
     const costume = await Costume.findByPk(costumeIdNum);
     this.assertBookableCostume(costume);
     if (costume.owner_id === userId) {
       throw new Error("You cannot add your own costume to your cart");
     }
 
-    await this.validateAvailability(costumeIdNum, start, end, qty);
-    const days = countDaysInclusive(start, end);
-    const pricing = calculateReservationPrice(
-      {
-        pricing_mode: costume.pricing_mode,
-        base_price_per_day: costume.base_price_per_day,
-        package_price: costume.package_price,
-        package_included_days: costume.package_included_days,
-        package_unused_day_discount: costume.package_unused_day_discount,
-        package_extra_day_charge: costume.package_extra_day_charge
-      },
-      days,
-      qty
-    );
-    const subtotal = pricing.subtotal;
-    const preparedFulfillment = await this.fulfillmentService.prepareReservationFulfillment({
-      userId,
-      costume,
-      startDate: start.toISOString().slice(0, 10),
-      endDate: end.toISOString().slice(0, 10),
-      selection: fulfillment
-    });
-    const totalWithFulfillment =
-      subtotal + Number(preparedFulfillment.outbound_fee) + Number(preparedFulfillment.return_fee);
-
-    const existingReservation = await Reservation.findOne({
-      where: { user_id: userId, status: "CART" },
-      include: [
-        {
-          model: ReservationItem,
-          as: "items",
-          where: { costume_id: costumeIdNum },
-          required: true
-        }
-      ]
-    });
-
-    let reservation = existingReservation;
-    let item: ReservationItem;
-
-    if (reservation) {
-      reservation.start_date = start.toISOString().slice(0, 10);
-      reservation.end_date = end.toISOString().slice(0, 10);
-      reservation.total_price = totalWithFulfillment;
-      await reservation.save();
-
-      const existingItem = ((reservation as any).items || [])[0] as ReservationItem | undefined;
+    const existingReservation = await this.findCartReservationForCostume(userId, costumeIdNum);
+    if (existingReservation) {
+      const existingItem = ((existingReservation as any).items || [])[0] as ReservationItem | undefined;
       if (!existingItem) {
         throw new Error("Reservation item not found");
       }
-
-      existingItem.quantity = qty;
-      existingItem.price_per_day = pricing.pricePerDaySnapshot;
-      existingItem.pricing_mode = pricing.pricingMode;
-      existingItem.package_base_price = pricing.packageBasePrice;
-      existingItem.package_included_days = pricing.packageIncludedDays;
-      existingItem.package_unused_day_discount = pricing.packageUnusedDayDiscount;
-      existingItem.package_extra_day_charge = pricing.packageExtraDayCharge;
-      existingItem.subtotal = subtotal;
-      await existingItem.save();
-      item = existingItem;
-    } else {
-      reservation = await Reservation.create({
-        user_id: userId,
-        status: "CART",
-        vendor_status: "NOT_REQUIRED",
-        start_date: start.toISOString().slice(0, 10),
-        end_date: end.toISOString().slice(0, 10),
-        total_price: totalWithFulfillment,
-        currency: "PHP"
-      });
-
-      item = await ReservationItem.create({
-        reservation_id: reservation.id,
-        costume_id: costumeIdNum,
-        quantity: qty,
-        price_per_day: pricing.pricePerDaySnapshot,
-        pricing_mode: pricing.pricingMode,
-        package_base_price: pricing.packageBasePrice,
-        package_included_days: pricing.packageIncludedDays,
-        package_unused_day_discount: pricing.packageUnusedDayDiscount,
-        package_extra_day_charge: pricing.packageExtraDayCharge,
-        subtotal
-      });
+      const hydratedReservation = await this.loadReservationWithItems(existingReservation.id);
+      if (!hydratedReservation) {
+        throw new Error("Reservation not found after update");
+      }
+      return { reservation: hydratedReservation, item: existingItem, alreadyInCart: true as const };
     }
 
-    await this.fulfillmentService.upsertReservationFulfillment(reservation.id, preparedFulfillment);
+    const pricing = this.snapshotPricingForCostume(costume, qty);
+    const reservation = await Reservation.create({
+      user_id: userId,
+      status: "CART",
+      vendor_status: "NOT_REQUIRED",
+      start_date: null,
+      end_date: null,
+      total_price: 0,
+      currency: "PHP"
+    });
+
+    const item = await ReservationItem.create({
+      reservation_id: reservation.id,
+      costume_id: costumeIdNum,
+      quantity: qty,
+      price_per_day: pricing.pricePerDaySnapshot,
+      pricing_mode: pricing.pricingMode,
+      package_base_price: pricing.packageBasePrice,
+      package_included_days: pricing.packageIncludedDays,
+      package_unused_day_discount: pricing.packageUnusedDayDiscount,
+      package_extra_day_charge: pricing.packageExtraDayCharge,
+      subtotal: 0
+    });
+
+    const hydratedReservation = await this.loadReservationWithItems(reservation.id);
+    if (!hydratedReservation) {
+      throw new Error("Reservation not found after update");
+    }
+
+    return { reservation: hydratedReservation, item, alreadyInCart: false as const };
+  }
+
+  async configureCartReservation(
+    userId: number,
+    reservationId: number,
+    body: ConfigureCartReservationRequest
+  ) {
+    const reservation = await Reservation.findOne({
+      where: { id: Number(reservationId), user_id: userId, status: "CART" },
+      include: [{ model: ReservationItem, as: "items" }]
+    });
+    if (!reservation) {
+      throw new Error("Reservation not found");
+    }
+
+    const item = ((reservation as any).items || [])[0] as ReservationItem | undefined;
+    if (!item) {
+      throw new Error("Reservation item not found");
+    }
+
+    const costume = await Costume.findByPk(item.costume_id);
+    this.assertBookableCostume(costume);
+
+    await this.applyCartConfiguration(userId, reservation, item, costume, body);
+
+    const hydratedReservation = await this.loadReservationWithItems(reservation.id);
+    if (!hydratedReservation) {
+      throw new Error("Reservation not found after update");
+    }
+
+    return { reservation: hydratedReservation, item };
+  }
+
+  async addToCart(userId: number, body: AddToCartRequest) {
+    const costumeIdNum = Number(body.costumeId);
+    const qty = this.normalizeReservationQuantity(body.quantity);
+    const costume = await Costume.findByPk(costumeIdNum);
+    this.assertBookableCostume(costume);
+    if (costume.owner_id === userId) {
+      throw new Error("You cannot add your own costume to your cart");
+    }
+
+    let reservation = await this.findCartReservationForCostume(userId, costumeIdNum);
+    let item: ReservationItem;
+
+    if (!reservation) {
+      const created = await this.addCostumeToCart(userId, { costumeId: costumeIdNum, quantity: qty });
+      reservation = await Reservation.findByPk(created.reservation.id, {
+        include: [{ model: ReservationItem, as: "items" }]
+      });
+      if (!reservation) {
+        throw new Error("Reservation not found after update");
+      }
+      item = created.item;
+    } else {
+      item = ((reservation as any).items || [])[0] as ReservationItem;
+      if (!item) {
+        throw new Error("Reservation item not found");
+      }
+      if (item.quantity !== qty) {
+        item.quantity = qty;
+        await item.save();
+      }
+    }
+
+    await this.applyCartConfiguration(userId, reservation, item, costume, {
+      startDate: body.startDate,
+      endDate: body.endDate,
+      fulfillment: body.fulfillment
+    });
 
     const hydratedReservation = await this.loadReservationWithItems(reservation.id);
     if (!hydratedReservation) {
@@ -257,6 +358,9 @@ export class ReservationService {
     }
     if (!(reservation as any).fulfillment) {
       throw new Error("Fulfillment selection is required before checkout");
+    }
+    if (!reservation.start_date || !reservation.end_date) {
+      throw new Error("Rental dates are required before checkout");
     }
     const start = new Date(reservation.start_date);
     const end = new Date(reservation.end_date);

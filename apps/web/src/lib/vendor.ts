@@ -18,7 +18,8 @@ export type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 export type VendorBlockingReason =
   | "APPLICATION_REQUIRED"
   | "APPLICATION_UNDER_REVIEW"
-  | "APPLICATION_REJECTED";
+  | "APPLICATION_REJECTED"
+  | "PAYMENT_DETAILS_REQUIRED";
 
 export type VendorProfileData = {
   id: number;
@@ -171,6 +172,96 @@ export type VendorReservationSurchargePayload = {
   amount: number | string;
   note: string;
 };
+
+export type VendorPaymentMethodType = "GCASH" | "MAYA" | "BANK" | "OTHER";
+
+export type VendorPaymentMethod = {
+  id: number;
+  user_id?: number;
+  method_type: VendorPaymentMethodType;
+  label: string;
+  account_name: string;
+  account_number: string;
+  bank_name?: string | null;
+  qr_image_url?: string | null;
+  instructions?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type VendorPaymentMethodInput = {
+  method_type: VendorPaymentMethodType;
+  label: string;
+  account_name: string;
+  account_number: string;
+  bank_name?: string | null;
+  instructions?: string | null;
+  is_active?: boolean;
+  sort_order?: number;
+};
+
+export type VendorPaymentMethodPayload = VendorPaymentMethodInput & {
+  qr_image?: File | null;
+};
+
+export const PAYMENT_METHOD_TYPE_LABELS: Record<VendorPaymentMethodType, string> = {
+  GCASH: "GCash",
+  MAYA: "Maya",
+  BANK: "Bank transfer",
+  OTHER: "Other"
+};
+
+export function listMyPaymentMethods() {
+  return apiFetch<VendorPaymentMethod[]>("/api/vendors/payment-methods");
+}
+
+export function createPaymentMethod(payload: VendorPaymentMethodPayload) {
+  const formData = new FormData();
+  formData.append("method_type", payload.method_type);
+  formData.append("label", payload.label);
+  formData.append("account_name", payload.account_name);
+  formData.append("account_number", payload.account_number);
+  if (payload.bank_name) formData.append("bank_name", payload.bank_name);
+  if (payload.instructions) formData.append("instructions", payload.instructions);
+  if (payload.is_active !== undefined) formData.append("is_active", String(payload.is_active));
+  if (payload.sort_order !== undefined) formData.append("sort_order", String(payload.sort_order));
+  if (payload.qr_image) formData.append("qr_image", payload.qr_image);
+
+  return apiFetch<VendorPaymentMethod>("/api/vendors/payment-methods", {
+    method: "POST",
+    body: formData
+  });
+}
+
+export function updatePaymentMethod(id: number, payload: VendorPaymentMethodPayload) {
+  const formData = new FormData();
+  formData.append("method_type", payload.method_type);
+  formData.append("label", payload.label);
+  formData.append("account_name", payload.account_name);
+  formData.append("account_number", payload.account_number);
+  if (payload.bank_name) formData.append("bank_name", payload.bank_name);
+  if (payload.instructions) formData.append("instructions", payload.instructions);
+  if (payload.is_active !== undefined) formData.append("is_active", String(payload.is_active));
+  if (payload.sort_order !== undefined) formData.append("sort_order", String(payload.sort_order));
+  if (payload.qr_image) formData.append("qr_image", payload.qr_image);
+
+  return apiFetch<VendorPaymentMethod>(`/api/vendors/payment-methods/${id}`, {
+    method: "PUT",
+    body: formData
+  });
+}
+
+export function deletePaymentMethod(id: number) {
+  return apiFetch<{ message: string }>(`/api/vendors/payment-methods/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export function getVendorPaymentMethods(vendorId: number) {
+  return apiFetch<VendorPaymentMethod[]>(`/api/vendors/${vendorId}/payment-methods`);
+}
 
 export function applyForVendor(payload: VendorApplicationPayload) {
   const formData = new FormData();

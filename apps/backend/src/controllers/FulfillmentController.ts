@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { ApiResponse } from "../dto";
 import type {
+  UserFulfillmentPreferencesRequest,
+  UserFulfillmentPreferencesResponse,
   UserSavedLocationListResponse,
   UserSavedLocationRequest,
   UserSavedLocationResponse,
@@ -71,6 +73,27 @@ export class FulfillmentController {
     try {
       const result = await fulfillmentService.deleteSavedLocation(req.user!.id, Number(req.params.id));
       ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async getFulfillmentPreferences(req: Request, res: Response) {
+    try {
+      const preferences = await fulfillmentService.getFulfillmentPreferences(req.user!.id);
+      ApiResponse.ok(res, preferences as UserFulfillmentPreferencesResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async upsertFulfillmentPreferences(req: Request, res: Response) {
+    try {
+      const preferences = await fulfillmentService.upsertFulfillmentPreferences(
+        req.user!.id,
+        req.body as UserFulfillmentPreferencesRequest
+      );
+      ApiResponse.ok(res, preferences as UserFulfillmentPreferencesResponse);
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }

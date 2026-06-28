@@ -23,9 +23,16 @@ interface CostumeCardProps {
   savedIds?: Set<number>;
   variant?: "grid" | "list";
   compact?: boolean;
+  onWishlistChange?: (costumeId: number, saved: boolean) => void;
 }
 
-export function CostumeCard({ costume, savedIds, variant = "grid", compact = false }: CostumeCardProps) {
+export function CostumeCard({
+  costume,
+  savedIds,
+  variant = "grid",
+  compact = false,
+  onWishlistChange,
+}: CostumeCardProps) {
   const { user } = useAuth();
   const img = primaryImage(costume);
   const pricingSummary = getCostumePricingSummary(costume);
@@ -90,6 +97,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
                 ownerId={costume.owner_id}
                 initialSaved={initialSaved}
                 size="md"
+                onSavedChange={(saved) => onWishlistChange?.(costume.id, saved)}
               />
             )}
             <Link
@@ -164,6 +172,7 @@ export function CostumeCard({ costume, savedIds, variant = "grid", compact = fal
               ownerId={costume.owner_id}
               initialSaved={initialSaved}
               size={compact ? "sm" : "md"}
+              onSavedChange={(saved) => onWishlistChange?.(costume.id, saved)}
             />
           </div>
         )}

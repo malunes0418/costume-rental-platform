@@ -12,8 +12,15 @@ import {
   UploadIcon as Upload
 } from "@radix-ui/react-icons";
 
-import { SavedLocationFields } from "@/components/SavedLocationFields";
+import { CollectionToolbar } from "@/components/reservations/CollectionToolbar";
+import { SavedCartItem } from "@/components/reservations/SavedCartItem";
+import type { ViewMode } from "@/components/marketplace/ResultsToolbar";
+import { VendorCartSetupModal } from "@/components/VendorCartSetupModal";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "../../lib/api";
 import { resolveApiAsset } from "../../lib/assets";
@@ -22,25 +29,24 @@ import { useCart } from "../../lib/CartContext";
 import {
   cancelReservation,
   confirmReservationReceived,
-  createSavedLocation,
-  deleteSavedLocation,
   initiateReservationReturn,
+  isCartReservationDraft,
   listSavedLocations,
   myPayments,
   myReservations,
+  removeReservation,
   uploadReservationAdjustmentPayment,
-  updateSavedLocation,
   type Payment,
   type ReservationWithItems
 } from "../../lib/account";
+import { groupCartReservationsByVendor, getCartDraftStatusMeta, getCartWorkflowStep, isCartReservationReadyToPay, isCartReservationSelectable } from "../../lib/cart";
 import {
   FULFILLMENT_METHOD_LABELS,
-  formatLocationSummary,
   type ReservationAdjustment,
-  type SavedLocation,
-  type SavedLocationInput
+  type SavedLocation
 } from "@/lib/fulfillment";
 import { countRentalDaysInclusive } from "../../lib/pricing";
+import { paginateSlice, resolvePageSize } from "../../lib/paginate";
 import {
   PAYMENT_PURPOSE_LABELS,
   getPaymentStatusMeta,
@@ -48,6 +54,8 @@ import {
   type ReservationStatus
 } from "../../lib/reservationStatus";
 import { cn } from "@/lib/utils";
+
+const actionLabelClass = "text-[10px] font-semibold uppercase tracking-widest";
 
 const OPERATION_TIMELINE = [
   "CONFIRMED",
@@ -89,7 +97,7 @@ function resolveReservationStatus(reservation: ReservationWithItems, payments: P
 
 function buildReserveAgainHref(reservation: ReservationWithItems) {
   const costumeId = reservation.items?.[0]?.costume_id;
-  if (!costumeId) return null;
+  if (!costumeId || !reservation.start_date || !reservation.end_date) return null;
 
   const params = new URLSearchParams();
   params.set("startDate", reservation.start_date);
@@ -192,24 +200,6 @@ function timelineStepState(currentStep: JourneyStep, timeline: JourneyStep[], st
   return "upcoming";
 }
 
-function emptyLocationDraft(): SavedLocationInput {
-  return {
-    label: "",
-    contact_name: "",
-    phone_number: "",
-    address_line_1: "",
-    address_line_2: "",
-    barangay: "",
-    city: "",
-    province: "",
-    postal_code: "",
-    country: "Philippines",
-    area: "",
-    notes: "",
-    is_default: false
-  };
-}
-
 function reservationFulfillmentSummary(reservation: ReservationWithItems) {
   const fulfillment = reservation.fulfillment;
   if (!fulfillment) return null;
@@ -219,21 +209,155 @@ function reservationFulfillmentSummary(reservation: ReservationWithItems) {
 
 export default function ReservationsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { openCart, refreshKey } = useCart();
+  const { openCart, refreshKey, triggerRefresh } = useCart();
   const router = useRouter();
 
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [locationDraft, setLocationDraft] = useState<SavedLocationInput>(() => emptyLocationDraft());
-  const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
-  const [isSavingLocation, setIsSavingLocation] = useState(false);
-  const [deletingLocationId, setDeletingLocationId] = useState<number | null>(null);
   const [adjustmentFiles, setAdjustmentFiles] = useState<Record<number, File | null>>({});
   const [uploadingAdjustmentId, setUploadingAdjustmentId] = useState<number | null>(null);
   const [handoffFiles, setHandoffFiles] = useState<Record<number, File | null>>({});
   const [handoffActionId, setHandoffActionId] = useState<number | null>(null);
+  const [vendorSetup, setVendorSetup] = useState<{
+    vendorName: string;
+    reservations: ReservationWithItems[];
+  } | null>(null);
+  const [selectedCartIds, setSelectedCartIds] = useState<Set<number>>(new Set());
+  const [cartView, setCartView] = useState<ViewMode>("list");
+  const [cartPageSize, setCartPageSize] = useState("8");
+  const [cartVendorPages, setCartVendorPages] = useState<Record<number, number>>({});
+  const [activePage, setActivePage] = useState(0);
+  const [activePageSize, setActivePageSize] = useState("8");
+  const [removingCartId, setRemovingCartId] = useState<number | null>(null);
+
+  const cartGroupsByVendor = useMemo(() => groupCartReservationsByVendor(reservations), [reservations]);
+
+  const cartVendorGroups = useMemo(() => Array.from(cartGroupsByVendor.entries()), [cartGroupsByVendor]);
+
+  const activeReservations = useMemo(
+    () => reservations.filter((reservation) => reservation.status !== "CART"),
+    [reservations]
+  );
+
+  const totalCartItems = useMemo(
+    () => reservations.filter((reservation) => reservation.status === "CART").length,
+    [reservations]
+  );
+
+  const resolvedCartPageSize = useMemo(() => resolvePageSize(cartPageSize), [cartPageSize]);
+  const resolvedActivePageSize = useMemo(() => resolvePageSize(activePageSize), [activePageSize]);
+
+  const paginatedActiveReservations = useMemo(
+    () => paginateSlice(activeReservations, activePage, resolvedActivePageSize),
+    [activeReservations, activePage, resolvedActivePageSize]
+  );
+
+  const readyToPayCartCount = useMemo(
+    () => reservations.filter((reservation) => isCartReservationReadyToPay(reservation)).length,
+    [reservations]
+  );
+
+  const cartWorkflowStep = useMemo(() => getCartWorkflowStep(reservations), [reservations]);
+
+  const cartWorkflowSteps = [
+    { step: 1, label: "Dates per costume" },
+    { step: 2, label: "Delivery per vendor" },
+    { step: 3, label: "Pay in cart" }
+  ] as const;
+
+  useEffect(() => {
+    const selectableIds = reservations
+      .filter((reservation) => reservation.status === "CART" && isCartReservationSelectable(reservation))
+      .map((reservation) => reservation.id);
+    setSelectedCartIds(new Set(selectableIds));
+  }, [reservations]);
+
+  useEffect(() => {
+    setActivePage((current) => Math.min(current, Math.max(paginatedActiveReservations.totalPages - 1, 0)));
+  }, [paginatedActiveReservations.totalPages]);
+
+  function handleCartPageSizeChange(value: string) {
+    setCartPageSize(value);
+    setCartVendorPages({});
+  }
+
+  function setVendorCartPage(vendorId: number, page: number) {
+    setCartVendorPages((current) => ({ ...current, [vendorId]: page }));
+  }
+
+  async function handleRemoveCartItem(reservationId: number) {
+    setRemovingCartId(reservationId);
+    try {
+      await removeReservation(reservationId);
+      setReservations((current) => current.filter((reservation) => reservation.id !== reservationId));
+      setSelectedCartIds((current) => {
+        const next = new Set(current);
+        next.delete(reservationId);
+        return next;
+      });
+      triggerRefresh();
+      toast.success("Removed from saved cart.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to remove this costume.");
+    } finally {
+      setRemovingCartId(null);
+    }
+  }
+
+  function toggleCartSelection(reservationId: number) {
+    setSelectedCartIds((current) => {
+      const next = new Set(current);
+      if (next.has(reservationId)) next.delete(reservationId);
+      else next.add(reservationId);
+      return next;
+    });
+  }
+
+  function toggleVendorCartSelection(reservationsInGroup: ReservationWithItems[]) {
+    const selectableIds = reservationsInGroup
+      .filter((reservation) => isCartReservationSelectable(reservation))
+      .map((reservation) => reservation.id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedCartIds.has(id));
+
+    setSelectedCartIds((current) => {
+      const next = new Set(current);
+      if (allSelected) {
+        selectableIds.forEach((id) => next.delete(id));
+      } else {
+        selectableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  function openCartForVendorGroup(
+    vendorId: number,
+    group: { vendorName: string; items: ReservationWithItems[] },
+    readyOnly: boolean
+  ) {
+    const selectedInGroup = group.items.filter((reservation) => selectedCartIds.has(reservation.id));
+    const reservationIds = (readyOnly ? selectedInGroup : group.items)
+      .filter((reservation) => isCartReservationSelectable(reservation))
+      .map((reservation) => reservation.id);
+
+    if (readyOnly && reservationIds.length === 0) {
+      toast.error("Select at least one ready costume to pay for.");
+      return;
+    }
+
+    openCart({
+      vendorId,
+      reservationIds: readyOnly ? reservationIds : undefined,
+      step: readyOnly && reservationIds.length > 0 ? "UPLOAD" : "CART"
+    });
+  }
+
+  const incompleteDraftCount = useMemo(
+    () => reservations.filter((reservation) => reservation.status === "CART" && isCartReservationDraft(reservation)).length,
+    [reservations]
+  );
 
   const paymentsByReservation = useMemo(() => {
     const map = new Map<number, Payment[]>();
@@ -298,79 +422,10 @@ export default function ReservationsPage() {
     };
   }, [user, isAuthLoading, router, refreshKey]);
 
-  async function handleSaveLocation() {
-    if (
-      !locationDraft.label.trim() ||
-      !locationDraft.contact_name.trim() ||
-      !locationDraft.phone_number.trim() ||
-      !locationDraft.address_line_1.trim() ||
-      !locationDraft.city.trim()
-    ) {
-      toast.error("Please complete the label, contact, phone, address, and city.");
-      return;
-    }
-
-    setIsSavingLocation(true);
-    try {
-      const saved = editingLocationId
-        ? await updateSavedLocation(editingLocationId, locationDraft)
-        : await createSavedLocation(locationDraft);
-
-      const nextLocations = editingLocationId
-        ? savedLocations.map((location) => (location.id === editingLocationId ? saved : location))
-        : [saved, ...savedLocations.filter((location) => location.id !== saved.id)];
-
-      setSavedLocations(
-        saved.is_default
-          ? nextLocations.map((location) => ({ ...location, is_default: location.id === saved.id }))
-          : nextLocations
-      );
-      setLocationDraft(emptyLocationDraft());
-      setEditingLocationId(null);
-      toast.success(editingLocationId ? "Location updated." : "Location saved.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to save location.");
-    } finally {
-      setIsSavingLocation(false);
-    }
-  }
-
-  function handleEditLocation(location: SavedLocation) {
-    setEditingLocationId(location.id);
-    setLocationDraft({
-      label: location.label,
-      contact_name: location.contact_name,
-      phone_number: location.phone_number,
-      address_line_1: location.address_line_1,
-      address_line_2: location.address_line_2 || "",
-      barangay: location.barangay || "",
-      city: location.city,
-      province: location.province || "",
-      postal_code: location.postal_code || "",
-      country: location.country || "Philippines",
-      area: location.area || "",
-      notes: location.notes || "",
-      is_default: location.is_default
-    });
-  }
-
-  async function handleDeleteLocation(locationId: number) {
-    setDeletingLocationId(locationId);
-    try {
-      await deleteSavedLocation(locationId);
-      setSavedLocations((current) => current.filter((location) => location.id !== locationId));
-
-      if (editingLocationId === locationId) {
-        setEditingLocationId(null);
-        setLocationDraft(emptyLocationDraft());
-      }
-
-      toast.success("Location removed.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to delete location.");
-    } finally {
-      setDeletingLocationId(null);
-    }
+  async function reloadReservations() {
+    const [nextReservations, nextPayments] = await Promise.all([myReservations(), myPayments()]);
+    setReservations(nextReservations);
+    setPayments(nextPayments);
   }
 
   async function handleUploadAdjustmentPayment(reservation: ReservationWithItems, adjustment: ReservationAdjustment) {
@@ -453,21 +508,25 @@ export default function ReservationsPage() {
 
   if (!user) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
-          <div className="text-muted-foreground/20">
-            <CalendarDays className="mx-auto size-16" />
+      <div className="min-h-screen bg-muted/40">
+        <div className="mx-auto w-full max-w-[1200px] px-6 pb-24 pt-20 text-center">
+          <div className="mx-auto flex max-w-sm flex-col items-center gap-6">
+            <div className="text-muted-foreground/20">
+              <CalendarDays className="mx-auto size-12" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display text-3xl font-semibold text-foreground">Your Reservations</h1>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Sign in to view and manage your costume reservations.
+              </p>
+            </div>
+            <Link
+              href="/login?next=/reservations"
+              className={cn(buttonVariants({ size: "lg" }), "h-10 px-6", actionLabelClass)}
+            >
+              Log in to continue
+            </Link>
           </div>
-          <div className="space-y-3">
-            <h1 className="font-display text-4xl font-semibold text-foreground">Your Reservations</h1>
-            <p className="text-muted-foreground">Sign in to view and manage your costume reservations.</p>
-          </div>
-          <Link
-            href="/login?next=/reservations"
-            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Log in to continue
-          </Link>
         </div>
       </div>
     );
@@ -475,47 +534,267 @@ export default function ReservationsPage() {
 
   if (user.role === "ADMIN") {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-24 text-center">
-        <div className="mx-auto flex max-w-sm flex-col items-center gap-8">
-          <div className="text-muted-foreground/20">
-            <CalendarDays className="mx-auto size-16" />
+      <div className="min-h-screen bg-muted/40">
+        <div className="mx-auto w-full max-w-[1200px] px-6 pb-24 pt-20 text-center">
+          <div className="mx-auto flex max-w-sm flex-col items-center gap-6">
+            <div className="text-muted-foreground/20">
+              <CalendarDays className="mx-auto size-12" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display text-3xl font-semibold text-foreground">Unavailable</h1>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Administrators cannot make or view personal reservations.
+              </p>
+            </div>
+            <Link href="/" className={cn(buttonVariants({ size: "lg" }), "h-10 px-6", actionLabelClass)}>
+              Return home
+            </Link>
           </div>
-          <div className="space-y-3">
-            <h1 className="font-display text-4xl font-semibold text-foreground">Unavailable</h1>
-            <p className="text-muted-foreground">Administrators cannot make or view personal reservations.</p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Return Home
-          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-16">
-      <div className="mb-16 max-w-xl">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground animate-fade-up">
-          Your account
-        </p>
-        <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground animate-fade-up-delay-1 md:text-6xl">
-          Reservations
-        </h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground animate-fade-up-delay-2">
-          Review your bookings, follow the fulfillment lifecycle, and keep delivery-ready locations close at hand.
-        </p>
-      </div>
+    <div className="min-h-screen bg-muted/40">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pb-24 pt-12">
+        <header className="mb-8 max-w-2xl">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Your account</p>
+          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            Reservations
+          </h1>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+            Finish any saved costumes, then track confirmed bookings through delivery and return.
+          </p>
+        </header>
 
-      <div className="grid grid-cols-1 gap-16 lg:grid-cols-12">
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-0">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="flex flex-col gap-10 lg:col-span-7 xl:col-span-8">
+          {!isLoading && cartVendorGroups.length > 0 ? (
+            <section className="space-y-5">
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Saved cart
+                </p>
+                <h2 className="font-display text-xl font-semibold text-foreground">Finish your bookings</h2>
+                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  Costumes you saved from the marketplace live here until payment is submitted. Choose rental dates
+                  for each look, set delivery once per vendor, then pay in your cart.
+                </p>
+                <ol className="flex flex-wrap gap-x-6 gap-y-2 pt-1 text-[10px] font-semibold uppercase tracking-widest">
+                  {cartWorkflowSteps.map(({ step, label }) => {
+                    const isCurrent = cartWorkflowStep === step;
+                    const isComplete = cartWorkflowStep > step;
+
+                    return (
+                      <li
+                        key={step}
+                        className={cn(
+                          "flex items-center gap-2",
+                          isCurrent && "text-foreground",
+                          !isCurrent && isComplete && "text-muted-foreground",
+                          !isCurrent && !isComplete && "text-muted-foreground/60"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex size-5 items-center justify-center rounded-full border text-[9px]",
+                            isCurrent && "border-primary bg-primary text-primary-foreground",
+                            !isCurrent && isComplete && "border-primary/40 bg-primary/10 text-primary",
+                            !isCurrent && !isComplete && "border-border text-muted-foreground"
+                          )}
+                        >
+                          {step}
+                        </span>
+                        {label}
+                        {isCurrent ? (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] text-primary">
+                            Current
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+
+              <CollectionToolbar
+                noun="saved costume"
+                total={totalCartItems}
+                pageSize={cartPageSize}
+                view={cartView}
+                showViewToggle
+                onPageSizeChange={handleCartPageSizeChange}
+                onViewChange={setCartView}
+              />
+
+              <div className="flex flex-col gap-5">
+                {cartVendorGroups.map(([vendorId, group]) => {
+                  const vendorPage = cartVendorPages[vendorId] ?? 0;
+                  const paginatedGroup = paginateSlice(group.items, vendorPage, resolvedCartPageSize);
+                  const groupReadyToPay = group.items.every((reservation) => isCartReservationReadyToPay(reservation));
+                  const groupHasDrafts = group.items.some((reservation) => isCartReservationDraft(reservation));
+                  const groupReadyCount = group.items.filter((reservation) => isCartReservationReadyToPay(reservation)).length;
+                  const selectableIds = group.items
+                    .filter((reservation) => isCartReservationSelectable(reservation))
+                    .map((reservation) => reservation.id);
+                  const selectedInGroup = group.items.filter((reservation) => selectedCartIds.has(reservation.id));
+                  const allSelectableSelected =
+                    selectableIds.length > 0 && selectableIds.every((id) => selectedCartIds.has(id));
+                  const someSelectableSelected = selectableIds.some((id) => selectedCartIds.has(id));
+                  const selectAllState: boolean | "indeterminate" = allSelectableSelected
+                    ? true
+                    : someSelectableSelected
+                      ? "indeterminate"
+                      : false;
+
+                  return (
+                    <div key={vendorId} className="panel-card p-5 sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            From {group.vendorName}
+                          </p>
+                          <p className="font-display text-xl font-semibold text-foreground">
+                            {group.items.length} costume{group.items.length !== 1 ? "s" : ""} saved
+                            {selectedInGroup.length > 0 && selectedInGroup.length < group.items.length
+                              ? ` · ${selectedInGroup.length} selected for checkout`
+                              : ""}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {groupReadyToPay
+                              ? "Every costume is configured. Select which ones to pay for, then open the cart."
+                              : groupReadyCount > 0
+                                ? `${groupReadyCount} ready for checkout · finish the rest before paying together.`
+                                : "Add rental dates and delivery before checkout unlocks."}
+                          </p>
+                          {selectableIds.length > 0 ? (
+                            <div className="mt-3 flex items-center gap-2">
+                              <Checkbox
+                                id={`select-all-${vendorId}`}
+                                checked={selectAllState}
+                                onCheckedChange={() => toggleVendorCartSelection(group.items)}
+                              />
+                              <Label
+                                htmlFor={`select-all-${vendorId}`}
+                                className="cursor-pointer text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                              >
+                                Select all ready for checkout
+                              </Label>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                          {groupHasDrafts ? (
+                            <Button
+                              type="button"
+                              size="lg"
+                              className={cn("h-10 px-5", actionLabelClass)}
+                              onClick={() => setVendorSetup({ vendorName: group.vendorName, reservations: group.items })}
+                            >
+                              <CalendarDays data-icon="inline-start" />
+                              Complete booking details
+                            </Button>
+                          ) : null}
+                          {groupReadyCount > 0 ? (
+                            <Button
+                              type="button"
+                              variant={groupHasDrafts ? "outline" : "default"}
+                              size="lg"
+                              className={cn("h-10 px-5", actionLabelClass)}
+                              onClick={() => openCartForVendorGroup(vendorId, group, true)}
+                              disabled={selectedInGroup.length === 0}
+                            >
+                              <CreditCard data-icon="inline-start" />
+                              {selectedInGroup.length > 0 && selectedInGroup.length < groupReadyCount
+                                ? `Pay selected (${selectedInGroup.length})`
+                                : "Pay in cart"}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "mt-6",
+                          cartView === "grid"
+                            ? "grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-3"
+                            : "divide-y divide-border border-y border-border"
+                        )}
+                      >
+                        {paginatedGroup.items.map((reservation) => {
+                          const image = primaryImage(reservation);
+                          const firstItem = reservation.items?.[0];
+                          const title = firstItem?.Costume?.name || `Costume #${reservation.id}`;
+                          const draftStatus = getCartDraftStatusMeta(reservation);
+                          const selectable = isCartReservationSelectable(reservation);
+                          const isSelected = selectedCartIds.has(reservation.id);
+                          const days =
+                            reservation.start_date && reservation.end_date
+                              ? countRentalDaysInclusive(reservation.start_date, reservation.end_date)
+                              : 0;
+                          const dateLabel =
+                            reservation.start_date && reservation.end_date
+                              ? `${formatDate(reservation.start_date)} to ${formatDate(reservation.end_date)}`
+                              : "Rental dates not chosen";
+                          const missingSummary =
+                            draftStatus.missing.length > 0
+                              ? `Still needed: ${draftStatus.missing
+                                  .map((step) => (step === "dates" ? "rental dates" : "delivery details"))
+                                  .join(" and ")}`
+                              : null;
+
+                          return (
+                            <SavedCartItem
+                              key={reservation.id}
+                              reservation={reservation}
+                              view={cartView}
+                              title={title}
+                              image={image}
+                              days={days}
+                              dateLabel={dateLabel}
+                              missingSummary={missingSummary}
+                              statusLabel={draftStatus.label}
+                              statusClassName={draftStatus.className}
+                              selectable={selectable}
+                              isSelected={isSelected}
+                              isRemoving={removingCartId === reservation.id}
+                              onToggle={() => toggleCartSelection(reservation.id)}
+                              onRemove={() => void handleRemoveCartItem(reservation.id)}
+                              costumeHref={firstItem?.costume_id ? `/costumes/${firstItem.costume_id}` : null}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      {paginatedGroup.totalPages > 1 ? (
+                        <CollectionToolbar
+                          className="mt-4 border-dashed bg-muted/20"
+                          noun="costume in this vendor"
+                          total={group.items.length}
+                          start={paginatedGroup.start}
+                          end={paginatedGroup.end}
+                          page={paginatedGroup.page}
+                          totalPages={paginatedGroup.totalPages}
+                          pageSize={cartPageSize}
+                          showPageSize={false}
+                          onPageSizeChange={handleCartPageSizeChange}
+                          onPageChange={(page) => setVendorCartPage(vendorId, page)}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
           {isLoading ? (
             <div className="flex flex-col divide-y divide-border border-t border-border">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="flex gap-6 py-8">
-                  <Skeleton className="size-24 shrink-0 rounded-sm" />
+                  <Skeleton className="size-24 shrink-0 rounded-lg" />
                   <div className="flex-1 space-y-3">
                     <Skeleton className="h-4 w-1/2" />
                     <Skeleton className="h-3 w-3/4" />
@@ -524,14 +803,44 @@ export default function ReservationsPage() {
                 </div>
               ))}
             </div>
-          ) : reservations.length > 0 ? (
-            <div className="divide-y divide-border border-y border-border">
-              {reservations.map((reservation) => {
+          ) : activeReservations.length > 0 || cartVendorGroups.length > 0 ? (
+            activeReservations.length > 0 ? (
+            <section className="space-y-5">
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {cartVendorGroups.length > 0 ? "Confirmed bookings" : "Your bookings"}
+                </p>
+                <h2 className="font-display text-xl font-semibold text-foreground">Active reservations</h2>
+                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  Track payment, vendor review, delivery, and returns for costumes you&apos;ve already submitted.
+                </p>
+              </div>
+
+              <CollectionToolbar
+                noun="reservation"
+                total={activeReservations.length}
+                start={paginatedActiveReservations.start}
+                end={paginatedActiveReservations.end}
+                page={paginatedActiveReservations.page}
+                totalPages={paginatedActiveReservations.totalPages}
+                pageSize={activePageSize}
+                onPageSizeChange={(value) => {
+                  setActivePageSize(value);
+                  setActivePage(0);
+                }}
+                onPageChange={setActivePage}
+              />
+
+            <div className="panel-card divide-y divide-border">
+              {paginatedActiveReservations.items.map((reservation) => {
                 const image = primaryImage(reservation);
                 const firstItem = reservation.items?.[0];
                 const title = firstItem?.Costume?.name || `Reservation #${reservation.id}`;
                 const reservationPayments = paymentsByReservation.get(reservation.id) || [];
-                const days = countRentalDaysInclusive(reservation.start_date, reservation.end_date);
+                const days =
+                  reservation.start_date && reservation.end_date
+                    ? countRentalDaysInclusive(reservation.start_date, reservation.end_date)
+                    : 0;
                 const status = resolveReservationStatus(reservation, reservationPayments);
                 const reserveAgainHref = buildReserveAgainHref(reservation);
                 const canContinuePayment =
@@ -548,8 +857,8 @@ export default function ReservationsPage() {
                 const journeyCompletion = showsJourney ? ((journeyIndex + 1) / journey.length) * 100 : 0;
 
                 return (
-                  <article key={reservation.id} className="flex flex-col gap-6 py-10 sm:flex-row sm:gap-8">
-                    <div className="size-24 shrink-0 overflow-hidden rounded-sm border border-border bg-muted sm:size-28">
+                  <article key={reservation.id} className="flex flex-col gap-6 px-5 py-8 sm:flex-row sm:gap-8 sm:px-6">
+                    <div className="size-24 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:size-28">
                       {image ? (
                         <img
                           src={resolveApiAsset(image)}
@@ -569,7 +878,9 @@ export default function ReservationsPage() {
                         <div className="min-w-0">
                           <p className="truncate font-display text-xl font-semibold text-foreground">{title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatDate(reservation.start_date)} to {formatDate(reservation.end_date)}
+                            {reservation.start_date && reservation.end_date
+                              ? `${formatDate(reservation.start_date)} to ${formatDate(reservation.end_date)}`
+                              : "Dates pending"}
                             {days > 0 && ` · ${days} day${days !== 1 ? "s" : ""}`}
                           </p>
                           {fulfillmentLine ? (
@@ -587,54 +898,42 @@ export default function ReservationsPage() {
                           ) : null}
                         </div>
 
-                        <span
-                          className={cn(
-                            "shrink-0 rounded-sm border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest",
-                            status.className
-                          )}
-                        >
+                        <Badge variant="outline" className={cn("shrink-0 rounded-md", status.className)}>
                           {status.label}
-                        </span>
+                        </Badge>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3">
-                        {reservation.status === "CART" ? (
-                          <button
-                            type="button"
-                            onClick={openCart}
-                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-foreground bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-                          >
-                            <CreditCard className="size-3.5" />
-                            Continue in Cart
-                          </button>
-                        ) : null}
-
+                      <div className="flex flex-wrap items-center gap-2">
                         {canContinuePayment ? (
-                          <button
+                          <Button
                             type="button"
-                            onClick={openCart}
-                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                            variant="outline"
+                            size="sm"
+                            className={actionLabelClass}
+                            onClick={() => openCart()}
                           >
-                            <Upload className="size-3.5" />
-                            Continue Payment
-                          </button>
+                            <Upload data-icon="inline-start" />
+                            Continue payment
+                          </Button>
                         ) : null}
 
                         {reservation.status === "PENDING_PAYMENT" && !hasActivePaymentForReservation(reservationPayments) ? (
-                          <button
+                          <Button
                             type="button"
+                            variant="destructive"
+                            size="sm"
+                            className={actionLabelClass}
                             onClick={() => void handleCancelReservation(reservation)}
                             disabled={handoffActionId === reservation.id}
-                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-destructive/30 px-5 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
                           >
-                            Cancel Reservation
-                          </button>
+                            Cancel reservation
+                          </Button>
                         ) : null}
 
                         {firstItem?.costume_id ? (
                           <Link
                             href={`/costumes/${firstItem.costume_id}`}
-                            className="inline-flex h-9 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), actionLabelClass)}
                           >
                             View costume
                           </Link>
@@ -643,7 +942,7 @@ export default function ReservationsPage() {
                         {reservation.status === "CANCELLED" && reserveAgainHref ? (
                           <Link
                             href={reserveAgainHref}
-                            className="inline-flex h-9 items-center gap-2 rounded-sm border border-border px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), actionLabelClass)}
                           >
                             Change dates & reserve again
                           </Link>
@@ -742,7 +1041,7 @@ export default function ReservationsPage() {
                                 href={resolveApiAsset(proof!)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex h-8 items-center rounded-sm border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className={cn(buttonVariants({ variant: "outline", size: "sm" }), actionLabelClass)}
                               >
                                 {label} proof
                               </a>
@@ -751,13 +1050,13 @@ export default function ReservationsPage() {
                       ) : null}
 
                       {reservation.fulfillment?.outside_service_area ? (
-                        <div className="rounded-sm border border-orange-400/30 bg-orange-50/50 p-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
+                        <div className="rounded-xl border border-orange-400/30 bg-orange-50/50 p-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
                           This booking was flagged as outside the vendor&apos;s service area. A surcharge may be requested during review.
                         </div>
                       ) : null}
 
                       {reservation.status === "DELIVERY_SCHEDULED" ? (
-                        <div className="space-y-3 rounded-sm border border-border p-4">
+                        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                             Confirm you received the costume
                           </p>
@@ -773,21 +1072,21 @@ export default function ReservationsPage() {
                                 [reservation.id]: event.target.files?.[0] || null
                               }))
                             }
-                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
                           />
-                          <button
+                          <Button
                             type="button"
+                            className={actionLabelClass}
                             onClick={() => void handleConfirmReceived(reservation)}
                             disabled={handoffActionId === reservation.id}
-                            className="inline-flex h-10 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                           >
-                            {handoffActionId === reservation.id ? "Submitting..." : "Confirm I Received It"}
-                          </button>
+                            {handoffActionId === reservation.id ? "Submitting..." : "Confirm I received it"}
+                          </Button>
                         </div>
                       ) : null}
 
                       {reservation.status === "WITH_RENTER" ? (
-                        <div className="space-y-3 rounded-sm border border-border p-4">
+                        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                             Return the costume
                           </p>
@@ -803,21 +1102,21 @@ export default function ReservationsPage() {
                                 [reservation.id]: event.target.files?.[0] || null
                               }))
                             }
-                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
                           />
-                          <button
+                          <Button
                             type="button"
+                            className={actionLabelClass}
                             onClick={() => void handleInitiateReturn(reservation)}
                             disabled={handoffActionId === reservation.id}
-                            className="inline-flex h-10 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                           >
-                            {handoffActionId === reservation.id ? "Submitting..." : "Return Costume"}
-                          </button>
+                            {handoffActionId === reservation.id ? "Submitting..." : "Return costume"}
+                          </Button>
                         </div>
                       ) : null}
 
                       {pendingAdjustment ? (
-                        <div className="space-y-4 rounded-sm border border-orange-400/30 bg-orange-50/50 p-4 dark:bg-orange-900/10">
+                        <div className="space-y-4 rounded-xl border border-orange-400/30 bg-orange-50/50 p-4 dark:bg-orange-900/10">
                           <div className="space-y-1">
                             <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-700 dark:text-orange-400">
                               Supplemental payment requested
@@ -845,23 +1144,25 @@ export default function ReservationsPage() {
                                     [pendingAdjustment.id]: event.target.files?.[0] || null
                                   }))
                                 }
-                                className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-sm file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                                className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
                               />
-                              <button
+                              <Button
                                 type="button"
+                                className={cn("shrink-0", actionLabelClass)}
                                 onClick={() => void handleUploadAdjustmentPayment(reservation, pendingAdjustment)}
                                 disabled={uploadingAdjustmentId === pendingAdjustment.id}
-                                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                               >
-                                {uploadingAdjustmentId === pendingAdjustment.id ? "Uploading..." : "Upload Supplemental Proof"}
-                              </button>
+                                {uploadingAdjustmentId === pendingAdjustment.id
+                                  ? "Uploading..."
+                                  : "Upload supplemental proof"}
+                              </Button>
                             </div>
                           )}
                         </div>
                       ) : null}
 
                       {reservationPayments.length > 0 ? (
-                        <div className="space-y-2 rounded-sm border border-border p-4">
+                        <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
                           <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                             Payment history
                           </p>
@@ -871,14 +1172,9 @@ export default function ReservationsPage() {
                               <div key={payment.id} className="space-y-2">
                                 <div className="flex items-center justify-between gap-4">
                                   <div className="flex items-center gap-3">
-                                    <span
-                                      className={cn(
-                                        "rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest",
-                                        paymentStatus.className
-                                      )}
-                                    >
+                                    <Badge variant="outline" className={cn("rounded-md", paymentStatus.className)}>
                                       {paymentStatus.label}
-                                    </span>
+                                    </Badge>
                                     <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                       {PAYMENT_PURPOSE_LABELS[payment.payment_purpose]}
                                     </span>
@@ -912,19 +1208,20 @@ export default function ReservationsPage() {
                 );
               })}
             </div>
+            </section>
+            ) : null
           ) : (
-            <div className="flex flex-col items-center gap-8 rounded-sm border border-border px-12 py-24 text-center">
+            <div className="panel-card flex flex-col items-center gap-6 px-8 py-16 text-center sm:px-12">
               <div className="text-muted-foreground/20">
                 <CalendarDays className="size-12" />
               </div>
               <div className="space-y-2">
-                <p className="font-display text-3xl font-semibold text-foreground">No reservations yet.</p>
-                <p className="text-muted-foreground">Start browsing and find a costume to book.</p>
+                <p className="font-display text-2xl font-semibold text-foreground">No reservations yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Save costumes from the marketplace, then finish your booking here.
+                </p>
               </div>
-              <Link
-                href="/"
-                className="inline-flex h-12 items-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-              >
+              <Link href="/" className={cn(buttonVariants({ size: "lg" }), "h-10 px-6", actionLabelClass)}>
                 Browse costumes
               </Link>
             </div>
@@ -932,33 +1229,74 @@ export default function ReservationsPage() {
         </div>
 
         <div className="lg:col-span-5 xl:col-span-4">
-          <div className="sticky top-24 flex flex-col gap-10 rounded-sm border border-border p-8">
+          <div className="panel-card sticky top-24 flex flex-col gap-8 p-6 sm:p-8">
             <section className="border-b border-border pb-8">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Payment</p>
-              <h2 className="mt-3 font-display text-2xl font-semibold text-foreground">Upload Proof</h2>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Payment</p>
+              <h2 className="mt-3 font-display text-xl font-semibold text-foreground">
+                {pendingPaymentReservations.length > 0
+                  ? "Upload proof"
+                  : readyToPayCartCount > 0
+                    ? "Ready for checkout"
+                    : incompleteDraftCount > 0
+                      ? "After setup"
+                      : "All caught up"}
+              </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Upload your payment receipt for any reservation still waiting on base payment. Supplemental surcharge receipts are handled directly inside the reservation timeline.
+                {pendingPaymentReservations.length > 0
+                  ? "Upload your payment receipt for reservations awaiting base payment. Supplemental surcharge receipts are handled inside each reservation."
+                  : readyToPayCartCount > 0
+                    ? "Your saved costumes are configured. Open the cart to submit payment and confirm your reservations."
+                    : incompleteDraftCount > 0
+                      ? "Checkout unlocks after you choose rental dates and delivery for each vendor group above."
+                      : "No reservations are waiting on payment right now."}
               </p>
 
               <div className="mt-6 flex flex-col gap-5">
                 {pendingPaymentReservations.length > 0 ? (
                   <>
                     <p className="text-sm text-foreground">
-                      You have <strong>{pendingPaymentReservations.length}</strong> reservation
-                      {pendingPaymentReservations.length > 1 ? "s" : ""} awaiting payment. You can submit one proof of
-                      payment for your entire cart.
+                      <strong>{pendingPaymentReservations.length}</strong> reservation
+                      {pendingPaymentReservations.length > 1 ? "s" : ""} awaiting payment. You can submit one proof
+                      for your entire cart.
                     </p>
-                    <button
+                    <Button
                       type="button"
-                      onClick={openCart}
-                      className="mt-2 flex h-12 w-full items-center justify-center gap-2.5 rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
+                      size="lg"
+                      className={cn("mt-2 h-12 w-full", actionLabelClass)}
+                      onClick={() => openCart()}
                     >
-                      <Upload className="size-3.5" />
-                      Complete Payment in Cart
-                    </button>
+                      <Upload data-icon="inline-start" />
+                      Upload payment in cart
+                    </Button>
                   </>
+                ) : readyToPayCartCount > 0 ? (
+                  <>
+                    <p className="text-sm text-foreground">
+                      <strong>{readyToPayCartCount}</strong> costume{readyToPayCartCount > 1 ? "s are" : " is"} ready
+                      for checkout.
+                    </p>
+                    <Button
+                      type="button"
+                      size="lg"
+                      className={cn("mt-2 h-12 w-full", actionLabelClass)}
+                      onClick={() => openCart()}
+                    >
+                      <CreditCard data-icon="inline-start" />
+                      Open cart to pay
+                    </Button>
+                  </>
+                ) : incompleteDraftCount > 0 ? (
+                  <div className="rounded-xl border border-dashed border-amber-400/40 bg-amber-50/40 px-5 py-6 text-center dark:bg-amber-950/20">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-amber-800 dark:text-amber-300">
+                      Setup first
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {incompleteDraftCount} costume{incompleteDraftCount > 1 ? "s still need" : " still needs"} dates
+                      or delivery before you can pay.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="rounded-sm border-2 border-dashed border-border py-8 text-center">
+                  <div className="rounded-xl border border-dashed border-border py-8 text-center">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">All set</p>
                     <p className="text-sm text-muted-foreground">You don&apos;t have any pending payments right now.</p>
                   </div>
@@ -966,106 +1304,40 @@ export default function ReservationsPage() {
               </div>
             </section>
 
-            <section className="space-y-6">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <section className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Delivery book
                 </p>
-                <h2 className="font-display text-2xl font-semibold text-foreground">Saved locations</h2>
+                <h2 className="font-display text-xl font-semibold text-foreground">Delivery settings</h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Keep your preferred handoff addresses ready so delivery reservations stay quick, clear, and consistent.
+                  Manage your saved addresses and default delivery windows in account settings.
                 </p>
               </div>
 
-              {savedLocations.length > 0 ? (
-                <div className="divide-y divide-border border-y border-border">
-                  {savedLocations.map((location) => (
-                    <article key={location.id} className="space-y-3 py-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-display text-xl font-semibold text-foreground">{location.label}</p>
-                            {location.is_default ? (
-                              <span className="rounded-sm border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                Default
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-1 text-sm leading-7 text-muted-foreground">
-                            {formatLocationSummary(location)}
-                          </p>
-                          <p className="text-xs leading-6 text-muted-foreground">
-                            {location.contact_name} · {location.phone_number}
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleEditLocation(location)}
-                            className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteLocation(location.id)}
-                            disabled={deletingLocationId === location.id}
-                            className="text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:opacity-80 disabled:opacity-40"
-                          >
-                            {deletingLocationId === location.id ? "Removing" : "Delete"}
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-sm border border-dashed border-border px-5 py-6 text-sm leading-7 text-muted-foreground">
-                  No saved locations yet. Add one here or create one during a reservation when delivery is selected.
-                </div>
-              )}
-
-              <div className="space-y-5 border-t border-border pt-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      {editingLocationId ? "Editing location" : "Add a new location"}
-                    </p>
-                    <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                      Delivery reservations require a valid location. You can also mark one as the default for faster
-                      selection.
-                    </p>
-                  </div>
-
-                  {editingLocationId ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingLocationId(null);
-                        setLocationDraft(emptyLocationDraft());
-                      }}
-                      className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-
-                <SavedLocationFields value={locationDraft} onChange={setLocationDraft} />
-
-                <button
-                  type="button"
-                  onClick={() => void handleSaveLocation()}
-                  disabled={isSavingLocation}
-                  className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-[10px] font-semibold uppercase tracking-[0.24em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isSavingLocation ? "Saving..." : editingLocationId ? "Save location changes" : "Save location"}
-                </button>
-              </div>
+              <Link
+                href="/account/settings?next=/reservations"
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-10 px-5", actionLabelClass)}
+              >
+                Manage delivery settings
+              </Link>
             </section>
           </div>
         </div>
+      </div>
+
+      {vendorSetup ? (
+        <VendorCartSetupModal
+          vendorName={vendorSetup.vendorName}
+          reservations={vendorSetup.reservations}
+          savedLocations={savedLocations}
+          open={Boolean(vendorSetup)}
+          onOpenChange={(open) => {
+            if (!open) setVendorSetup(null);
+          }}
+          onSaved={() => void reloadReservations()}
+        />
+      ) : null}
       </div>
     </div>
   );

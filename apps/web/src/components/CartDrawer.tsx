@@ -5,6 +5,8 @@ import { useCart } from "../lib/CartContext";
 import { useAuth } from "../lib/auth";
 import {
   checkoutReservation,
+  isCartReservationDraft,
+  listSavedLocations,
   myPayments,
   myReservations,
   removeReservation,
@@ -13,10 +15,21 @@ import {
 } from "../lib/account";
 import { apiFetch } from "../lib/api";
 import { resolveApiAsset } from "../lib/assets";
-import { FULFILLMENT_METHOD_LABELS, formatLocationSummary } from "../lib/fulfillment";
+import {
+  isCheckoutSelectable,
+  sumReservationTotals,
+  vendorIdForReservation,
+  vendorNameForReservation,
+} from "../lib/cart";
+import { FULFILLMENT_METHOD_LABELS, formatLocationSummary, type SavedLocation } from "../lib/fulfillment";
 import { countRentalDaysInclusive } from "../lib/pricing";
+import { getCostume, type CostumeDetailResponse } from "../lib/costumes";
+import { getVendorPaymentMethods, type VendorPaymentMethod } from "../lib/vendor";
+import { ReservationWizard } from "./ReservationWizard";
 import { toast } from "sonner";
-import { Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
+import { CopyIcon, Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { cn } from "../lib/utils";
 
 function formatDate(date: string) {
@@ -31,6 +44,7 @@ type CartGroup = {
   subtotal: number;
   reservationIds: number[];
   hasCartItems: boolean;
+  selectableItems: ReservationWithItems[];
 };
 
 function hasActivePayment(reservationId: number, payments: Payment[]) {
@@ -42,19 +56,6 @@ function hasActivePayment(reservationId: number, payments: Payment[]) {
   );
 }
 
-function vendorIdForReservation(reservation: ReservationWithItems) {
-  return Number(reservation.items?.[0]?.Costume?.owner?.id || reservation.items?.[0]?.Costume?.owner_id || 0);
-}
-
-function vendorNameForReservation(reservation: ReservationWithItems) {
-  const owner = reservation.items?.[0]?.Costume?.owner;
-  const storeName = owner?.VendorProfile?.business_name?.trim();
-  if (storeName) return storeName;
-  if (owner?.name) return owner.name;
-  const vendorId = vendorIdForReservation(reservation);
-  return vendorId ? `Vendor ${vendorId}` : "Vendor";
-}
-
 function reservationFulfillmentLine(reservation: ReservationWithItems) {
   if (!reservation.fulfillment) return null;
 
@@ -63,12 +64,125 @@ function reservationFulfillmentLine(reservation: ReservationWithItems) {
     location:
       reservation.fulfillment.outbound_method === "DELIVERY"
         ? formatLocationSummary(reservation.fulfillment.outbound_location_snapshot)
-        : null
+        : null,
   };
 }
 
+function groupHasIncompleteSelectedItems(group: CartGroup, selectedIds: Set<number>) {
+  return group.items.some(
+    (item) => selectedIds.has(item.id) && item.status === "CART" && isCartReservationDraft(item)
+  );
+}
+
+function buildCartGroups(items: ReservationWithItems[]): CartGroup[] {
+  const groups = new Map<number, CartGroup>();
+
+  for (const item of items) {
+    const vendorId = vendorIdForReservation(item);
+    const existing = groups.get(vendorId);
+
+    if (existing) {
+      existing.items.push(item);
+      existing.subtotal += Number(item.total_price);
+      existing.reservationIds.push(item.id);
+      existing.hasCartItems = existing.hasCartItems || item.status === "CART";
+      if (isCheckoutSelectable(item)) {
+        existing.selectableItems.push(item);
+      }
+      continue;
+    }
+
+    groups.set(vendorId, {
+      vendorId,
+      vendorName: vendorNameForReservation(item),
+      items: [item],
+      subtotal: Number(item.total_price),
+      reservationIds: [item.id],
+      hasCartItems: item.status === "CART",
+      selectableItems: isCheckoutSelectable(item) ? [item] : [],
+    });
+  }
+
+  return Array.from(groups.values());
+}
+
+function defaultSelectedIds(items: ReservationWithItems[]) {
+  return new Set(items.filter(isCheckoutSelectable).map((item) => item.id));
+}
+
+async function copyToClipboard(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success("Copied to clipboard.");
+  } catch {
+    toast.error("Unable to copy.");
+  }
+}
+
+function PaymentMethodCard({ method }: { method: VendorPaymentMethod }) {
+  return (
+    <div className="space-y-3 rounded-sm border border-border bg-background px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-foreground">{method.label}</p>
+          {method.bank_name ? (
+            <p className="mt-1 text-xs text-muted-foreground">Bank: {method.bank_name}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Account name</p>
+            <p className="truncate text-sm text-foreground">{method.account_name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard(method.account_name)}
+            className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
+          >
+            <CopyIcon className="size-3" />
+            Copy
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Account number</p>
+            <p className="truncate text-sm text-foreground">{method.account_number}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyToClipboard(method.account_number)}
+            className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
+          >
+            <CopyIcon className="size-3" />
+            Copy
+          </button>
+        </div>
+      </div>
+
+      {method.instructions ? (
+        <p className="text-xs leading-6 text-muted-foreground">{method.instructions}</p>
+      ) : null}
+
+      {method.qr_image_url ? (
+        <div className="inline-block overflow-hidden rounded-sm border border-border bg-muted/20 p-2">
+          <img
+            src={resolveApiAsset(method.qr_image_url)}
+            alt={`${method.label} QR code`}
+            className="h-36 w-36 object-contain"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CartDrawer() {
-  const { isCartOpen, closeCart, refreshKey, triggerRefresh } = useCart();
+  const { isCartOpen, openCart, closeCart, refreshKey, triggerRefresh, cartOpenOptions, clearCartOpenOptions } =
+    useCart();
   const { user } = useAuth();
 
   const [items, setItems] = useState<ReservationWithItems[]>([]);
@@ -77,7 +191,16 @@ export function CartDrawer() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
+  const [selectedReservationIds, setSelectedReservationIds] = useState<Set<number>>(new Set());
   const [file, setFile] = useState<File | null>(null);
+  const [vendorPaymentMethods, setVendorPaymentMethods] = useState<VendorPaymentMethod[]>([]);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [configuringReservationId, setConfiguringReservationId] = useState<number | null>(null);
+  const [configuringCostumeId, setConfiguringCostumeId] = useState<number | null>(null);
+  const [configuringData, setConfiguringData] = useState<CostumeDetailResponse | null>(null);
+  const [configuringLocations, setConfiguringLocations] = useState<SavedLocation[]>([]);
+  const [isLoadingWizard, setIsLoadingWizard] = useState(false);
 
   const loadDrawerData = useCallback(async () => {
     if (!user) return;
@@ -92,6 +215,18 @@ export function CartDrawer() {
       });
 
       setItems(actionableReservations);
+      setSelectedReservationIds((current) => {
+        const next = new Set<number>();
+        for (const id of current) {
+          if (actionableReservations.some((item) => item.id === id && isCheckoutSelectable(item))) {
+            next.add(id);
+          }
+        }
+        if (next.size === 0) {
+          return defaultSelectedIds(actionableReservations);
+        }
+        return next;
+      });
     } catch {
       // Keep drawer quiet on transient failures.
     } finally {
@@ -114,6 +249,26 @@ export function CartDrawer() {
         });
 
         setItems(actionableReservations);
+
+        const optionIds = cartOpenOptions?.reservationIds;
+        if (optionIds?.length) {
+          const allowed = new Set(
+            optionIds.filter((id) =>
+              actionableReservations.some((item) => item.id === id && isCheckoutSelectable(item))
+            )
+          );
+          setSelectedReservationIds(allowed.size > 0 ? allowed : defaultSelectedIds(actionableReservations));
+        } else {
+          setSelectedReservationIds(defaultSelectedIds(actionableReservations));
+        }
+
+        if (cartOpenOptions?.vendorId) {
+          setSelectedVendorId(cartOpenOptions.vendorId);
+        }
+        if (cartOpenOptions?.step) {
+          setStep(cartOpenOptions.step);
+        }
+        clearCartOpenOptions();
       })
       .catch(() => {})
       .finally(() => {
@@ -123,40 +278,48 @@ export function CartDrawer() {
     return () => {
       cancelled = true;
     };
-  }, [isCartOpen, user, refreshKey]);
+  }, [isCartOpen, user, refreshKey, cartOpenOptions, clearCartOpenOptions]);
 
-  const cartGroups = useMemo(() => {
-    const groups = new Map<number, CartGroup>();
+  const cartGroups = useMemo(() => buildCartGroups(items), [items]);
 
-    for (const item of items) {
-      const vendorId = vendorIdForReservation(item);
-      const existing = groups.get(vendorId);
+  const selectedGroup = useMemo(() => {
+    const group = cartGroups.find((entry) => entry.vendorId === selectedVendorId);
+    if (!group) return null;
 
-      if (existing) {
-        existing.items.push(item);
-        existing.subtotal += Number(item.total_price);
-        existing.reservationIds.push(item.id);
-        existing.hasCartItems = existing.hasCartItems || item.status === "CART";
-        continue;
-      }
+    const selectedItems = group.items.filter((item) => selectedReservationIds.has(item.id));
+    if (selectedItems.length === 0) return null;
 
-      groups.set(vendorId, {
-        vendorId,
-        vendorName: vendorNameForReservation(item),
-        items: [item],
-        subtotal: Number(item.total_price),
-        reservationIds: [item.id],
-        hasCartItems: item.status === "CART",
-      });
+    return {
+      ...group,
+      items: selectedItems,
+      subtotal: sumReservationTotals(selectedItems),
+      reservationIds: selectedItems.map((item) => item.id),
+    };
+  }, [cartGroups, selectedReservationIds, selectedVendorId]);
+
+  useEffect(() => {
+    if (step !== "UPLOAD" || !selectedVendorId) {
+      setVendorPaymentMethods([]);
+      return;
     }
 
-    return Array.from(groups.values());
-  }, [items]);
+    let cancelled = false;
+    setLoadingPaymentMethods(true);
+    getVendorPaymentMethods(selectedVendorId)
+      .then((methods) => {
+        if (!cancelled) setVendorPaymentMethods(methods);
+      })
+      .catch(() => {
+        if (!cancelled) setVendorPaymentMethods([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPaymentMethods(false);
+      });
 
-  const selectedGroup = useMemo(
-    () => cartGroups.find((group) => group.vendorId === selectedVendorId) || null,
-    [cartGroups, selectedVendorId]
-  );
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedVendorId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -177,14 +340,50 @@ export function CartDrawer() {
       setStep("CART");
       setFile(null);
       setSelectedVendorId(null);
+      setSelectedReservationIds(new Set());
+      setVendorPaymentMethods([]);
     }, 300);
   }, [isCartOpen]);
+
+  function toggleReservationSelection(reservationId: number) {
+    setSelectedReservationIds((current) => {
+      const next = new Set(current);
+      if (next.has(reservationId)) {
+        next.delete(reservationId);
+      } else {
+        next.add(reservationId);
+      }
+      return next;
+    });
+  }
+
+  function toggleVendorSelection(vendorId: number) {
+    const group = cartGroups.find((entry) => entry.vendorId === vendorId);
+    if (!group) return;
+
+    const selectableIds = group.selectableItems.map((item) => item.id);
+    setSelectedReservationIds((current) => {
+      const allSelected = selectableIds.every((id) => current.has(id));
+      const next = new Set(current);
+      if (allSelected) {
+        selectableIds.forEach((id) => next.delete(id));
+      } else {
+        selectableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
 
   async function handleRemove(reservationId: number) {
     setRemovingId(reservationId);
     try {
       await removeReservation(reservationId);
       setItems((current) => current.filter((item) => item.id !== reservationId));
+      setSelectedReservationIds((current) => {
+        const next = new Set(current);
+        next.delete(reservationId);
+        return next;
+      });
       triggerRefresh();
       toast.success("Removed from your cart.");
     } catch (error: unknown) {
@@ -195,9 +394,60 @@ export function CartDrawer() {
   }
 
   function handleProceedToPayment(vendorId: number) {
+    const group = cartGroups.find((entry) => entry.vendorId === vendorId);
+    if (!group) return;
+
+    const selectedInGroup = group.items.filter((item) => selectedReservationIds.has(item.id));
+    if (selectedInGroup.length === 0) {
+      toast.error("Select at least one costume to pay.");
+      return;
+    }
+
+    if (groupHasIncompleteSelectedItems(group, selectedReservationIds)) {
+      toast.error("Complete booking details for every selected costume before checkout.");
+      return;
+    }
+
     setSelectedVendorId(vendorId);
     setStep("UPLOAD");
     setFile(null);
+  }
+
+  async function startCompleteBooking(item: ReservationWithItems) {
+    const costumeId = item.items?.[0]?.costume_id;
+    if (!costumeId) {
+      toast.error("Costume details are missing for this cart item.");
+      return;
+    }
+
+    setIsLoadingWizard(true);
+    setConfiguringReservationId(item.id);
+    setConfiguringCostumeId(costumeId);
+    try {
+      const [detail, locations] = await Promise.all([getCostume(costumeId), listSavedLocations()]);
+      setConfiguringData(detail);
+      setConfiguringLocations(locations);
+      closeCart();
+      setWizardOpen(true);
+    } catch {
+      toast.error("Failed to load booking details.");
+      setConfiguringReservationId(null);
+      setConfiguringCostumeId(null);
+    } finally {
+      setIsLoadingWizard(false);
+    }
+  }
+
+  function closeConfigureWizard(open: boolean) {
+    setWizardOpen(open);
+    if (!open) {
+      setConfiguringReservationId(null);
+      setConfiguringCostumeId(null);
+      setConfiguringData(null);
+      setConfiguringLocations([]);
+      void loadDrawerData();
+      openCart();
+    }
   }
 
   async function handleUploadAndPay() {
@@ -225,6 +475,11 @@ export function CartDrawer() {
       await apiFetch("/api/payments/proof", { method: "POST", body: form });
 
       setItems((current) => current.filter((item) => !selectedGroup.reservationIds.includes(item.id)));
+      setSelectedReservationIds((current) => {
+        const next = new Set(current);
+        selectedGroup.reservationIds.forEach((id) => next.delete(id));
+        return next;
+      });
       triggerRefresh();
       setStep("SUCCESS");
       setSelectedVendorId(null);
@@ -262,7 +517,7 @@ export function CartDrawer() {
             </h2>
             {step === "CART" && (
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Each vendor is checked out separately
+                Select costumes, then pay each vendor separately
               </p>
             )}
           </div>
@@ -303,92 +558,166 @@ export function CartDrawer() {
             </div>
           ) : step === "CART" ? (
             <div className="flex flex-col gap-8">
-              {cartGroups.map((group) => (
-                <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
-                  <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
-                    <div>
-                      <p className="font-display text-xl font-semibold text-foreground">{group.vendorName}</p>
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {group.items.length} item{group.items.length === 1 ? "" : "s"} · PHP {group.subtotal.toLocaleString()}
-                      </p>
+              {cartGroups.map((group) => {
+                const selectableIds = group.selectableItems.map((item) => item.id);
+                const selectedInGroup = group.items.filter((item) => selectedReservationIds.has(item.id));
+                const selectedSubtotal = sumReservationTotals(selectedInGroup);
+                const allSelectableSelected =
+                  selectableIds.length > 0 && selectableIds.every((id) => selectedReservationIds.has(id));
+
+                return (
+                  <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
+                    <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+                      <div className="min-w-0">
+                        <p className="font-display text-xl font-semibold text-foreground">{group.vendorName}</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          {selectedInGroup.length} of {group.items.length} selected · PHP{" "}
+                          {selectedSubtotal.toLocaleString()}
+                        </p>
+                        {selectableIds.length > 0 ? (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Checkbox
+                              id={`cart-vendor-${group.vendorId}`}
+                              checked={
+                                allSelectableSelected
+                                  ? true
+                                  : selectedInGroup.length > 0
+                                    ? "indeterminate"
+                                    : false
+                              }
+                              onCheckedChange={() => toggleVendorSelection(group.vendorId)}
+                            />
+                            <Label
+                              htmlFor={`cart-vendor-${group.vendorId}`}
+                              className="cursor-pointer text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                            >
+                              {allSelectableSelected ? "Deselect all" : "Select all from this vendor"}
+                            </Label>
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleProceedToPayment(group.vendorId)}
+                        disabled={
+                          selectedInGroup.length === 0 ||
+                          groupHasIncompleteSelectedItems(group, selectedReservationIds)
+                        }
+                        className="inline-flex h-9 shrink-0 items-center rounded-md border border-primary bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleProceedToPayment(group.vendorId)}
-                      className="inline-flex h-9 items-center rounded-md border border-primary bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-                    >
-                      {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
-                    </button>
-                  </div>
 
-                  <div className="flex flex-col gap-5">
-                    {group.items.map((item) => {
-                      const image = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
-                      const name = item.items?.[0]?.Costume?.name || "Costume";
-                      const days = countRentalDaysInclusive(item.start_date, item.end_date);
-                      const isPendingPayment = item.status === "PENDING_PAYMENT";
-                      const fulfillmentLine = reservationFulfillmentLine(item);
-                      const fulfillmentFee =
-                        Number(item.fulfillment?.outbound_fee || 0) + Number(item.fulfillment?.return_fee || 0);
+                    <div className="flex flex-col gap-5">
+                      {group.items.map((item) => {
+                        const image = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
+                        const name = item.items?.[0]?.Costume?.name || "Costume";
+                        const days =
+                          item.start_date && item.end_date
+                            ? countRentalDaysInclusive(item.start_date, item.end_date)
+                            : 0;
+                        const isPendingPayment = item.status === "PENDING_PAYMENT";
+                        const isDraft = item.status === "CART" && isCartReservationDraft(item);
+                        const selectable = isCheckoutSelectable(item);
+                        const isSelected = selectedReservationIds.has(item.id);
+                        const fulfillmentLine = reservationFulfillmentLine(item);
+                        const fulfillmentFee =
+                          Number(item.fulfillment?.outbound_fee || 0) + Number(item.fulfillment?.return_fee || 0);
 
-                      return (
-                        <div key={item.id} className="group flex gap-4">
-                          <div className="size-20 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
-                            {image ? (
-                              <img
-                                src={resolveApiAsset(image)}
-                                alt={name}
-                                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                              />
+                        return (
+                          <div key={item.id} className="group flex gap-4">
+                            {selectable ? (
+                              <div className="mt-1 shrink-0">
+                                <Checkbox
+                                  id={`cart-drawer-item-${item.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleReservationSelection(item.id)}
+                                  aria-label={isSelected ? `Deselect ${name}` : `Select ${name}`}
+                                />
+                              </div>
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <ImageIcon className="h-6 w-6 opacity-20" />
-                              </div>
+                              <div className="mt-1 size-4 shrink-0" />
                             )}
-                          </div>
-                          <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate font-display text-lg font-semibold text-foreground">{name}</p>
-                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                  {isPendingPayment ? "Ready for receipt" : "In Cart"}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemove(item.id)}
-                                disabled={removingId === item.id || isProcessing}
-                                className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-                              >
-                                {removingId === item.id ? "Removing" : "Remove"}
-                              </button>
+
+                            <div className="size-20 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
+                              {image ? (
+                                <img
+                                  src={resolveApiAsset(image)}
+                                  alt={name}
+                                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <ImageIcon className="h-6 w-6 opacity-20" />
+                                </div>
+                              )}
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {formatDate(item.start_date)} - {formatDate(item.end_date)} ({days} day{days !== 1 ? "s" : ""})
-                            </p>
-                            {fulfillmentLine ? (
-                              <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                {fulfillmentLine.summary}
-                              </p>
-                            ) : null}
-                            {fulfillmentLine?.location ? (
-                              <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                                {fulfillmentLine.location}
-                              </p>
-                            ) : null}
-                            {fulfillmentFee > 0 ? (
-                              <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                                Includes PHP {Number(fulfillmentFee).toLocaleString()} in fulfillment fees
-                              </p>
-                            ) : null}
-                            <p className="mt-2 text-sm font-medium">PHP {Number(item.total_price).toLocaleString()}</p>
+                            <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate font-display text-lg font-semibold text-foreground">{name}</p>
+                                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    {isPendingPayment ? "Ready for receipt" : isDraft ? "Needs setup" : "In Cart"}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemove(item.id)}
+                                  disabled={removingId === item.id || isProcessing}
+                                  className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                                >
+                                  {removingId === item.id ? "Removing" : "Remove"}
+                                </button>
+                              </div>
+                              {isDraft ? (
+                                <div className="mt-2 space-y-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    Choose dates and delivery before checkout.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => void startCompleteBooking(item)}
+                                    disabled={isLoadingWizard}
+                                    className="text-[10px] font-semibold uppercase tracking-widest text-primary transition-opacity hover:opacity-70 disabled:opacity-40"
+                                  >
+                                    Complete booking
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {formatDate(item.start_date || "")} - {formatDate(item.end_date || "")} ({days} day
+                                    {days !== 1 ? "s" : ""})
+                                  </p>
+                                  {fulfillmentLine ? (
+                                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                      {fulfillmentLine.summary}
+                                    </p>
+                                  ) : null}
+                                  {fulfillmentLine?.location ? (
+                                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                                      {fulfillmentLine.location}
+                                    </p>
+                                  ) : null}
+                                  {fulfillmentFee > 0 ? (
+                                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                                      Includes PHP {Number(fulfillmentFee).toLocaleString()} in fulfillment fees
+                                    </p>
+                                  ) : null}
+                                  <p className="mt-2 text-sm font-medium">
+                                    PHP {Number(item.total_price).toLocaleString()}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           ) : step === "UPLOAD" && selectedGroup ? (
             <div className="flex h-full flex-col gap-8">
@@ -406,9 +735,27 @@ export function CartDrawer() {
                   </p>
                   <p className="font-display text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">
-                    Upload one receipt for {selectedGroup.items.length} costume{selectedGroup.items.length === 1 ? "" : "s"} from this vendor.
+                    Pay using the details below, then upload one receipt for {selectedGroup.items.length} selected
+                    costume{selectedGroup.items.length === 1 ? "" : "s"}.
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Vendor payment details
+                </p>
+                {loadingPaymentMethods ? (
+                  <div className="rounded-sm border border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                    Loading payment details...
+                  </div>
+                ) : vendorPaymentMethods.length > 0 ? (
+                  vendorPaymentMethods.map((method) => <PaymentMethodCard key={method.id} method={method} />)
+                ) : (
+                  <div className="rounded-sm border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                    This vendor has not published payment details yet. Contact them if you need help completing payment.
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 rounded-sm border border-border bg-muted/20 px-4 py-4">
@@ -503,6 +850,18 @@ export function CartDrawer() {
           </div>
         )}
       </div>
+
+      {configuringData && configuringCostumeId && configuringReservationId ? (
+        <ReservationWizard
+          costumeId={configuringCostumeId}
+          data={configuringData}
+          savedLocations={configuringLocations}
+          open={wizardOpen}
+          onOpenChange={closeConfigureWizard}
+          intent="reserve"
+          reservationId={configuringReservationId}
+        />
+      ) : null}
     </>
   );
 }

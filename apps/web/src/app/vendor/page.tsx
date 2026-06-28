@@ -242,6 +242,22 @@ export default function VendorOverviewPage() {
             <CheckIcon className="size-3" />
             Approved vendor
           </div>
+          {profile?.blockingReasons.includes("PAYMENT_DETAILS_REQUIRED") ? (
+            <div className="max-w-2xl rounded-xl border border-amber-400/40 bg-amber-50/50 px-5 py-4 dark:bg-amber-950/20">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                Payment details required
+              </p>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                Add at least one active payment method before you can publish listings or accept reservations.
+              </p>
+              <Link
+                href="/vendor/settings"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Add payment details
+              </Link>
+            </div>
+          ) : null}
           <div>
             <h1 className="max-w-3xl font-display text-5xl font-semibold leading-tight text-foreground md:text-6xl">
               Welcome to your house, {storeName}.
@@ -257,12 +273,21 @@ export default function VendorOverviewPage() {
             >
               Manage inventory
             </Link>
-            <Link
-              href="/vendor/reservations"
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-border px-6 text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-            >
-              Review reservations
-            </Link>
+            {profile?.blockingReasons.includes("PAYMENT_DETAILS_REQUIRED") ? (
+              <Link
+                href="/vendor/settings"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-amber-400/40 bg-amber-50/50 px-6 text-xs font-semibold uppercase tracking-widest text-amber-800 transition-colors hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-300"
+              >
+                Add payment details
+              </Link>
+            ) : (
+              <Link
+                href="/vendor/reservations"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-border px-6 text-xs font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
+              >
+                Review reservations
+              </Link>
+            )}
           </div>
         </div>
 
@@ -280,6 +305,25 @@ export default function VendorOverviewPage() {
           </div>
         </div>
       </section>
+
+      {profile?.blockingReasons.includes("PAYMENT_DETAILS_REQUIRED") ? (
+        <div className="mt-8 max-w-3xl rounded-xl border border-amber-400/40 bg-amber-50/50 px-5 py-5 dark:bg-amber-950/20">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+            <RocketIcon className="size-3.5" />
+            Payment details required
+          </div>
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">
+            Add at least one active payment method before you can publish listings or accept reservations. Customers need
+            your GCash, Maya, or bank details at checkout.
+          </p>
+          <Link
+            href="/vendor/settings"
+            className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Go to settings
+          </Link>
+        </div>
+      ) : null}
 
       <div className="mt-10 grid gap-4 md:grid-cols-4">
         {statBlock("Total listings", counts.total)}

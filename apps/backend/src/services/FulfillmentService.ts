@@ -3,6 +3,8 @@ import type {
   EffectiveCostumeFulfillmentResponse,
   PreparedReservationFulfillment,
   ReservationFulfillmentSelectionRequest,
+  UserFulfillmentPreferencesRequest,
+  UserFulfillmentPreferencesResponse,
   UserSavedLocationRequest,
   VendorFulfillmentSettingsRequest
 } from "../dto/fulfillment.dto";
@@ -21,6 +23,7 @@ import { Costume } from "../models/Costume";
 import { CostumeFulfillmentOverride } from "../models/CostumeFulfillmentOverride";
 import { ReservationFulfillment } from "../models/ReservationFulfillment";
 import { UserSavedLocation } from "../models/UserSavedLocation";
+import { UserFulfillmentPreferences } from "../models/UserFulfillmentPreferences";
 import { VendorFulfillmentSettings } from "../models/VendorFulfillmentSettings";
 
 type SavedLocationResolution = {
@@ -204,6 +207,28 @@ export class FulfillmentService {
         `Update costume fulfillment overrides before narrowing vendor defaults for: ${incompatible.join(", ")}`
       );
     }
+  }
+
+  private async resolveDeliveryLocationSelection(
+    userId: number,
+    selection: {
+      saved_location_id?: number | null;
+      new_location?: UserSavedLocationRequest | null;
+      save_as_default?: boolean;
+    } | null | undefined
+  ): Promise<SavedLocationResolution> {
+    if (selection?.saved_location_id || selection?.new_location) {
+      return this.resolveSavedLocationSelection(userId, selection);
+    }
+
+    const prefs = await UserFulfillmentPreferences.findOne({ where: { user_id: userId } });
+    if (prefs?.default_saved_location_id) {
+      return this.resolveSavedLocationSelection(userId, {
+        saved_location_id: Number(prefs.default_saved_location_id)
+      });
+    }
+
+    throw new Error("A renter location is required for delivery");
   }
 
   private async resolveSavedLocationSelection(
@@ -434,6 +459,104 @@ export class FulfillmentService {
     return location;
   }
 
+  private emptyFulfillmentPreferences(userId: number): UserFulfillmentPreferencesResponse {
+    return {
+      user_id: userId,
+      default_saved_location_id: null,
+      default_delivery_window_slot: null,
+      default_return_window_slot: null
+    };
+  }
+
+  private toFulfillmentPreferencesResponse(
+    prefs: UserFulfillmentPreferences
+  ): UserFulfillmentPreferencesResponse {
+    return {
+      user_id: prefs.user_id,
+      default_saved_location_id: prefs.default_saved_location_id
+        ? Number(prefs.default_saved_location_id)
+        : null,
+      default_delivery_window_slot: prefs.default_delivery_window_slot ?? null,
+      default_return_window_slot: prefs.default_return_window_slot ?? null,
+      created_at: prefs.created_at,
+      updated_at: prefs.updated_at
+    };
+  }
+
+  private async validateFulfillmentPreferencesPayload(
+    userId: number,
+    payload: UserFulfillmentPreferencesRequest
+  ) {
+    if (
+      payload.default_delivery_window_slot !== undefined &&
+      payload.default_delivery_window_slot !== null &&
+      !isFulfillmentWindowSlot(payload.default_delivery_window_slot)
+    ) {
+      throw new Error("Invalid default delivery window slot");
+    }
+
+    if (
+      payload.default_return_window_slot !== undefined &&
+      payload.default_return_window_slot !== null &&
+      !isFulfillmentWindowSlot(payload.default_return_window_slot)
+    ) {
+      throw new Error("Invalid default return window slot");
+    }
+
+    if (payload.default_saved_location_id) {
+      const location = await UserSavedLocation.findOne({
+        where: { id: Number(payload.default_saved_location_id), user_id: userId }
+      });
+      if (!location) {
+        throw new Error("Saved location not found");
+      }
+    }
+  }
+
+  async getFulfillmentPreferences(userId: number): Promise<UserFulfillmentPreferencesResponse> {
+    const prefs = await UserFulfillmentPreferences.findOne({ where: { user_id: userId } });
+    if (!prefs) {
+      return this.emptyFulfillmentPreferences(userId);
+    }
+
+    return this.toFulfillmentPreferencesResponse(prefs);
+  }
+
+  async upsertFulfillmentPreferences(
+    userId: number,
+    payload: UserFulfillmentPreferencesRequest
+  ): Promise<UserFulfillmentPreferencesResponse> {
+    await this.validateFulfillmentPreferencesPayload(userId, payload);
+
+    const existing = await UserFulfillmentPreferences.findOne({ where: { user_id: userId } });
+    const nextValues = {
+      default_saved_location_id:
+        payload.default_saved_location_id === undefined
+          ? (existing?.default_saved_location_id ?? null)
+          : payload.default_saved_location_id,
+      default_delivery_window_slot:
+        payload.default_delivery_window_slot === undefined
+          ? (existing?.default_delivery_window_slot ?? null)
+          : payload.default_delivery_window_slot,
+      default_return_window_slot:
+        payload.default_return_window_slot === undefined
+          ? (existing?.default_return_window_slot ?? null)
+          : payload.default_return_window_slot
+    };
+
+    if (existing) {
+      await existing.update(nextValues);
+      return this.toFulfillmentPreferencesResponse(existing);
+    }
+
+    const created = await UserFulfillmentPreferences.create({
+      user_id: userId,
+      ...nextValues
+    });
+
+    return this.toFulfillmentPreferencesResponse(created);
+  }
+
   async deleteSavedLocation(userId: number, locationId: number) {
     const location = await UserSavedLocation.findOne({
       where: { id: locationId, user_id: userId }
@@ -500,7 +623,7 @@ export class FulfillmentService {
 
     const outboundLocation =
       selection.outbound_method === "DELIVERY"
-        ? await this.resolveSavedLocationSelection(userId, selection.outbound_location)
+        ? await this.resolveDeliveryLocationSelection(userId, selection.outbound_location)
         : { id: null, snapshot: vendorLocation };
 
     const canReuseOutboundLocation =
@@ -512,7 +635,7 @@ export class FulfillmentService {
       selection.return_method === "DELIVERY"
         ? canReuseOutboundLocation
           ? outboundLocation
-          : await this.resolveSavedLocationSelection(userId, selection.return_location)
+          : await this.resolveDeliveryLocationSelection(userId, selection.return_location)
         : { id: null, snapshot: vendorLocation };
 
     const pickupRange =
