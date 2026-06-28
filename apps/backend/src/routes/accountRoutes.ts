@@ -1,15 +1,24 @@
 import { Router } from "express";
+import { AccountController } from "../controllers/AccountController";
 import { FulfillmentController } from "../controllers/FulfillmentController";
+import { upload } from "../middleware/uploadMiddleware";
 
 const router = Router();
-const controller = new FulfillmentController();
+const accountController = new AccountController();
+const fulfillmentController = new FulfillmentController();
 
-router.get("/locations", (req, res) => controller.listSavedLocations(req, res));
-router.post("/locations", (req, res) => controller.createSavedLocation(req, res));
-router.put("/locations/:id", (req, res) => controller.updateSavedLocation(req, res));
-router.delete("/locations/:id", (req, res) => controller.deleteSavedLocation(req, res));
+router.put("/profile", (req, res) => accountController.updateProfile(req, res));
+router.post("/avatar", upload.single("avatar"), (req, res) => accountController.updateAvatar(req, res));
+router.put("/password", (req, res) => accountController.changePassword(req, res));
+router.get("/notification-preferences", (req, res) => accountController.getNotificationPreferences(req, res));
+router.put("/notification-preferences", (req, res) => accountController.updateNotificationPreferences(req, res));
 
-router.get("/fulfillment-preferences", (req, res) => controller.getFulfillmentPreferences(req, res));
-router.put("/fulfillment-preferences", (req, res) => controller.upsertFulfillmentPreferences(req, res));
+router.get("/locations", (req, res) => fulfillmentController.listSavedLocations(req, res));
+router.post("/locations", (req, res) => fulfillmentController.createSavedLocation(req, res));
+router.put("/locations/:id", (req, res) => fulfillmentController.updateSavedLocation(req, res));
+router.delete("/locations/:id", (req, res) => fulfillmentController.deleteSavedLocation(req, res));
+
+router.get("/fulfillment-preferences", (req, res) => fulfillmentController.getFulfillmentPreferences(req, res));
+router.put("/fulfillment-preferences", (req, res) => fulfillmentController.upsertFulfillmentPreferences(req, res));
 
 export default router;

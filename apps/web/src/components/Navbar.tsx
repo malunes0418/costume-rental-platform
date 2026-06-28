@@ -31,9 +31,11 @@ import { NotificationBell } from "./NotificationBell";
 import { useCart } from "../lib/CartContext";
 import { CartDrawer } from "./CartDrawer";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { categoryFilters } from "@/components/marketplace/constants";
+import { resolveApiAsset } from "@/lib/assets";
 
 function NavbarSearch() {
   const router = useRouter();
@@ -59,16 +61,20 @@ function NavbarSearch() {
 
   return (
     <form onSubmit={handleSubmit} className="hidden flex-1 md:flex md:max-w-xl lg:max-w-2xl">
-      <div className="flex w-full items-center gap-2 rounded-full border border-border bg-muted/50 pl-4 pr-1.5 transition-colors focus-within:border-primary/40 focus-within:bg-card">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
+      <div className="navbar-search-rail flex w-full items-center gap-2 rounded-full pl-4 pr-1.5">
+        <Search className="size-4 shrink-0 text-primary/70" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search costumes…"
+          placeholder="Search costumes, themes, characters…"
           aria-label="Search costumes"
-          className="h-10 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0"
+          className="h-10 flex-1 border-0 bg-transparent px-2 shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0"
         />
-        <Button type="submit" size="sm" className="h-8 rounded-full px-4 text-xs font-semibold">
+        <Button
+          type="submit"
+          size="sm"
+          className="h-8 rounded-full px-4 text-xs font-semibold hover-snap"
+        >
           Search
         </Button>
       </div>
@@ -85,10 +91,10 @@ function CategoryNav() {
 
   return (
     <nav
-      className="hidden overflow-x-auto border-t border-border md:block"
+      className="navbar-category-rail hidden overflow-x-auto border-t border-border/60 md:block"
       aria-label="Browse categories"
     >
-      <div className="mx-auto flex max-w-[1400px] items-center gap-1 px-4 md:px-6">
+      <div className="mx-auto flex max-w-[1400px] items-center gap-1.5 px-4 py-2.5 md:px-6">
         {categoryFilters.map(({ value, label }) => {
           const params = new URLSearchParams(searchParams.toString());
           if (value) {
@@ -105,10 +111,8 @@ function CategoryNav() {
               key={value || "all"}
               href={href}
               className={cn(
-                "shrink-0 px-3 py-3 text-xs font-semibold uppercase tracking-widest transition-colors",
-                isActive
-                  ? "border-b-2 border-primary text-primary"
-                  : "border-b-2 border-transparent text-muted-foreground hover:text-primary"
+                "navbar-category-pill text-muted-foreground",
+                isActive && "navbar-category-pill--active"
               )}
             >
               {label}
@@ -124,6 +128,7 @@ function NavbarInner() {
   const { user, logout } = useAuth();
   const { openCart } = useCart();
   const router = useRouter();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -164,20 +169,34 @@ function NavbarInner() {
     router.replace("/login");
   }, [logout, router]);
 
+  const userAvatar = user ? (
+    <Avatar className="size-7 shrink-0 border border-primary/25 ring-2 ring-transparent transition-[box-shadow] group-hover:ring-primary/15">
+      {user.avatar_url ? (
+        <AvatarImage
+          src={resolveApiAsset(user.avatar_url)}
+          alt={user.name ?? "Profile"}
+          className="object-cover"
+        />
+      ) : null}
+      <AvatarFallback className="bg-primary/10 text-[10px] font-bold uppercase tracking-wider text-primary">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  ) : null;
+
   return (
     <>
       <header
         className={cn(
-          "sticky top-0 z-50 border-b transition-all duration-300",
-          scrolled ? "border-border bg-background/95 backdrop-blur-md" : "border-border bg-background"
+          "navbar-shell border-b border-border/80 backdrop-blur-md",
+          scrolled ? "navbar-shell--scrolled bg-background/95" : "bg-background/90"
         )}
       >
-        {/* Row 1: logo + search + utilities */}
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4 md:h-16 md:gap-6 md:px-6">
           <Link
             href="/"
             aria-label="SnapCos home"
-            className="shrink-0 transition-transform duration-300 hover:scale-[0.99]"
+            className="shrink-0 transition-transform duration-300 hover:scale-[0.98] active:scale-[0.96]"
           >
             <BrandLogo priority size="md" />
           </Link>
@@ -186,13 +205,13 @@ function NavbarInner() {
             <NavbarSearch />
           </Suspense>
 
-          <div className="ml-auto flex items-center gap-2 md:gap-3">
+          <div className="ml-auto flex items-center gap-1.5 md:gap-2">
             {user && <NotificationBell />}
             {user && user.role !== "ADMIN" && (
               <button
                 onClick={() => openCart()}
                 aria-label="Open cart"
-                className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="navbar-utility-btn"
               >
                 <ShoppingBag className="size-4" />
               </button>
@@ -200,16 +219,16 @@ function NavbarInner() {
             <ThemeToggle />
 
             {!user ? (
-              <div className="hidden items-center gap-3 sm:flex">
+              <div className="hidden items-center gap-2 sm:flex">
                 <Link
                   href="/login"
-                  className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-primary"
+                  className="rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/register"
-                  className="inline-flex h-9 items-center rounded-full bg-primary px-5 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="inline-flex h-9 items-center rounded-full bg-primary px-5 text-xs font-semibold uppercase tracking-widest text-primary-foreground shadow-[0_2px_12px_oklch(0.68_0.16_28/0.28)] transition-[transform,background,box-shadow] hover:bg-primary/92 hover:shadow-[0_4px_16px_oklch(0.68_0.16_28/0.34)] hover-snap"
                 >
                   Sign up
                 </Link>
@@ -219,12 +238,10 @@ function NavbarInner() {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="group hidden items-center gap-2 rounded-full px-2 py-1 transition-colors hover:bg-muted focus:outline-none sm:flex"
+                    className="group hidden items-center gap-2 rounded-full border border-transparent px-2 py-1 transition-colors hover:border-border/60 hover:bg-muted/60 focus:outline-none sm:flex"
                   >
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold uppercase tracking-wider text-primary">
-                      {initials}
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-widest text-foreground">
+                    {userAvatar}
+                    <span className="max-w-[7rem] truncate text-xs font-semibold uppercase tracking-widest text-foreground">
                       {user?.name?.split(" ")[0] || "Account"}
                     </span>
                     <ChevronDown className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -234,9 +251,9 @@ function NavbarInner() {
                 <DropdownMenuContent
                   align="end"
                   sideOffset={8}
-                  className="w-64 rounded-xl border border-border bg-card p-0"
+                  className="w-64 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-coral"
                 >
-                  <div className="border-b border-border px-5 py-4">
+                  <div className="border-b border-border bg-brand-coral-soft/40 px-5 py-4">
                     <p className="font-display text-base font-semibold leading-tight text-foreground">
                       {user?.name || "Account"}
                     </p>
@@ -248,19 +265,19 @@ function NavbarInner() {
                       <div className="py-1.5">
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/account/settings">
-                            <Settings className="size-3.5 shrink-0" />
+                            <Settings className="size-3.5 shrink-0 text-primary/80" />
                             Settings
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/reservations">
-                            <CalendarDays className="size-3.5 shrink-0" />
+                            <CalendarDays className="size-3.5 shrink-0 text-primary/80" />
                             Reservations
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/wishlist">
-                            <Heart className="size-3.5 shrink-0" />
+                            <Heart className="size-3.5 shrink-0 text-primary/80" />
                             Wishlist
                           </Link>
                         </DropdownMenuItem>
@@ -274,7 +291,7 @@ function NavbarInner() {
                       <div className="py-1.5">
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/admin">
-                            <Shield className="size-3.5 shrink-0" />
+                            <Shield className="size-3.5 shrink-0 text-primary/80" />
                             Admin Dashboard
                           </Link>
                         </DropdownMenuItem>
@@ -288,13 +305,13 @@ function NavbarInner() {
                       <div className="py-1.5">
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/vendor">
-                            <Store className="size-3.5 shrink-0" />
+                            <Store className="size-3.5 shrink-0 text-primary/80" />
                             Vendor Dashboard
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-lg px-5 py-3 text-xs font-semibold uppercase tracking-widest">
                           <Link href="/vendor/subscription">
-                            <CreditCard className="size-3.5 shrink-0" />
+                            <CreditCard className="size-3.5 shrink-0 text-primary/80" />
                             Subscription
                           </Link>
                         </DropdownMenuItem>
@@ -321,34 +338,55 @@ function NavbarInner() {
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
-              className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted md:hidden"
+              className="navbar-mobile-menu-btn border border-border"
             >
               {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
             </button>
           </div>
         </div>
 
-        {/* Row 2: category nav */}
         <Suspense fallback={null}>
           <CategoryNav />
         </Suspense>
+
+        <div className="navbar-stage-line" aria-hidden="true" />
       </header>
 
       {menuOpen &&
         mounted &&
         createPortal(
-          <div className="fixed inset-0 top-14 z-50 bg-background md:hidden">
+          <div className="navbar-mobile-drawer fixed inset-0 top-14 z-50 bg-background">
             <div className="flex h-full flex-col overflow-y-auto px-6 pb-12 pt-6">
               <Suspense fallback={null}>
                 <NavbarSearchMobile onNavigate={() => setMenuOpen(false)} />
               </Suspense>
 
+              {pathname === "/" && (
+                <Suspense fallback={null}>
+                  <MobileCategoryNav onNavigate={() => setMenuOpen(false)} />
+                </Suspense>
+              )}
+
               {user && (
-                <div className="mb-6 mt-6 border-b border-border pb-6">
-                  <p className="font-display text-2xl font-semibold text-foreground">
-                    {user.name || "Account"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
+                <div className="mb-6 mt-6 flex items-center gap-4 border-b border-border pb-6">
+                  <Avatar className="size-12 shrink-0 border border-primary/25">
+                    {user.avatar_url ? (
+                      <AvatarImage
+                        src={resolveApiAsset(user.avatar_url)}
+                        alt={user.name ?? "Profile"}
+                        className="object-cover"
+                      />
+                    ) : null}
+                    <AvatarFallback className="bg-primary/10 text-sm font-bold uppercase tracking-wider text-primary">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="font-display text-2xl font-semibold text-foreground">
+                      {user.name || "Account"}
+                    </p>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">{user.email}</p>
+                  </div>
                 </div>
               )}
 
@@ -377,7 +415,7 @@ function NavbarInner() {
                     key={href}
                     href={href}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center border-b border-border/50 py-4 text-sm font-semibold uppercase tracking-widest text-muted-foreground transition-colors last:border-0 hover:text-foreground"
+                    className="flex items-center border-b border-border/50 py-4 text-sm font-semibold uppercase tracking-widest text-muted-foreground transition-colors last:border-0 hover:text-primary"
                   >
                     {label}
                   </Link>
@@ -404,7 +442,7 @@ function NavbarInner() {
                     <Link
                       href="/register"
                       onClick={() => setMenuOpen(false)}
-                      className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground"
+                      className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground shadow-[0_2px_12px_oklch(0.68_0.16_28/0.28)]"
                     >
                       Sign up
                     </Link>
@@ -430,6 +468,43 @@ function NavbarInner() {
   );
 }
 
+function MobileCategoryNav({ onNavigate }: { onNavigate: () => void }) {
+  const searchParams = useSearchParams();
+  const activeCategory = searchParams.get("category") || "";
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        Categories
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {categoryFilters.map(({ value, label }) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (value) params.set("category", value);
+          else params.delete("category");
+          params.delete("page");
+          const href = params.toString() ? `/?${params.toString()}` : "/";
+          const isActive = activeCategory === value;
+
+          return (
+            <Link
+              key={value || "all"}
+              href={href}
+              onClick={onNavigate}
+              className={cn(
+                "navbar-category-pill text-muted-foreground",
+                isActive && "navbar-category-pill--active"
+              )}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function NavbarSearchMobile({ onNavigate }: { onNavigate: () => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -448,8 +523,8 @@ function NavbarSearchMobile({ onNavigate }: { onNavigate: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
-      <div className="flex flex-1 items-center gap-2 rounded-full border border-border bg-muted/50 pl-3 pr-1">
-        <Search className="size-4 text-muted-foreground" />
+      <div className="navbar-search-rail flex flex-1 items-center gap-2 rounded-full pl-3 pr-1">
+        <Search className="size-4 text-primary/70" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -457,7 +532,7 @@ function NavbarSearchMobile({ onNavigate }: { onNavigate: () => void }) {
           className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0"
         />
       </div>
-      <Button type="submit" size="sm" className="h-10 rounded-full px-4">
+      <Button type="submit" size="sm" className="h-10 rounded-full px-4 hover-snap">
         Go
       </Button>
     </form>

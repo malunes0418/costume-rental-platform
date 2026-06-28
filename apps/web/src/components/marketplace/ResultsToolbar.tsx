@@ -38,13 +38,18 @@ export function ResultsToolbar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3",
+        "marketplace-results-bar flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border px-4 py-3",
         className
       )}
     >
       <p className="text-sm text-muted-foreground">
-        <span className="font-semibold text-foreground">{displayCount}</span>
-        {total !== displayCount ? ` of ${total}` : ""} result{displayCount === 1 ? "" : "s"}
+        <span className="font-display text-lg font-semibold tabular-nums text-foreground">{displayCount}</span>
+        {total !== displayCount ? (
+          <span className="text-muted-foreground"> of {total}</span>
+        ) : null}{" "}
+        <span className="text-xs font-semibold uppercase tracking-widest">
+          result{displayCount === 1 ? "" : "s"}
+        </span>
       </p>
 
       <div className="flex items-center gap-3">

@@ -1,88 +1,118 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { BellIcon as Bell, CheckIcon } from "@radix-ui/react-icons";
+
+import { NotificationRow } from "@/components/notifications/NotificationRow";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import {
-  myNotifications,
-  markNotificationRead,
   markAllNotificationsRead,
+  markNotificationRead,
+  myNotifications,
   type Notification,
 } from "@/lib/account";
-import { BellIcon as Bell, CheckIcon } from "@radix-ui/react-icons";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { useClickOutside } from "@/hooks/useClickOutside";
 
-// ── relative time formatter ───────────────────────────────────────────────────
+const actionLabelClass = "text-[10px] font-semibold uppercase tracking-widest";
+const PANEL_WIDTH = 380;
+const PANEL_GAP = 12;
 
-function relativeTime(iso?: string): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function getPanelPosition(trigger: HTMLElement) {
+  const rect = trigger.getBoundingClientRect();
+  const width = Math.min(PANEL_WIDTH, window.innerWidth - 16);
+  const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+
+  return {
+    top: rect.bottom + PANEL_GAP,
+    left,
+    width,
+  };
 }
-
-// ── type label formatter ──────────────────────────────────────────────────────
-
-function typeLabel(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-// ── component ─────────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
-  const [items, setItems]     = useState<Notification[]>([]);
+  const [items, setItems] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0, width: PANEL_WIDTH });
 
-  const panelRef  = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const outsideRefs: RefObject<HTMLElement | null>[] = [panelRef, triggerRef];
 
-  // Close on outside click
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useClickOutside({
     ref: outsideRefs,
     callback: () => setOpen(false),
   });
 
-  // Close on Escape
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+
+    function updatePosition() {
+      if (!triggerRef.current) return;
+      setPanelPosition(getPanelPosition(triggerRef.current));
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [open]);
 
-  // Fetch notifications
   useEffect(() => {
-    if (!user) { setItems([]); setIsLoading(false); return; }
+    if (!user) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setIsLoading(true);
     myNotifications()
-      .then((res) => { if (!cancelled) setItems(res); })
+      .then((res) => {
+        if (!cancelled) setItems(res);
+      })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   async function handleMarkAll() {
     if (!user || markingAll) return;
+
     setMarkingAll(true);
     try {
       await markAllNotificationsRead();
-      setItems((xs) => xs.map((n) => ({ ...n, is_read: true })));
+      setItems((current) => current.map((item) => ({ ...item, is_read: true })));
     } catch {
       // silent
     } finally {
@@ -90,20 +120,20 @@ export function NotificationBell() {
     }
   }
 
-  async function handleOpenNotification(n: Notification) {
+  async function handleOpenNotification(notification: Notification) {
     if (!user) return;
 
-    if (!n.is_read) {
+    if (!notification.is_read) {
       try {
-        const updated = await markNotificationRead(n.id);
-        setItems((xs) => xs.map((x) => (x.id === n.id ? updated : x)));
+        const updated = await markNotificationRead(notification.id);
+        setItems((current) => current.map((item) => (item.id === notification.id ? updated : item)));
       } catch {
         // silent
       }
     }
 
     setOpen(false);
-    router.push(`/notifications?notification=${n.id}`);
+    router.push(`/notifications?notification=${notification.id}`);
   }
 
   function handleViewAll() {
@@ -111,170 +141,127 @@ export function NotificationBell() {
     router.push("/notifications");
   }
 
-  const unreadCount = items.filter((n) => !n.is_read).length;
+  const unreadCount = items.filter((item) => !item.is_read).length;
 
   if (!user) return null;
 
+  const panel =
+    open && mounted ? (
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-label="Notifications"
+        className={cn("floating-panel fixed z-[200] overflow-hidden animate-fade-up")}
+        style={{
+          top: panelPosition.top,
+          left: panelPosition.left,
+          width: panelPosition.width,
+          animationDuration: "220ms",
+        }}
+      >
+        <div className="relative border-b border-border bg-brand-coral-soft/50 px-5 py-4">
+          <div className="pointer-events-none absolute inset-0 notification-panel-glow" aria-hidden="true" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-primary">Call board</p>
+              <p className="font-display text-base font-semibold text-foreground">Notifications</p>
+            </div>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                onClick={handleMarkAll}
+                disabled={markingAll}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border border-border bg-background/80 px-2.5 py-1.5 transition-colors hover:bg-background disabled:opacity-50",
+                  actionLabelClass
+                )}
+              >
+                <CheckIcon className="size-3" />
+                Mark all
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex max-h-[min(420px,70vh)] flex-col overflow-y-auto divide-y divide-border bg-card">
+          {isLoading && items.length === 0 ? (
+            <div className="flex flex-col divide-y divide-border">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="space-y-2 px-5 py-4">
+                  <div className="h-3 w-24 animate-pulse rounded-md bg-muted" />
+                  <div className="h-3 w-3/4 animate-pulse rounded-md bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+              <div className="rounded-full border border-border bg-muted/30 p-4 text-muted-foreground/25">
+                <Bell className="size-7" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-display text-lg font-semibold text-foreground">Quiet house</p>
+                <p className="text-xs text-muted-foreground">You&apos;re fully up to date.</p>
+              </div>
+            </div>
+          ) : (
+            items.map((notification) => (
+              <NotificationRow
+                key={notification.id}
+                notification={notification}
+                compact
+                onSelect={() => void handleOpenNotification(notification)}
+              />
+            ))
+          )}
+        </div>
+
+        {items.length > 0 ? (
+          <div className="flex items-center justify-between gap-4 border-t border-border bg-muted/20 px-5 py-3">
+            <p className={cn(actionLabelClass, "text-muted-foreground")}>
+              {items.length} {items.length === 1 ? "cue" : "cues"}
+              {unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
+            </p>
+            <button
+              type="button"
+              onClick={handleViewAll}
+              className={cn(actionLabelClass, "text-primary transition-colors hover:text-primary/80")}
+            >
+              Open call board
+            </button>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
+
   return (
-    <div className="relative">
-      {/* ── Trigger ── */}
+    <>
       <button
         ref={triggerRef}
         type="button"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         aria-haspopup="true"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((current) => !current)}
         className={cn(
-          "relative flex size-9 items-center justify-center rounded-sm border transition-colors",
+          "relative flex size-9 items-center justify-center rounded-full transition-colors",
           open
-            ? "border-foreground/20 bg-muted text-foreground"
-            : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+            ? "bg-brand-coral-soft text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          unreadCount > 0 && !open && "text-primary"
         )}
       >
         <Bell className="size-4" />
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute right-2 top-2 size-1.5 rounded-full bg-primary ring-1 ring-background"
-          />
-        )}
+            className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold tabular-nums text-primary-foreground ring-2 ring-background"
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        ) : null}
       </button>
 
-      {/* ── Panel ── */}
-      {open && (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label="Notifications"
-          className={cn(
-            "absolute right-0 top-full z-[100] mt-2 w-[360px] max-w-[calc(100vw-2rem)]",
-            "flex flex-col border border-border bg-background shadow-none",
-            "rounded-sm overflow-hidden",
-            "animate-fade-up"
-          )}
-          style={{ animationDuration: "200ms" }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <div className="flex items-center gap-3">
-              <p className="font-display text-base font-semibold text-foreground">
-                Notifications
-              </p>
-              {unreadCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-sm border border-border bg-muted px-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  {unreadCount}
-                </span>
-              )}
-            </div>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={handleMarkAll}
-                disabled={markingAll}
-                className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-              >
-                <CheckIcon className="size-3" />
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          {/* Body */}
-          <div className="flex max-h-[400px] flex-col overflow-y-auto divide-y divide-border">
-            {isLoading && items.length === 0 ? (
-              /* Skeleton */
-              <div className="flex flex-col divide-y divide-border">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-2 px-5 py-4">
-                    <div className="h-3 w-1/3 rounded-sm bg-muted animate-pulse" />
-                    <div className="h-3 w-2/3 rounded-sm bg-muted animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            ) : items.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 px-5 py-16 text-center">
-                <div className="text-muted-foreground/20">
-                  <Bell className="size-8" />
-                </div>
-                <div className="space-y-1">
-                  <p className="font-display text-lg font-semibold text-foreground">
-                    All clear
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    You&apos;re fully up to date.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              items.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => handleOpenNotification(n)}
-                  className={cn(
-                    "group w-full text-left px-5 py-4 transition-colors hover:bg-muted/50",
-                    !n.is_read && "bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      {/* Unread dot */}
-                      <span
-                        className={cn(
-                          "mt-1.5 size-1.5 shrink-0 rounded-full transition-opacity",
-                          !n.is_read
-                            ? "bg-primary opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className={cn(
-                          "text-sm leading-snug",
-                          !n.is_read ? "font-semibold text-foreground" : "font-medium text-foreground/75"
-                        )}>
-                          {n.title}
-                        </p>
-                        {n.message && (
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {n.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Meta */}
-                    <div className="shrink-0 flex flex-col items-end gap-1.5 mt-0.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {typeLabel(n.type)}
-                      </span>
-                      <span className="text-[10px] tabular-nums text-muted-foreground/60">
-                        {relativeTime(n.created_at)}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-
-          {/* Footer — only when there are items */}
-          {items.length > 0 && (
-            <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {items.length} {items.length === 1 ? "notification" : "notifications"} total
-              </p>
-              <button
-                type="button"
-                onClick={handleViewAll}
-                className="text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:text-muted-foreground"
-              >
-                View all
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      {mounted && panel ? createPortal(panel, document.body) : null}
+    </>
   );
 }

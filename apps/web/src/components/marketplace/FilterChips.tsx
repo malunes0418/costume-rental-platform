@@ -76,7 +76,7 @@ export function FilterChips({
               onRemove(chip.key);
             }
           }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-brand-coral-soft px-3 py-1.5 text-xs font-semibold text-primary transition-[background,transform] hover:bg-primary/10 active:scale-[0.98]"
         >
           {chip.label}
           <Cross2Icon className="size-3" />

@@ -3,61 +3,59 @@
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { MoonIcon as Moon, SunIcon as Sun } from "@radix-ui/react-icons";
+
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [snapping, setSnapping] = useState(false);
 
-  // Avoid hydration mismatch — only render after client mount
   useEffect(() => setMounted(true), []);
 
   const isDark = resolvedTheme === "dark";
 
   function toggle() {
+    setSnapping(true);
     setTheme(isDark ? "light" : "dark");
+    window.setTimeout(() => setSnapping(false), 350);
   }
 
-  // Render a stable placeholder before mount to avoid layout shift
   if (!mounted) {
     return (
-      <div
-        aria-hidden="true"
-        className="flex size-9 items-center justify-center rounded-sm border border-transparent"
-      />
+      <div aria-hidden="true" className="theme-switch" data-state="light">
+        <span className="theme-switch-track">
+          <span className="theme-switch-glow" />
+          <Sun className="theme-switch-track-icon theme-switch-track-icon--sun" />
+          <Moon className="theme-switch-track-icon theme-switch-track-icon--moon" />
+          <span className="theme-switch-thumb">
+            <Sun className="theme-switch-icon theme-switch-icon--sun" />
+            <Moon className="theme-switch-icon theme-switch-icon--moon" />
+          </span>
+        </span>
+      </div>
     );
   }
 
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label={isDark ? "Bring up house lights (switch to light mode)" : "Dim to dark stage (switch to dark mode)"}
+      data-state={isDark ? "dark" : "light"}
       onClick={toggle}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={cn(
-        "group relative flex size-9 items-center justify-center rounded-sm border transition-colors duration-200",
-        "border-transparent text-muted-foreground",
-        "hover:border-border hover:text-foreground"
-      )}
+      className={cn("theme-switch hover-snap", snapping && "animate-snap")}
     >
-      {/* Sun — visible in light mode */}
-      <Sun
-        className={cn(
-          "absolute size-4 transition-all duration-300",
-          isDark
-            ? "opacity-0 scale-75 rotate-45"
-            : "opacity-100 scale-100 rotate-0"
-        )}
-      />
-
-      {/* Moon — visible in dark mode */}
-      <Moon
-        className={cn(
-          "absolute size-4 transition-all duration-300",
-          isDark
-            ? "opacity-100 scale-100 rotate-0"
-            : "opacity-0 scale-75 -rotate-45"
-        )}
-      />
+      <span className="theme-switch-track">
+        <span className="theme-switch-glow" aria-hidden="true" />
+        <Sun className="theme-switch-track-icon theme-switch-track-icon--sun" aria-hidden="true" />
+        <Moon className="theme-switch-track-icon theme-switch-track-icon--moon" aria-hidden="true" />
+        <span className="theme-switch-thumb" aria-hidden="true">
+          <Sun className="theme-switch-icon theme-switch-icon--sun" />
+          <Moon className="theme-switch-icon theme-switch-icon--moon" />
+        </span>
+      </span>
     </button>
   );
 }

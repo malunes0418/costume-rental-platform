@@ -8,7 +8,6 @@ import { CostumeCard, CostumeCardSkeleton } from "../components/CostumeCard";
 import { listCostumes, type Costume, type CostumeListQuery } from "../lib/costumes";
 import { myWishlist } from "../lib/account";
 import { useAuth } from "../lib/auth";
-import { useLandingShell } from "../lib/landing-shell";
 import { getCostumePricingSummary } from "../lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { FilterSidebar, type MarketplaceFilters } from "@/components/marketplace/FilterSidebar";
 import { FilterChips } from "@/components/marketplace/FilterChips";
 import { ResultsToolbar, type ViewMode } from "@/components/marketplace/ResultsToolbar";
+import { MarketplaceHero } from "@/components/marketplace/MarketplaceHero";
 
 const PAGE_SIZE = 12;
 
@@ -34,7 +34,6 @@ function parseNumber(value: string | null): number | undefined {
 
 function MarketplacePageInner() {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { setHeroActive, revealNav, resetHeroNav } = useLandingShell();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -190,50 +189,6 @@ function MarketplacePageInner() {
     document.getElementById("marketplace")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  useEffect(() => {
-    setHeroActive(showHero);
-    if (showHero) {
-      resetHeroNav();
-    } else {
-      revealNav();
-    }
-  }, [showHero, setHeroActive, revealNav, resetHeroNav]);
-
-  useEffect(() => {
-    if (!showHero) return;
-    const hero = document.getElementById("hero-splash");
-    if (!hero) return;
-
-    let ticking = false;
-
-    const syncNavWithScroll = () => {
-      const heroBottom = hero.getBoundingClientRect().bottom;
-      if (heroBottom > window.innerHeight * 0.5) {
-        resetHeroNav();
-      } else {
-        revealNav();
-      }
-    };
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        syncNavWithScroll();
-        ticking = false;
-      });
-    };
-
-    syncNavWithScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [showHero, revealNav, resetHeroNav]);
-
   function handleFilterChange(next: Partial<MarketplaceFilters>) {
     const updates: Record<string, string | null> = {};
     const keys = ["category", "size", "gender", "theme"] as const;
@@ -274,23 +229,13 @@ function MarketplacePageInner() {
       {showHero ? (
         <HeroSplash onBrowse={scrollToMarketplace} />
       ) : (
-        <div className="border-b border-border bg-card/60">
-          <div className="marketplace-content flex flex-wrap items-center justify-between gap-3 py-4">
-            <div>
-              <h1 className="font-display text-xl font-semibold text-foreground md:text-2xl">
-                Snap Into Character
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Browse curated costumes for parties, shoots, and theatre.
-              </p>
-            </div>
-            {total > 0 && (
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {total} costume{total === 1 ? "" : "s"} available
-              </p>
-            )}
-          </div>
-        </div>
+        <MarketplaceHero
+          variant="browse"
+          total={total}
+          filteredCount={filteredItems.length}
+          query={q}
+          category={category}
+        />
       )}
 
       <div
@@ -298,25 +243,17 @@ function MarketplacePageInner() {
         className="marketplace-content scroll-mt-[calc(var(--navbar-height)+1rem)]"
       >
         {showHero && (
-          <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-6">
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
-                Marketplace
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Filter, sort, and find your next look.
-              </p>
-            </div>
-            {total > 0 && (
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {total} costume{total === 1 ? "" : "s"} available
-              </p>
-            )}
-          </header>
+          <MarketplaceHero
+            variant="section"
+            total={total}
+            filteredCount={filteredItems.length}
+            query={q}
+            category={category}
+          />
         )}
         {isApprovedVendor && user && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
-            <div className="flex items-center gap-4">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+            <div className="marketplace-segment" role="group" aria-label="Catalog scope">
               {(["all", "mine"] as const).map((scope) => (
                 <button
                   key={scope}
@@ -326,10 +263,8 @@ function MarketplacePageInner() {
                     updateParams({});
                   }}
                   className={cn(
-                    "pb-1 text-xs font-semibold uppercase tracking-widest transition-colors",
-                    ownerScope === scope
-                      ? "border-b-2 border-primary text-primary"
-                      : "border-b-2 border-transparent text-muted-foreground hover:text-primary"
+                    "marketplace-segment-btn text-muted-foreground",
+                    ownerScope === scope && "marketplace-segment-btn--active"
                   )}
                 >
                   {scope === "all" ? "All Listings" : "My Listings"}
@@ -379,7 +314,7 @@ function MarketplacePageInner() {
             )}
 
             {view === "grid" ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
+              <div className="marketplace-card-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
                 {isLoading
                   ? Array.from({ length: 6 }).map((_, i) => <CostumeCardSkeleton key={i} />)
                   : filteredItems.length
@@ -440,19 +375,24 @@ function MarketplacePageInner() {
 
 function EmptyState({ scope }: { scope: "all" | "mine" }) {
   return (
-    <div className="col-span-full rounded-xl border border-border bg-card p-16 text-center">
-      <div className="mb-4 flex justify-center text-muted-foreground/30">
-        <Search className="size-10" />
+    <div className="marketplace-empty-stage col-span-full rounded-2xl border border-border p-12 text-center sm:p-16">
+      <div className="mb-5 flex justify-center">
+        <span className="flex size-16 items-center justify-center rounded-2xl border border-border bg-muted/50 text-muted-foreground/40">
+          <Search className="size-8" />
+        </span>
       </div>
-      <p className="font-display text-2xl text-foreground">
-        {scope === "mine" ? "No listings yet." : "No costumes found."}
+      <p className="font-display text-2xl text-foreground md:text-3xl">
+        {scope === "mine" ? "No listings on stage yet." : "No costumes in the wings."}
       </p>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
         {scope === "mine"
-          ? "You do not have any listings that match the current filters."
-          : "Try adjusting your filters or search terms."}
+          ? "None of your listings match the current filters — try widening the search or clearing filters."
+          : "Adjust filters or search terms — the right character might be one category away."}
       </p>
-      <Link href="/" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
+      <Link
+        href="/"
+        className="mt-6 inline-flex h-10 items-center rounded-full bg-primary px-6 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 hover-snap"
+      >
         Clear all filters
       </Link>
     </div>

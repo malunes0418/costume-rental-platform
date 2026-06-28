@@ -66,7 +66,7 @@ export function SavedCartItem({
 
   if (view === "grid") {
     return (
-      <article className="group flex flex-col overflow-hidden rounded-lg border border-border bg-background">
+      <article className="panel-card group flex flex-col overflow-hidden shadow-coral-hover transition-shadow">
         <div className="relative aspect-square overflow-hidden bg-muted">
           {image ? (
             <img src={resolveApiAsset(image)} alt={title} className="h-full w-full object-cover" loading="lazy" />
@@ -135,7 +135,7 @@ export function SavedCartItem({
   }
 
   return (
-    <article className="flex gap-4 py-4 sm:gap-5">
+    <article className="flex gap-4 rounded-lg px-1 py-4 transition-colors hover:bg-muted/30 sm:gap-5">
       {selectable ? (
         <div className="flex shrink-0 items-start pt-3">
           <Checkbox
@@ -149,7 +149,7 @@ export function SavedCartItem({
         <div className="w-4 shrink-0" />
       )}
 
-      <div className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:size-20">
+      <div className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted shadow-sm sm:size-20">
         {image ? (
           <img src={resolveApiAsset(image)} alt={title} className="h-full w-full object-cover" loading="lazy" />
         ) : (

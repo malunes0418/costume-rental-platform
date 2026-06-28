@@ -49,7 +49,12 @@ function CheckboxOption({
   return (
     <label
       htmlFor={id}
-      className="flex cursor-pointer items-center gap-2.5 rounded-lg py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className={cn(
+        "flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors",
+        checked
+          ? "bg-brand-coral-soft/60 text-foreground"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      )}
     >
       <input
         id={id}
@@ -76,12 +81,14 @@ export function FilterSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-[calc(var(--navbar-height,7.5rem)+1rem)] w-56 shrink-0 self-start rounded-xl border border-border bg-card p-5 lg:w-60",
+        "marketplace-filter-panel sticky top-[calc(var(--navbar-height,7.5rem)+1rem)] w-56 shrink-0 self-start rounded-2xl border border-border p-5 lg:w-60",
         className
       )}
       aria-label="Filters"
     >
-      <h2 className="mb-5 font-display text-lg font-semibold text-foreground">Filters</h2>
+      <div className="mb-5 flex items-center justify-between gap-2">
+        <h2 className="font-display text-lg font-semibold text-foreground">Filters</h2>
+      </div>
 
       <div className="space-y-5">
         <FilterSection title="Category">

@@ -14,7 +14,6 @@ import {
   type ReservationWithItems,
 } from "../lib/account";
 import { apiFetch } from "../lib/api";
-import { resolveApiAsset } from "../lib/assets";
 import {
   isCheckoutSelectable,
   sumReservationTotals,
@@ -22,20 +21,19 @@ import {
   vendorNameForReservation,
 } from "../lib/cart";
 import { FULFILLMENT_METHOD_LABELS, formatLocationSummary, type SavedLocation } from "../lib/fulfillment";
-import { countRentalDaysInclusive } from "../lib/pricing";
 import { getCostume, type CostumeDetailResponse } from "../lib/costumes";
 import { getVendorPaymentMethods, type VendorPaymentMethod } from "../lib/vendor";
 import { ReservationWizard } from "./ReservationWizard";
 import { toast } from "sonner";
-import { CopyIcon, Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
+import { Cross2Icon, ImageIcon, UploadIcon } from "@radix-ui/react-icons";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { CartCheckoutSteps } from "@/components/cart/CartCheckoutSteps";
+import { CartLineItem } from "@/components/cart/CartLineItem";
+import { PaymentMethodCard } from "@/components/cart/PaymentMethodCard";
 import { cn } from "../lib/utils";
 
-function formatDate(date: string) {
-  if (!date) return "-";
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+const actionLabelClass = "text-[10px] font-semibold uppercase tracking-widest";
 
 type CartGroup = {
   vendorId: number;
@@ -108,76 +106,6 @@ function buildCartGroups(items: ReservationWithItems[]): CartGroup[] {
 
 function defaultSelectedIds(items: ReservationWithItems[]) {
   return new Set(items.filter(isCheckoutSelectable).map((item) => item.id));
-}
-
-async function copyToClipboard(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success("Copied to clipboard.");
-  } catch {
-    toast.error("Unable to copy.");
-  }
-}
-
-function PaymentMethodCard({ method }: { method: VendorPaymentMethod }) {
-  return (
-    <div className="space-y-3 rounded-sm border border-border bg-background px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-medium text-foreground">{method.label}</p>
-          {method.bank_name ? (
-            <p className="mt-1 text-xs text-muted-foreground">Bank: {method.bank_name}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Account name</p>
-            <p className="truncate text-sm text-foreground">{method.account_name}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void copyToClipboard(method.account_name)}
-            className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
-          >
-            <CopyIcon className="size-3" />
-            Copy
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Account number</p>
-            <p className="truncate text-sm text-foreground">{method.account_number}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void copyToClipboard(method.account_number)}
-            className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
-          >
-            <CopyIcon className="size-3" />
-            Copy
-          </button>
-        </div>
-      </div>
-
-      {method.instructions ? (
-        <p className="text-xs leading-6 text-muted-foreground">{method.instructions}</p>
-      ) : null}
-
-      {method.qr_image_url ? (
-        <div className="inline-block overflow-hidden rounded-sm border border-border bg-muted/20 p-2">
-          <img
-            src={resolveApiAsset(method.qr_image_url)}
-            alt={`${method.label} QR code`}
-            className="h-36 w-36 object-contain"
-          />
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export function CartDrawer() {
@@ -506,27 +434,36 @@ export function CartDrawer() {
 
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-[101] flex w-full max-w-md flex-col border-l border-border bg-background shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "cart-drawer-shell fixed inset-y-0 right-0 z-[101] flex w-full max-w-md flex-col border-l border-border shadow-coral transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
           isCartOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between border-b border-border px-6 py-6">
-          <div className="space-y-1">
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
-              {step === "CART" ? "Your Curation" : step === "UPLOAD" ? "Vendor Payment" : "Confirmed"}
-            </h2>
-            {step === "CART" && (
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Select costumes, then pay each vendor separately
-              </p>
-            )}
+        <div className="relative border-b border-border bg-brand-coral-soft/40 px-6 py-5">
+          <div className="pointer-events-none absolute inset-0 cart-drawer-header-glow" aria-hidden="true" />
+          <div className="relative space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-primary">Backstage checkout</p>
+                <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+                  {step === "CART" ? "Your curation" : step === "UPLOAD" ? "Vendor payment" : "Curtain call"}
+                </h2>
+                {step === "CART" ? (
+                  <p className={cn(actionLabelClass, "text-muted-foreground")}>
+                    Select looks, then pay each vendor separately
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={closeCart}
+                aria-label="Close cart"
+                className="-mr-1 rounded-full p-2 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+              >
+                <Cross2Icon className="size-5" />
+              </button>
+            </div>
+            <CartCheckoutSteps step={step} />
           </div>
-          <button
-            onClick={closeCart}
-            className="p-2 -mr-2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Cross2Icon className="h-5 w-5" />
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -543,17 +480,24 @@ export function CartDrawer() {
               ))}
             </div>
           ) : cartGroups.length === 0 && step === "CART" ? (
-            <div className="flex h-full flex-col items-center justify-center space-y-4 text-center text-muted-foreground">
-              <div className="flex size-16 items-center justify-center rounded-full border border-border bg-muted/30">
-                <ImageIcon className="h-6 w-6 opacity-50" />
+            <div className="flex h-full flex-col items-center justify-center gap-5 px-4 text-center">
+              <div className="rounded-full border border-border bg-brand-coral-soft/50 p-5 text-primary/35">
+                <ImageIcon className="size-8" />
               </div>
-              <p className="font-display text-xl text-foreground">Your curation is empty.</p>
-              <p className="text-sm">Add costumes to your cart and pay each vendor separately.</p>
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Empty rack</p>
+                <p className="font-display text-xl font-semibold text-foreground">Your curation is empty</p>
+                <p className="text-sm text-muted-foreground">Add costumes from the marketplace, then pay each vendor here.</p>
+              </div>
               <button
+                type="button"
                 onClick={closeCart}
-                className="mt-4 border-b border-primary pb-1 text-xs font-semibold uppercase tracking-widest text-primary transition-opacity hover:opacity-70"
+                className={cn(
+                  "mt-2 inline-flex h-10 items-center rounded-xl bg-primary px-6 text-primary-foreground transition-colors hover:bg-primary/90 hover-snap",
+                  actionLabelClass
+                )}
               >
-                Continue Browsing
+                Continue browsing
               </button>
             </div>
           ) : step === "CART" ? (
@@ -566,11 +510,12 @@ export function CartDrawer() {
                   selectableIds.length > 0 && selectableIds.every((id) => selectedReservationIds.has(id));
 
                 return (
-                  <section key={group.vendorId} className="space-y-5 rounded-sm border border-border p-5">
-                    <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+                  <section key={group.vendorId} className="panel-card overflow-hidden p-5 shadow-coral-hover">
+                    <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
+                        <p className={cn(actionLabelClass, "text-primary")}>Vendor</p>
                         <p className="font-display text-xl font-semibold text-foreground">{group.vendorName}</p>
-                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        <p className={cn("mt-1", actionLabelClass, "text-muted-foreground")}>
                           {selectedInGroup.length} of {group.items.length} selected · PHP{" "}
                           {selectedSubtotal.toLocaleString()}
                         </p>
@@ -603,115 +548,36 @@ export function CartDrawer() {
                           selectedInGroup.length === 0 ||
                           groupHasIncompleteSelectedItems(group, selectedReservationIds)
                         }
-                        className="inline-flex h-9 shrink-0 items-center rounded-md border border-primary bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        className={cn(
+                          "inline-flex h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-primary-foreground transition-colors hover:bg-primary/90 hover-snap disabled:cursor-not-allowed disabled:opacity-50",
+                          actionLabelClass
+                        )}
                       >
-                        {group.hasCartItems ? "Proceed to Payment" : "Continue Payment"}
+                        {group.hasCartItems ? "Proceed to payment" : "Continue payment"}
                       </button>
                     </div>
 
-                    <div className="flex flex-col gap-5">
+                    <div className="mt-4 flex flex-col gap-1">
                       {group.items.map((item) => {
-                        const image = item.items?.[0]?.Costume?.CostumeImages?.[0]?.image_url;
-                        const name = item.items?.[0]?.Costume?.name || "Costume";
-                        const days =
-                          item.start_date && item.end_date
-                            ? countRentalDaysInclusive(item.start_date, item.end_date)
-                            : 0;
-                        const isPendingPayment = item.status === "PENDING_PAYMENT";
-                        const isDraft = item.status === "CART" && isCartReservationDraft(item);
-                        const selectable = isCheckoutSelectable(item);
-                        const isSelected = selectedReservationIds.has(item.id);
-                        const fulfillmentLine = reservationFulfillmentLine(item);
+                        const fulfillment = reservationFulfillmentLine(item);
                         const fulfillmentFee =
                           Number(item.fulfillment?.outbound_fee || 0) + Number(item.fulfillment?.return_fee || 0);
 
                         return (
-                          <div key={item.id} className="group flex gap-4">
-                            {selectable ? (
-                              <div className="mt-1 shrink-0">
-                                <Checkbox
-                                  id={`cart-drawer-item-${item.id}`}
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleReservationSelection(item.id)}
-                                  aria-label={isSelected ? `Deselect ${name}` : `Select ${name}`}
-                                />
-                              </div>
-                            ) : (
-                              <div className="mt-1 size-4 shrink-0" />
-                            )}
-
-                            <div className="size-20 shrink-0 overflow-hidden rounded-sm border border-border bg-muted">
-                              {image ? (
-                                <img
-                                  src={resolveApiAsset(image)}
-                                  alt={name}
-                                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center">
-                                  <ImageIcon className="h-6 w-6 opacity-20" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate font-display text-lg font-semibold text-foreground">{name}</p>
-                                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                    {isPendingPayment ? "Ready for receipt" : isDraft ? "Needs setup" : "In Cart"}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemove(item.id)}
-                                  disabled={removingId === item.id || isProcessing}
-                                  className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-                                >
-                                  {removingId === item.id ? "Removing" : "Remove"}
-                                </button>
-                              </div>
-                              {isDraft ? (
-                                <div className="mt-2 space-y-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    Choose dates and delivery before checkout.
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => void startCompleteBooking(item)}
-                                    disabled={isLoadingWizard}
-                                    className="text-[10px] font-semibold uppercase tracking-widest text-primary transition-opacity hover:opacity-70 disabled:opacity-40"
-                                  >
-                                    Complete booking
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {formatDate(item.start_date || "")} - {formatDate(item.end_date || "")} ({days} day
-                                    {days !== 1 ? "s" : ""})
-                                  </p>
-                                  {fulfillmentLine ? (
-                                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                      {fulfillmentLine.summary}
-                                    </p>
-                                  ) : null}
-                                  {fulfillmentLine?.location ? (
-                                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                                      {fulfillmentLine.location}
-                                    </p>
-                                  ) : null}
-                                  {fulfillmentFee > 0 ? (
-                                    <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                                      Includes PHP {Number(fulfillmentFee).toLocaleString()} in fulfillment fees
-                                    </p>
-                                  ) : null}
-                                  <p className="mt-2 text-sm font-medium">
-                                    PHP {Number(item.total_price).toLocaleString()}
-                                  </p>
-                                </>
-                              )}
-                            </div>
-                          </div>
+                          <CartLineItem
+                            key={item.id}
+                            item={item}
+                            isSelected={selectedReservationIds.has(item.id)}
+                            isRemoving={removingId === item.id}
+                            isProcessing={isProcessing}
+                            isLoadingWizard={isLoadingWizard}
+                            fulfillmentSummary={fulfillment?.summary ?? null}
+                            fulfillmentLocation={fulfillment?.location ?? null}
+                            fulfillmentFee={fulfillmentFee}
+                            onToggle={() => toggleReservationSelection(item.id)}
+                            onRemove={() => void handleRemove(item.id)}
+                            onCompleteBooking={() => void startCompleteBooking(item)}
+                          />
                         );
                       })}
                     </div>
@@ -721,20 +587,20 @@ export function CartDrawer() {
             </div>
           ) : step === "UPLOAD" && selectedGroup ? (
             <div className="flex h-full flex-col gap-8">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <button
                   type="button"
                   onClick={() => setStep("CART")}
-                  className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                  className={cn(actionLabelClass, "text-muted-foreground transition-colors hover:text-foreground")}
                 >
-                  Back to Cart
+                  ← Back to curation
                 </button>
-                <div className="space-y-2 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {selectedGroup.vendorName}
+                <div className="rounded-xl border border-border bg-brand-gold-soft/50 px-5 py-6 text-center">
+                  <p className={cn(actionLabelClass, "text-accent-foreground")}>{selectedGroup.vendorName}</p>
+                  <p className="mt-2 font-display text-4xl font-semibold tabular-nums text-foreground">
+                    PHP {selectedGroup.subtotal.toLocaleString()}
                   </p>
-                  <p className="font-display text-5xl font-semibold">PHP {selectedGroup.subtotal.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     Pay using the details below, then upload one receipt for {selectedGroup.items.length} selected
                     costume{selectedGroup.items.length === 1 ? "" : "s"}.
                   </p>
@@ -742,34 +608,31 @@ export function CartDrawer() {
               </div>
 
               <div className="space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Vendor payment details
-                </p>
+                <p className={cn(actionLabelClass, "text-muted-foreground")}>Vendor payment details</p>
                 {loadingPaymentMethods ? (
-                  <div className="rounded-sm border border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                  <div className="rounded-xl border border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
                     Loading payment details...
                   </div>
                 ) : vendorPaymentMethods.length > 0 ? (
                   vendorPaymentMethods.map((method) => <PaymentMethodCard key={method.id} method={method} />)
                 ) : (
-                  <div className="rounded-sm border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
                     This vendor has not published payment details yet. Contact them if you need help completing payment.
                   </div>
                 )}
               </div>
 
-              <div className="space-y-3 rounded-sm border border-border bg-muted/20 px-4 py-4">
+              <div className="space-y-3 rounded-xl border border-border bg-muted/25 px-4 py-4">
+                <p className={cn(actionLabelClass, "text-muted-foreground")}>Selected looks</p>
                 {selectedGroup.items.map((item) => {
                   const fulfillmentLine = reservationFulfillmentLine(item);
                   return (
-                    <div key={item.id} className="space-y-1 text-left">
+                    <div key={item.id} className="space-y-1">
                       <p className="font-medium text-foreground">
                         {item.items?.[0]?.Costume?.name || `Reservation #${item.id}`}
                       </p>
                       {fulfillmentLine ? (
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                          {fulfillmentLine.summary}
-                        </p>
+                        <p className={cn(actionLabelClass, "text-muted-foreground")}>{fulfillmentLine.summary}</p>
                       ) : null}
                     </div>
                   );
@@ -780,21 +643,21 @@ export function CartDrawer() {
                 <label
                   htmlFor="receipt-upload"
                   className={cn(
-                    "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-border bg-muted/20 transition-colors hover:bg-muted/50",
-                    file && "border-solid border-primary bg-muted/10"
+                    "relative flex h-48 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/20 transition-colors hover:bg-muted/40",
+                    file && "border-primary bg-brand-coral-soft/30"
                   )}
                 >
                   {file ? (
                     <div className="z-10 flex flex-col items-center gap-2 p-4 text-center">
                       <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <UploadIcon className="h-5 w-5" />
+                        <UploadIcon className="size-5" />
                       </div>
                       <p className="max-w-[220px] truncate text-sm font-semibold">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">Click to change file</p>
+                      <p className="text-xs text-muted-foreground">Tap to change file</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <UploadIcon className="h-6 w-6" />
+                      <UploadIcon className="size-6" />
                       <div className="text-center text-sm">
                         <p className="font-medium text-foreground">Upload your receipt</p>
                         <p className="mt-1 text-xs">PNG, JPG or PDF up to 5MB</p>
@@ -812,39 +675,47 @@ export function CartDrawer() {
               </div>
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center space-y-6 text-center">
-              <div className="flex size-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex h-full flex-col items-center justify-center gap-6 px-4 text-center">
+              <div className="flex size-20 items-center justify-center rounded-full border border-primary/25 bg-brand-coral-soft text-primary">
+                <svg className="size-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div className="space-y-2">
-                <p className="font-display text-3xl font-semibold">Payment Received</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Curtain call</p>
+                <p className="font-display text-3xl font-semibold text-foreground">Payment received</p>
                 <p className="mx-auto max-w-[280px] text-sm leading-relaxed text-muted-foreground">
-                  Your receipt has been sent to the vendor for verification. We&apos;ll notify you once it is complete.
+                  Your receipt is with the vendor for verification. We&apos;ll notify you once it&apos;s confirmed.
                 </p>
               </div>
               <a
                 href="/reservations"
-                className="mt-4 inline-flex h-12 items-center justify-center rounded-md bg-primary px-8 text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90"
+                className={cn(
+                  "inline-flex h-11 items-center justify-center rounded-xl bg-primary px-8 text-primary-foreground transition-colors hover:bg-primary/90 hover-snap",
+                  actionLabelClass
+                )}
               >
-                View Reservations
+                View reservations
               </a>
             </div>
           )}
         </div>
 
         {step === "UPLOAD" && selectedGroup && (
-          <div className="border-t border-border bg-background p-6">
+          <div className="border-t border-border bg-muted/20 p-6">
             <button
-              onClick={handleUploadAndPay}
+              type="button"
+              onClick={() => void handleUploadAndPay()}
               disabled={isProcessing || !file}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-xs font-semibold uppercase tracking-widest text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+              className={cn(
+                "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground transition-all hover:bg-primary/90 hover-snap disabled:opacity-50",
+                actionLabelClass
+              )}
             >
               {isProcessing ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
               ) : (
-                "Confirm & Pay This Vendor"
+                "Confirm & pay this vendor"
               )}
             </button>
           </div>

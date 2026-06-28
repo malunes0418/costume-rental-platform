@@ -17,6 +17,7 @@ import { VendorFulfillmentSettings } from "./VendorFulfillmentSettings";
 import { CostumeFulfillmentOverride } from "./CostumeFulfillmentOverride";
 import { UserSavedLocation } from "./UserSavedLocation";
 import { UserFulfillmentPreferences } from "./UserFulfillmentPreferences";
+import { UserNotificationPreferences } from "./UserNotificationPreferences";
 import { ReservationFulfillment } from "./ReservationFulfillment";
 import { ReservationAdjustment } from "./ReservationAdjustment";
 import { VendorPaymentMethod } from "./VendorPaymentMethod";
@@ -40,6 +41,9 @@ UserSavedLocation.belongsTo(User, { foreignKey: "user_id" });
 
 User.hasOne(UserFulfillmentPreferences, { foreignKey: "user_id", as: "fulfillmentPreferences" });
 UserFulfillmentPreferences.belongsTo(User, { foreignKey: "user_id" });
+
+User.hasOne(UserNotificationPreferences, { foreignKey: "user_id", as: "notificationPreferences" });
+UserNotificationPreferences.belongsTo(User, { foreignKey: "user_id" });
 
 UserSavedLocation.hasMany(UserFulfillmentPreferences, {
   foreignKey: "default_saved_location_id",
@@ -152,6 +156,7 @@ export const db = {
   CostumeFulfillmentOverride,
   UserSavedLocation,
   UserFulfillmentPreferences,
+  UserNotificationPreferences,
   ReservationFulfillment,
   ReservationAdjustment,
   VendorPaymentMethod

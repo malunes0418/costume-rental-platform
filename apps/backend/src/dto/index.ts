@@ -8,5 +8,6 @@ export * from "./review.dto";
 export * from "./wishlist.dto";
 export * from "./payment.dto";
 export * from "./fulfillment.dto";
+export * from "./account.dto";
 export * from "./admin.dto";
 export * from "./notification.dto";

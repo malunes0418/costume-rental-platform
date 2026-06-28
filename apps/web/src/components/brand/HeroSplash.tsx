@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronDownIcon as ChevronDown } from "@radix-ui/react-icons";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Sparkle } from "@/components/brand/Sparkle";
 import { categoryFilters } from "@/components/marketplace/constants";
 import { Button } from "@/components/ui/button";
@@ -57,14 +55,6 @@ export function HeroSplash({ onBrowse, className }: HeroSplashProps) {
       )}
     >
       <HeroMarquee />
-
-      <Link
-        href="/"
-        className="animate-fade-up absolute left-5 top-14 z-30 md:left-8 md:top-16"
-        aria-label="SnapCos home"
-      >
-        <BrandLogo size="md" priority variant="mark" />
-      </Link>
 
       <div className="hero-curtain hero-curtain-left hero-curtain-heavy" aria-hidden="true" />
       <div className="hero-curtain hero-curtain-right hero-curtain-heavy" aria-hidden="true" />

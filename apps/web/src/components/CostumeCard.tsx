@@ -117,8 +117,8 @@ export function CostumeCard({
     <article className="group flex flex-col">
       <div
         className={cn(
-          "panel-card relative w-full overflow-hidden bg-muted",
-          compact ? "aspect-[4/5] rounded-lg" : "aspect-[3/4] rounded-xl"
+          "costume-card-frame relative w-full overflow-hidden bg-muted",
+          compact ? "aspect-[4/5] rounded-lg" : "aspect-[3/4]"
         )}
       >
         <Link
@@ -202,7 +202,7 @@ export function CostumeCard({
         {meta.length > 0 && (
           <p className="truncate text-[11px] text-muted-foreground">{meta.join(" · ")}</p>
         )}
-        <p className={cn("font-display text-primary", compact ? "text-sm" : "text-lg")}>
+        <p className={cn("costume-card-price font-display text-primary", compact ? "text-sm" : "text-lg")}>
           ₱{pricingSummary.amount.toLocaleString()}
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">{pricingSummary.label}</span>
         </p>

@@ -244,4 +244,70 @@ export function updateFulfillmentPreferences(payload: FulfillmentPreferencesInpu
   });
 }
 
+export type UpdateProfilePayload = {
+  name?: string;
+  email?: string;
+  current_password?: string;
+};
+
+export type UpdateProfileResponse = {
+  id: number;
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
+};
+
+export type NotificationPreferences = {
+  user_id: number;
+  reservations_email: boolean;
+  reservations_push: boolean;
+  payments_email: boolean;
+  payments_push: boolean;
+  messages_email: boolean;
+  messages_push: boolean;
+  marketing_email: boolean;
+  marketing_push: boolean;
+};
+
+export type NotificationPreferencesInput = Partial<
+  Omit<NotificationPreferences, "user_id">
+>;
+
+export function updateProfile(payload: UpdateProfilePayload) {
+  return apiFetch<UpdateProfileResponse>("/api/account/profile", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function uploadAvatar(file: File) {
+  const form = new FormData();
+  form.set("avatar", file);
+  return apiFetch<{ avatar_url: string }>("/api/account/avatar", {
+    method: "POST",
+    body: form
+  });
+}
+
+export function changePassword(payload: { current_password?: string; new_password: string }) {
+  return apiFetch<{ success: true }>("/api/account/password", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getNotificationPreferences() {
+  return apiFetch<NotificationPreferences>("/api/account/notification-preferences");
+}
+
+export function updateNotificationPreferences(payload: NotificationPreferencesInput) {
+  return apiFetch<NotificationPreferences>("/api/account/notification-preferences", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
 
