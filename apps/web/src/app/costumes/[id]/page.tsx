@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 
 import { CostumeCard } from "@/components/CostumeCard";
+import { CostumeDetailLoadingStage } from "@/components/costume-detail/CostumeDetailLoadingStage";
 import { CostumeActSection } from "@/components/costume-detail/CostumeActSection";
 import { CostumeMobileActionBar } from "@/components/costume-detail/CostumeMobileActionBar";
 import {
@@ -24,7 +25,6 @@ import {
   type ReservationWizardIntent
 } from "@/components/ReservationWizard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 import { addCostumeToCart, getFulfillmentPreferences, listSavedLocations, myWishlist } from "../../../lib/account";
 import { ApiError } from "../../../lib/api";
 import { resolveApiAsset } from "../../../lib/assets";
@@ -307,21 +307,7 @@ export default function CostumeDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="costume-detail-shell marketplace-shell flex flex-1 flex-col">
-        <div className="marketplace-content space-y-8">
-          <Skeleton className="h-4 w-72" />
-          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_400px]">
-            <div className="space-y-8">
-              <Skeleton className="aspect-[4/5] w-full rounded-2xl" />
-              <Skeleton className="h-40 w-full rounded-xl" />
-              <Skeleton className="h-56 w-full rounded-xl" />
-            </div>
-            <Skeleton className="h-[480px] w-full rounded-xl" />
-          </div>
-        </div>
-      </div>
-    );
+    return <CostumeDetailLoadingStage />;
   }
 
   if (error || !data) {

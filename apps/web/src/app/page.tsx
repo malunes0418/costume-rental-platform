@@ -23,6 +23,7 @@ import { FilterSidebar, type MarketplaceFilters } from "@/components/marketplace
 import { FilterChips } from "@/components/marketplace/FilterChips";
 import { ResultsToolbar, type ViewMode } from "@/components/marketplace/ResultsToolbar";
 import { MarketplaceHero } from "@/components/marketplace/MarketplaceHero";
+import { MarketplaceLoadingStage } from "@/components/marketplace/MarketplaceLoadingStage";
 
 const PAGE_SIZE = 12;
 
@@ -401,13 +402,7 @@ function EmptyState({ scope }: { scope: "all" | "mine" }) {
 
 export default function Home() {
   return (
-    <Suspense
-      fallback={
-        <div className="marketplace-shell flex flex-1 items-center justify-center">
-          <p className="text-sm text-muted-foreground">Loading marketplace…</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<MarketplaceLoadingStage />}>
       <MarketplacePageInner />
     </Suspense>
   );

@@ -18,9 +18,22 @@ import { Sparkle } from "@/components/brand/Sparkle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { getDefaultPostLoginPath, resolvePostLoginPath } from "../../lib/authRedirects";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+
+const BACKSTAGE_PERKS = [
+  { label: "Saved costumes", detail: "Wishlist and favorites, synced across devices" },
+  { label: "Reservations", detail: "Upcoming rentals, receipts, and pickup details" },
+  { label: "Vendor tools", detail: "One login for renting and listing" },
+] as const;
+
+const FLOATING_TAGS = [
+  { label: "Cosplay", className: "left-[5%] top-[6%] -rotate-[12deg]" },
+  { label: "Gala", className: "right-[5%] top-[10%] rotate-[9deg]" },
+  { label: "Opening night", className: "right-[16%] top-[30%] -rotate-[6deg]" },
+] as const;
 
 export default function LoginPage() {
   const { login, user, isLoading: isAuthLoading } = useAuth();
@@ -67,135 +80,224 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row">
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between border-r border-border bg-primary/5 px-12 py-16">
-        <div className="flex flex-1 items-center">
-          <div className="space-y-6">
-            <Sparkle size="lg" animated className="text-accent" />
-            <p className="font-display text-4xl font-semibold leading-tight text-foreground xl:text-5xl">
+    <div className="login-stage-shell flex flex-1 flex-col overflow-hidden">
+      <div className="hero-curtain hero-curtain-left opacity-50" aria-hidden="true" />
+      <div className="hero-curtain hero-curtain-right opacity-50" aria-hidden="true" />
+      <div className="login-stage-spotlight" aria-hidden="true" />
+      <div className="hero-spotlight-sweep opacity-20" aria-hidden="true" />
+
+      <div className="relative z-10 flex flex-1 flex-col lg:flex-row">
+        <aside className="login-backstage" aria-label="Welcome">
+          <div className="login-backstage-curtain login-backstage-curtain--left" aria-hidden="true" />
+
+          <div className="login-backstage-deco" aria-hidden="true">
+            {FLOATING_TAGS.map((tag, i) => (
+              <div key={tag.label} className={cn("absolute", tag.className)}>
+                <span
+                  className={cn(
+                    "login-callboard-tag hero-float-tag",
+                    `hero-float-tag-${i + 1}`
+                  )}
+                >
+                  {tag.label}
+                </span>
+              </div>
+            ))}
+
+            <Sparkle
+              size="lg"
+              className="hero-sparkle hero-sparkle-a absolute right-[14%] top-[74%] text-accent"
+            />
+            <Sparkle
+              size="sm"
+              className="hero-sparkle hero-sparkle-b absolute left-[18%] top-[80%] opacity-80"
+            />
+          </div>
+
+          <div className="login-backstage-content">
+            <p className="costume-act-label flex items-center gap-2">
+              <Sparkle size="sm" animated={false} />
+              Act I — House lights down
+            </p>
+
+            <h2 className="mt-5 font-display text-[clamp(2.25rem,4vw,3.25rem)] font-semibold leading-[1.05] tracking-tight text-foreground">
               Snap into
               <br />
-              character.
+              <span className="hero-character-word inline-block text-primary">character.</span>
+            </h2>
+
+            <p className="mt-5 max-w-[22rem] text-base leading-relaxed text-muted-foreground">
+              Your backstage pass to reservations, saved looks, and everything you have booked.
             </p>
-            <p className="max-w-xs text-base leading-relaxed text-muted-foreground">
-              Access your reservations, saved costumes, and booking history - all in one place.
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          <BrandLogo size="sm" />
-          <span>Copyright {new Date().getFullYear()}</span>
-        </div>
-      </div>
-
-      <div className="flex flex-1 items-center justify-center px-6 py-16 lg:py-0">
-        <div className="w-full max-w-[400px] animate-fade-up">
-          <div className="mb-10 space-y-2">
-            <h1 className="font-display text-4xl font-semibold text-foreground">Welcome back</h1>
-            <p className="text-sm text-muted-foreground">Log in to your account to continue.</p>
-          </div>
-
-          {oauthError ? (
-            <Alert variant="destructive" className="mb-6 border-destructive/40">
-              <ExclamationTriangleIcon />
-              <AlertTitle>Google sign-in failed</AlertTitle>
-              <AlertDescription>{oauthError}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <GoogleAuthLink
-            id="google-login-btn"
-            intent="login"
-            label="Continue with Google"
-            className="mb-8"
-          />
-
-          <div className="relative mb-8 flex items-center gap-4">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              or
-            </span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <form onSubmit={onSubmit} className="flex flex-col gap-6">
-            <div className="space-y-2">
-              <Label
-                htmlFor="login-email"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-              >
-                Email
-              </Label>
-              <Input
-                id="login-email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-                className="h-12 rounded-md border-border bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="login-password"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-              >
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="login-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  placeholder="........"
-                  className="h-12 rounded-md border-border bg-transparent pr-12 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-ring/40"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            <ul className="mt-10 space-y-5">
+              {BACKSTAGE_PERKS.map((perk, i) => (
+                <li
+                  key={perk.label}
+                  className={cn("login-perk", i > 0 && "animate-fade-up")}
+                  style={i > 0 ? { animationDelay: `${i * 80}ms` } : undefined}
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
+                  <span className="login-perk-icon" aria-hidden="true">
+                    <Sparkle size="sm" animated={false} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{perk.label}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                      {perk.detail}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="login-backstage-footer">
+            <BrandLogo size="sm" />
+            <span>© {new Date().getFullYear()} SnapCos</span>
+          </div>
+        </aside>
+
+        <main className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8 lg:py-14">
+          <div className="w-full max-w-[26rem]">
+            <div className="mb-8 text-center lg:hidden">
+              <p className="costume-act-label flex items-center justify-center gap-2">
+                <Sparkle size="sm" animated={false} />
+                Backstage entrance
+              </p>
+              <p className="mt-3 font-display text-2xl font-semibold text-foreground">
+                Welcome back
+              </p>
             </div>
 
-            <Button
-              id="login-submit-btn"
-              type="submit"
-              disabled={isSubmitting}
-              className="mt-2 h-12 w-full text-xs font-semibold uppercase tracking-widest"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader className="size-3.5 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Log in"
-              )}
-            </Button>
-          </form>
+            <div className="login-ticket-panel animate-fade-up">
+              <div
+                className="costume-ticket-notch costume-ticket-notch--left hidden sm:block"
+                aria-hidden="true"
+              />
+              <div
+                className="costume-ticket-notch costume-ticket-notch--right hidden sm:block"
+                aria-hidden="true"
+              />
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
-            New here?{" "}
-            <Link
-              href="/register"
-              className="font-semibold text-primary underline underline-offset-4 transition-opacity hover:opacity-70"
-            >
-              Create an account
-            </Link>
-          </p>
-        </div>
+              <div className="hidden space-y-2 lg:block">
+                <p className="costume-act-label">Sign in</p>
+                <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+                  Welcome back
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Log in to pick up where you left off.
+                </p>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground lg:hidden">
+                Log in to your account to continue.
+              </p>
+
+              {oauthError ? (
+                <Alert variant="destructive" className="mt-6 border-destructive/40">
+                  <ExclamationTriangleIcon />
+                  <AlertTitle>Google sign-in failed</AlertTitle>
+                  <AlertDescription>{oauthError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <GoogleAuthLink
+                id="google-login-btn"
+                intent="login"
+                label="Continue with Google"
+                className={cn("login-google-btn", oauthError ? "mt-4" : "mt-6 lg:mt-8")}
+              />
+
+              <div className="relative my-7 flex items-center gap-4">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[0.625rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  or email
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <form onSubmit={onSubmit} className="flex flex-col gap-5">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="login-email"
+                    className="text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  >
+                    Email
+                  </Label>
+                  <Input
+                    id="login-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="you@example.com"
+                    className="login-field text-foreground placeholder:text-muted-foreground/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="login-password"
+                    className="text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  >
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
+                      placeholder="········"
+                      className="login-field pr-12 text-foreground placeholder:text-muted-foreground/50"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  id="login-submit-btn"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="mt-1 h-12 w-full rounded-xl text-xs font-semibold uppercase tracking-[0.18em] shadow-coral shadow-coral-hover hover-snap"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="size-3.5 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Log in"
+                  )}
+                </Button>
+              </form>
+
+              <p className="mt-7 text-center text-xs text-muted-foreground">
+                New here?{" "}
+                <Link
+                  href="/register"
+                  className="font-semibold text-primary underline underline-offset-4 transition-opacity hover:opacity-70"
+                >
+                  Create an account
+                </Link>
+              </p>
+            </div>
+          </div>
+        </main>
       </div>
+
+      <div className="hero-stage-line" aria-hidden="true" />
+      <div className="hero-stage-glow opacity-60" aria-hidden="true" />
     </div>
   );
 }
