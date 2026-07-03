@@ -812,31 +812,25 @@ h4 {
     var(--card);
 }
 
-.marketplace-loading-stage {
+.hero-loading-line {
   position: relative;
-  isolation: isolate;
   overflow: hidden;
-  border-radius: 1.25rem;
-  border: 1px solid var(--border);
-  padding: 2.5rem 1.5rem 2.75rem;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 0%, oklch(0.68 0.16 28 / 0.08), transparent 58%),
-    radial-gradient(ellipse 70% 55% at 50% 100%, oklch(0.80 0.12 80 / 0.06), transparent 52%),
-    var(--card);
+  background: color-mix(in oklch, var(--muted) 55%, var(--card));
 }
 
-.marketplace-loading-curtain {
-  width: min(18vw, 5rem);
-  opacity: 0.55;
-}
-
-.marketplace-loading-spotlight {
-  opacity: 0.7;
-}
-
-.marketplace-loading-skeleton {
-  opacity: 0.55;
-  mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
+.hero-loading-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(0.80 0.12 80 / 0.16) 45%,
+    oklch(0.68 0.16 28 / 0.1) 55%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: costumeShimmer 2.2s var(--ease-out-expo) infinite;
 }
 
 .marketplace-loading-dot {
@@ -881,6 +875,12 @@ h4 {
   .marketplace-loading-dot {
     animation: none;
     opacity: 0.65;
+  }
+
+  .hero-loading-line::after {
+    animation: none;
+    opacity: 0.35;
+    transform: none;
   }
 
   .group:hover .costume-card-frame {

@@ -1,10 +1,11 @@
-import { Sparkle } from "@/components/brand/Sparkle";
-import { CostumeCardSkeleton } from "@/components/CostumeCard";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface MarketplaceLoadingStageProps {
   className?: string;
+}
+
+function HeroLoadingLine({ className }: { className?: string }) {
+  return <div className={cn("hero-loading-line rounded-md", className)} aria-hidden="true" />;
 }
 
 export function MarketplaceLoadingStage({ className }: MarketplaceLoadingStageProps) {
@@ -16,65 +17,33 @@ export function MarketplaceLoadingStage({ className }: MarketplaceLoadingStagePr
       aria-busy="true"
       aria-label="Loading marketplace"
     >
-      <div className="marketplace-content flex flex-1 flex-col py-10 md:py-14">
-        <div className="marketplace-loading-stage relative mx-auto mb-10 w-full max-w-lg px-4 text-center sm:mb-12">
-          <div className="hero-curtain hero-curtain-left hero-curtain-heavy marketplace-loading-curtain" aria-hidden="true" />
-          <div className="hero-curtain hero-curtain-right hero-curtain-heavy marketplace-loading-curtain" aria-hidden="true" />
-          <div className="hero-spotlight marketplace-loading-spotlight" aria-hidden="true" />
-
-          <div className="relative z-[1] flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <Sparkle size="sm" animated={false} className="opacity-80" />
-              <p className="text-[0.625rem] font-semibold uppercase tracking-[0.32em] text-primary">
-                Backstage
-              </p>
-              <Sparkle size="sm" animated={false} className="opacity-80" />
-            </div>
-
-            <p className="font-display text-2xl font-semibold text-foreground md:text-3xl">
-              Raising the curtain…
-            </p>
-
-            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Costumes are taking their places across the marketplace.
-            </p>
-
-            <div className="marketplace-loading-dots flex items-center gap-2 pt-1" aria-hidden="true">
-              <span className="marketplace-loading-dot marketplace-loading-dot--coral" />
-              <span className="marketplace-loading-dot marketplace-loading-dot--gold" />
-              <span className="marketplace-loading-dot marketplace-loading-dot--coral" />
-            </div>
-          </div>
+      <section
+        aria-hidden="true"
+        className="hero-splash relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden"
+      >
+        <div className="hero-marquee pointer-events-none absolute inset-x-0 top-0 z-20 overflow-hidden border-b border-primary/15 bg-primary/[0.06] py-2.5">
+          <div className="mx-auto h-3 w-40 max-w-[70%] rounded-full hero-loading-line opacity-80" />
         </div>
 
-        <div className="marketplace-loading-skeleton flex gap-6 lg:gap-8" aria-hidden="true">
-          <aside className="hidden w-56 shrink-0 space-y-5 lg:block xl:w-64">
-            <Skeleton className="h-5 w-24 rounded-md" />
-            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-4 w-full rounded-md" />
-              ))}
-            </div>
-            <Skeleton className="h-24 w-full rounded-xl" />
-          </aside>
+        <div className="hero-curtain hero-curtain-left hero-curtain-heavy" />
+        <div className="hero-curtain hero-curtain-right hero-curtain-heavy" />
+        <div className="hero-spotlight" />
+        <div className="hero-spotlight-sweep" />
 
-          <div className="min-w-0 flex-1 space-y-4">
-            <div className="marketplace-results-bar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
-              <Skeleton className="h-4 w-28 rounded-md" />
-              <div className="flex gap-2">
-                <Skeleton className="h-9 w-24 rounded-lg" />
-                <Skeleton className="h-9 w-20 rounded-lg" />
-              </div>
-            </div>
-
-            <div className="marketplace-card-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CostumeCardSkeleton key={i} />
-              ))}
-            </div>
-          </div>
+        <div className="relative z-10 flex w-full max-w-4xl flex-col items-center px-6 pt-20 text-center md:px-10">
+          <HeroLoadingLine className="h-3 w-52 sm:w-64" />
+          <HeroLoadingLine className="mt-6 h-[clamp(2.75rem,11vw,5.5rem)] w-56 sm:w-72" />
+          <HeroLoadingLine className="mt-2 h-[clamp(3rem,12vw,6.5rem)] w-64 sm:w-80" />
+          <HeroLoadingLine className="mt-6 h-4 w-full max-w-md" />
+          <HeroLoadingLine className="mt-2 h-4 w-48 max-w-[80%]" />
+          <HeroLoadingLine className="mt-10 h-14 w-48 rounded-2xl" />
         </div>
-      </div>
+
+        <div className="hero-stage-line" />
+        <div className="hero-stage-glow" />
+      </section>
+
+      <p className="sr-only">Loading marketplace</p>
     </div>
   );
 }
