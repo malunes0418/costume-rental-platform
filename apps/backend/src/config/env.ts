@@ -40,4 +40,12 @@ export const env = {
   emailPassword: required("EMAIL_PASSWORD"),
   frontendBaseUrl: required("FRONTEND_BASE_URL"),
   fileUploadDir: required("FILE_UPLOAD_DIR"),
+  // Geocoding — optional; if absent, Lalamove quoting falls back to static fees
+  googleMapsApiKey: optional("GOOGLE_MAPS_API_KEY"),
+  // Lalamove courier integration — optional; required when delivery_provider = LALAMOVE
+  lalamoveApiKey: optional("LALAMOVE_API_KEY"),
+  lalamoveApiSecret: optional("LALAMOVE_API_SECRET"),
+  lalamoveMarket: optional("LALAMOVE_MARKET") ?? "PH",
+  lalamoveBaseUrl: optional("LALAMOVE_BASE_URL") ?? "https://rest.sandbox.lalamove.com",
+  lalamoveWebhookToken: optional("LALAMOVE_WEBHOOK_TOKEN"),
 };

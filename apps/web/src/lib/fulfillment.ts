@@ -5,6 +5,57 @@ export type PaymentPurpose = "INITIAL_RESERVATION" | "RESERVATION_ADJUSTMENT";
 export type ReservationAdjustmentStatus = "PENDING" | "PAID" | "WAIVED" | "REJECTED";
 export type ReservationFulfillmentApprovalStatus = "PENDING_VENDOR_REVIEW" | "APPROVED" | "REJECTED";
 
+export type DeliveryProvider = "MANUAL" | "LALAMOVE";
+export type LalamoveServiceType = "MOTORCYCLE" | "SEDAN" | "MPV" | "VAN" | "TRUCK175" | "TRUCK330";
+export type DeliveryLeg = "OUTBOUND" | "RETURN";
+
+export const LALAMOVE_SERVICE_TYPE_LABELS: Record<LalamoveServiceType, string> = {
+  MOTORCYCLE: "Motorcycle",
+  SEDAN: "Sedan",
+  MPV: "MPV",
+  VAN: "Van",
+  TRUCK175: "Truck (175 kg)",
+  TRUCK330: "Truck (330 kg)"
+};
+
+export const LALAMOVE_SERVICE_TYPES: LalamoveServiceType[] = [
+  "MOTORCYCLE",
+  "SEDAN",
+  "MPV",
+  "VAN",
+  "TRUCK175",
+  "TRUCK330"
+];
+
+export type DeliveryOrder = {
+  id: number;
+  reservation_id: number;
+  leg: DeliveryLeg;
+  lalamove_order_id?: string | null;
+  quotation_id?: string | null;
+  service_type?: string | null;
+  status?: string | null;
+  price_amount?: string | null;
+  price_currency?: string | null;
+  driver_name?: string | null;
+  driver_phone?: string | null;
+  share_link?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type LalamoveDispatchQuote = {
+  quotation_id: string;
+  price_amount: number;
+  price_currency: string;
+  service_type: string;
+};
+
+export type LalamoveDispatchQuoteResponse = {
+  provider: "LALAMOVE" | "MANUAL";
+  quote: LalamoveDispatchQuote | null;
+};
+
 export const FULFILLMENT_MODE_LABELS: Record<FulfillmentMode, string> = {
   PICKUP: "Pickup only",
   DELIVERY: "Delivery only",
@@ -43,6 +94,8 @@ export type LocationSnapshot = {
   country?: string | null;
   area?: string | null;
   notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type SavedLocation = {
@@ -61,6 +114,9 @@ export type SavedLocation = {
   area?: string | null;
   notes?: string | null;
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocode_failed?: boolean | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -173,6 +229,8 @@ export type VendorFulfillmentSettings = {
   return_pickup_fee: number;
   return_delivery_fee: number;
   service_areas: ServiceAreaDefinition[] | null;
+  delivery_provider?: DeliveryProvider;
+  lalamove_service_type?: LalamoveServiceType | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -186,6 +244,8 @@ export type VendorFulfillmentSettingsInput = {
   return_pickup_fee?: number | string;
   return_delivery_fee?: number | string;
   service_areas?: ServiceAreaDefinition[] | null;
+  delivery_provider?: DeliveryProvider;
+  lalamove_service_type?: LalamoveServiceType | null;
 };
 
 export type CostumeFulfillmentOverride = {
@@ -213,6 +273,8 @@ export type EffectiveCostumeFulfillment = {
   return_pickup_fee: number;
   return_delivery_fee: number;
   costume_override: CostumeFulfillmentOverride | null;
+  delivery_provider?: DeliveryProvider;
+  lalamove_service_type?: LalamoveServiceType | null;
 };
 
 export type ReservationFulfillmentLocationSelectionInput = {
@@ -249,6 +311,7 @@ export type ReservationFulfillment = {
   return_window_end?: string | null;
   outbound_fee: number;
   return_fee: number;
+  return_fee_is_estimate?: boolean;
   outside_service_area: boolean;
   vendor_approval_status: ReservationFulfillmentApprovalStatus;
   vendor_approval_note?: string | null;
@@ -260,6 +323,7 @@ export type ReservationFulfillment = {
   return_initiated_proof_url?: string | null;
   vendor_return_received_at?: string | null;
   vendor_return_proof_url?: string | null;
+  delivery_provider?: DeliveryProvider;
   created_at?: string;
   updated_at?: string;
 };

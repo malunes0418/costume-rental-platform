@@ -15,8 +15,14 @@ import {
   RemoveReservationResponse
 } from "../dto";
 
+import { LalamoveOrderService } from "../services/lalamove/LalamoveOrderService";
+import { ReservationItem } from "../models/ReservationItem";
+import { Costume } from "../models/Costume";
+import { Reservation } from "../models/Reservation";
+
 const reservationService = new ReservationService();
 const vendorService = new VendorService();
+const lalamoveOrderService = new LalamoveOrderService();
 
 export class ReservationController {
   async addToCart(req: Request, res: Response) {
@@ -140,6 +146,75 @@ export class ReservationController {
       res.sendFile(path.basename(proofPath), { root: env.fileUploadDir });
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e, 404);
+    }
+  }
+
+  /**
+   * GET /api/reservations/:id/delivery
+   * Returns outbound and return DeliveryOrder records for the reservation.
+   * Lazily polls Lalamove if either record is stale (> 5 minutes old).
+   * Accessible by the renter or the vendor of the reservation.
+   */
+  async getDeliveryStatus(req: Request, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const reservationId = Number(req.params.id);
+
+      // Verify caller is renter or vendor
+      const reservation = await Reservation.findByPk(reservationId, {
+        include: [
+          {
+            association: "items",
+            include: [{ model: Costume, attributes: ["owner_id"], required: true }],
+            required: true
+          }
+        ]
+      });
+
+      if (!reservation) {
+        return ApiResponse.fail(res, "Reservation not found", 404);
+      }
+
+      const isRenter = Number(reservation.user_id) === Number(userId);
+      const items = ((reservation as any).items || []) as Array<{ Costume?: { owner_id: number } }>;
+      const isVendor = items.some((item) => Number(item.Costume?.owner_id) === Number(userId));
+
+      if (!isRenter && !isVendor) {
+        return ApiResponse.fail(res, "Reservation not found", 404);
+      }
+
+      const [outboundRecord, returnRecord] = await Promise.all([
+        lalamoveOrderService.getDeliveryOrder(reservationId, "OUTBOUND"),
+        lalamoveOrderService.getDeliveryOrder(reservationId, "RETURN")
+      ]);
+
+      const [outbound, returnDelivery] = await Promise.all([
+        outboundRecord ? lalamoveOrderService.refreshIfStale(outboundRecord) : null,
+        returnRecord ? lalamoveOrderService.refreshIfStale(returnRecord) : null
+      ]);
+
+      const toDto = (record: typeof outbound) => {
+        if (!record) return null;
+        return {
+          id: record.id,
+          leg: record.leg,
+          lalamove_order_id: record.lalamove_order_id,
+          status: record.status,
+          driver_name: record.driver_name,
+          driver_phone: record.driver_phone,
+          share_link: record.share_link,
+          price_amount: Number(record.price_amount),
+          price_currency: record.price_currency,
+          updated_at: record.updated_at
+        };
+      };
+
+      ApiResponse.ok(res, {
+        outbound: toDto(outbound),
+        return: toDto(returnDelivery)
+      });
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
     }
   }
 }

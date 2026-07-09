@@ -459,8 +459,9 @@ export class ReservationService {
   }
 
   async initiateReturn(userId: number, reservationId: number, file?: Express.Multer.File) {
-    const reservation = await this.handoffService.initiateReturn(userId, reservationId, file);
-    return this.loadReservationWithItems(reservation.id);
+    const { reservation, delivery_order } = await this.handoffService.initiateReturn(userId, reservationId, file);
+    const loaded = await this.loadReservationWithItems(reservation.id);
+    return { reservation: loaded, delivery_order };
   }
 
   async cancelReservation(userId: number, reservationId: number) {

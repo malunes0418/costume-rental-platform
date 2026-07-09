@@ -2,6 +2,8 @@ import { DataTypes, Model, Optional } from "sequelize";
 import { sequelize } from "../config/db";
 import type { FulfillmentMode, JsonObject, LocationSnapshot } from "../domain/fulfillment";
 
+export type DeliveryProvider = "MANUAL" | "LALAMOVE";
+
 export interface VendorFulfillmentSettingsAttributes {
   id: number;
   vendor_id: number;
@@ -13,12 +15,17 @@ export interface VendorFulfillmentSettingsAttributes {
   return_pickup_fee: number;
   return_delivery_fee: number;
   service_areas: JsonObject | JsonObject[] | null;
+  delivery_provider: DeliveryProvider;
+  lalamove_service_type: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
 
 export interface VendorFulfillmentSettingsCreationAttributes
-  extends Optional<VendorFulfillmentSettingsAttributes, "id" | "primary_location" | "service_areas"> {}
+  extends Optional<
+    VendorFulfillmentSettingsAttributes,
+    "id" | "primary_location" | "service_areas" | "delivery_provider" | "lalamove_service_type"
+  > {}
 
 export class VendorFulfillmentSettings
   extends Model<VendorFulfillmentSettingsAttributes, VendorFulfillmentSettingsCreationAttributes>
@@ -34,6 +41,8 @@ export class VendorFulfillmentSettings
   public return_pickup_fee!: number;
   public return_delivery_fee!: number;
   public service_areas!: JsonObject | JsonObject[] | null;
+  public delivery_provider!: DeliveryProvider;
+  public lalamove_service_type!: string | null;
   public created_at!: Date;
   public updated_at!: Date;
 }
@@ -58,6 +67,12 @@ VendorFulfillmentSettings.init(
     return_pickup_fee: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     return_delivery_fee: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     service_areas: { type: DataTypes.JSON, allowNull: true },
+    delivery_provider: {
+      type: DataTypes.ENUM("MANUAL", "LALAMOVE"),
+      allowNull: false,
+      defaultValue: "MANUAL"
+    },
+    lalamove_service_type: { type: DataTypes.STRING(60), allowNull: true, defaultValue: "MOTORCYCLE" },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },

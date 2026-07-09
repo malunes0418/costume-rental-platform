@@ -8,6 +8,9 @@ import type {
   UserSavedLocationRequest,
   VendorFulfillmentSettingsRequest
 } from "../dto/fulfillment.dto";
+import { GeocodingService } from "./GeocodingService";
+import { LalamoveClient, LalamoveApiError } from "./lalamove/LalamoveClient";
+import { buildQuotationPayload, parseQuotedPrice } from "./lalamove/LalamoveQuoteHelper";
 import {
   buildWindowRange,
   isFulfillmentMethod,
@@ -39,10 +42,14 @@ const DEFAULT_VENDOR_FULFILLMENT = {
   return_pickup_fee: 0,
   return_delivery_fee: 0,
   primary_location: null as LocationSnapshot | null,
-  service_areas: null as ServiceAreaDefinition[] | null
+  service_areas: null as ServiceAreaDefinition[] | null,
+  delivery_provider: "MANUAL" as const,
+  lalamove_service_type: "MOTORCYCLE" as string | null
 };
 
 export class FulfillmentService {
+  private geocodingService = new GeocodingService();
+
   private assertFulfillmentModePair(input: Pick<VendorFulfillmentSettingsRequest, "outbound_mode" | "return_mode">) {
     if (!isFulfillmentMode(input.outbound_mode)) {
       throw new Error("Invalid outbound fulfillment mode");
@@ -65,6 +72,13 @@ export class FulfillmentService {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeCoordinate(value: unknown): number | null {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed;
   }
 
   private normalizeLocationSnapshot(
@@ -90,6 +104,18 @@ export class FulfillmentService {
       throw new Error("Location must include a phone number");
     }
 
+    const latitude = this.normalizeCoordinate(input.latitude);
+    const longitude = this.normalizeCoordinate(input.longitude);
+    if ((latitude === null) !== (longitude === null)) {
+      throw new Error("Location pin must include both latitude and longitude");
+    }
+    if (latitude !== null && (latitude < -90 || latitude > 90)) {
+      throw new Error("Latitude must be between -90 and 90");
+    }
+    if (longitude !== null && (longitude < -180 || longitude > 180)) {
+      throw new Error("Longitude must be between -180 and 180");
+    }
+
     return {
       label: this.normalizeText(input.label) || labelFallback,
       contact_name: contactName,
@@ -102,7 +128,9 @@ export class FulfillmentService {
       postal_code: this.normalizeText(input.postal_code),
       country: this.normalizeText(input.country) || "Philippines",
       area: this.normalizeText(input.area),
-      notes: this.normalizeText(input.notes)
+      notes: this.normalizeText(input.notes),
+      latitude,
+      longitude
     };
   }
 
@@ -128,8 +156,34 @@ export class FulfillmentService {
       country: snapshot.country || "Philippines",
       area: snapshot.area || null,
       notes: snapshot.notes || null,
-      is_default: Boolean(input.is_default)
+      is_default: Boolean(input.is_default),
+      latitude: snapshot.latitude ?? null,
+      longitude: snapshot.longitude ?? null
     };
+  }
+
+  private async resolveCoordinates(values: {
+    address_line_1: string;
+    address_line_2?: string | null;
+    barangay?: string | null;
+    city: string;
+    province?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+    area?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  }): Promise<{ lat: number; lng: number } | null> {
+    if (
+      values.latitude !== null &&
+      values.latitude !== undefined &&
+      values.longitude !== null &&
+      values.longitude !== undefined
+    ) {
+      return { lat: values.latitude, lng: values.longitude };
+    }
+
+    return this.geocodingService.geocodeLocationFields(values).catch(() => null);
   }
 
   private normalizeServiceAreas(input: VendorFulfillmentSettingsRequest["service_areas"]) {
@@ -163,6 +217,8 @@ export class FulfillmentService {
     | "country"
     | "area"
     | "notes"
+    | "latitude"
+    | "longitude"
   >): LocationSnapshot {
     return {
       label: location.label,
@@ -176,7 +232,9 @@ export class FulfillmentService {
       postal_code: location.postal_code,
       country: location.country,
       area: location.area,
-      notes: location.notes
+      notes: location.notes,
+      latitude: location.latitude,
+      longitude: location.longitude
     };
   }
 
@@ -298,19 +356,42 @@ export class FulfillmentService {
     await this.ensureOverrideCompatibilityWithVendorDefaults(vendorId, payload.outbound_mode, payload.return_mode);
 
     const settings = await VendorFulfillmentSettings.findOne({ where: { vendor_id: vendorId } });
+    const primaryLocation = this.normalizeLocationSnapshot(
+      (payload.primary_location as Record<string, unknown> | null | undefined) ?? null,
+      "Primary business location"
+    );
+
+    if (primaryLocation && (primaryLocation.latitude == null || primaryLocation.longitude == null)) {
+      const coords = await this.resolveCoordinates({
+        address_line_1: primaryLocation.address_line_1 || "",
+        address_line_2: primaryLocation.address_line_2,
+        barangay: primaryLocation.barangay,
+        city: primaryLocation.city || "",
+        province: primaryLocation.province,
+        postal_code: primaryLocation.postal_code,
+        country: primaryLocation.country,
+        area: primaryLocation.area,
+        latitude: primaryLocation.latitude,
+        longitude: primaryLocation.longitude
+      });
+      if (coords) {
+        primaryLocation.latitude = coords.lat;
+        primaryLocation.longitude = coords.lng;
+      }
+    }
+
     const nextValues = {
       vendor_id: vendorId,
-      primary_location: this.normalizeLocationSnapshot(
-        (payload.primary_location as Record<string, unknown> | null | undefined) ?? null,
-        "Primary business location"
-      ),
+      primary_location: primaryLocation,
       outbound_mode: payload.outbound_mode,
       return_mode: payload.return_mode,
       outbound_pickup_fee: this.parseMoney(payload.outbound_pickup_fee),
       outbound_delivery_fee: this.parseMoney(payload.outbound_delivery_fee),
       return_pickup_fee: this.parseMoney(payload.return_pickup_fee),
       return_delivery_fee: this.parseMoney(payload.return_delivery_fee),
-      service_areas: this.normalizeServiceAreas(payload.service_areas)
+      service_areas: this.normalizeServiceAreas(payload.service_areas),
+      delivery_provider: payload.delivery_provider ?? "MANUAL",
+      lalamove_service_type: payload.lalamove_service_type ?? "MOTORCYCLE"
     };
 
     if (settings) {
@@ -356,6 +437,8 @@ export class FulfillmentService {
       ),
       return_pickup_fee: Number(settings?.return_pickup_fee ?? DEFAULT_VENDOR_FULFILLMENT.return_pickup_fee),
       return_delivery_fee: Number(settings?.return_delivery_fee ?? DEFAULT_VENDOR_FULFILLMENT.return_delivery_fee),
+      delivery_provider: settings?.delivery_provider ?? DEFAULT_VENDOR_FULFILLMENT.delivery_provider,
+      lalamove_service_type: settings?.lalamove_service_type ?? DEFAULT_VENDOR_FULFILLMENT.lalamove_service_type,
       costume_override: effectiveOverride ? effectiveOverride.toJSON() : null
     };
   }
@@ -435,10 +518,15 @@ export class FulfillmentService {
       await UserSavedLocation.update({ is_default: false }, { where: { user_id: userId } });
     }
 
+    const { latitude: _lat, longitude: _lng, ...locationValues } = values;
+    const coords = await this.resolveCoordinates(values);
+
     return UserSavedLocation.create({
-      ...values,
+      ...locationValues,
       is_default: isDefault,
-      user_id: userId
+      user_id: userId,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null
     });
   }
 
@@ -455,7 +543,14 @@ export class FulfillmentService {
       await UserSavedLocation.update({ is_default: false }, { where: { user_id: userId } });
     }
 
-    await location.update(values);
+    const { latitude: _lat, longitude: _lng, ...locationValues } = values;
+    const coords = await this.resolveCoordinates(values);
+
+    await location.update({
+      ...locationValues,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null
+    });
     return location;
   }
 
@@ -660,14 +755,57 @@ export class FulfillmentService {
 
     const returnRange = buildWindowRange(endDate, selection.return_window_slot);
 
-    const outboundFee =
+    const staticOutboundFee =
       selection.outbound_method === "PICKUP"
         ? Number(effective.outbound_pickup_fee)
         : Number(effective.outbound_delivery_fee);
-    const returnFee =
+    const staticReturnFee =
       selection.return_method === "PICKUP"
         ? Number(effective.return_pickup_fee)
         : Number(effective.return_delivery_fee);
+
+    let outboundFee = staticOutboundFee;
+    let returnFee = staticReturnFee;
+    let returnFeeIsEstimate = false;
+
+    // Attempt live Lalamove quotes when the vendor uses Lalamove and both legs are DELIVERY
+    if (
+      effective.delivery_provider === "LALAMOVE" &&
+      selection.outbound_method === "DELIVERY" &&
+      selection.return_method === "DELIVERY"
+    ) {
+      try {
+        const lalamove = new LalamoveClient();
+        const serviceType = effective.lalamove_service_type ?? "MOTORCYCLE";
+        const vendorLoc = effective.primary_location as LocationSnapshot | null;
+
+        const outboundPayload = buildQuotationPayload(vendorLoc, outboundLocation.snapshot, serviceType);
+        const returnPayload = buildQuotationPayload(returnLocation.snapshot, vendorLoc, serviceType);
+
+        const [outboundQuote, returnQuote] = await Promise.all([
+          outboundPayload ? lalamove.createQuotation(outboundPayload) : null,
+          returnPayload ? lalamove.createQuotation(returnPayload) : null
+        ]);
+
+        if (outboundQuote) {
+          outboundFee = parseQuotedPrice(outboundQuote.priceBreakdown.total);
+        }
+        if (returnQuote) {
+          returnFee = parseQuotedPrice(returnQuote.priceBreakdown.total);
+          returnFeeIsEstimate = true;
+        }
+      } catch (err) {
+        // Fail-soft: use static fees on any Lalamove / network error
+        if (!(err instanceof LalamoveApiError)) {
+          console.warn("[FulfillmentService] Lalamove quote failed, using static fees:", err);
+        } else {
+          console.warn(`[FulfillmentService] Lalamove API error ${err.statusCode} (${err.lalamoveCode}), using static fees`);
+        }
+        outboundFee = staticOutboundFee;
+        returnFee = staticReturnFee;
+        returnFeeIsEstimate = false;
+      }
+    }
 
     const outsideServiceArea =
       this.outsideServiceAreaForLocation(
@@ -694,6 +832,7 @@ export class FulfillmentService {
       return_window_end: returnRange.end,
       outbound_fee: outboundFee,
       return_fee: returnFee,
+      return_fee_is_estimate: returnFeeIsEstimate,
       outside_service_area: outsideServiceArea,
       vendor_approval_status: "PENDING_VENDOR_REVIEW",
       vendor_approval_note: null

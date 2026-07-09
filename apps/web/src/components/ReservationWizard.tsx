@@ -82,17 +82,20 @@ function emptyLocationDraft(): SavedLocationInput {
     country: "Philippines",
     area: "",
     notes: "",
-    is_default: false
+    is_default: false,
+    latitude: null,
+    longitude: null,
+    geocode_failed: false
   };
 }
 
 function locationComplete(location: SavedLocationInput) {
-  return (
+  return Boolean(
     location.label.trim() &&
-    location.contact_name.trim() &&
-    location.phone_number.trim() &&
-    location.address_line_1.trim() &&
-    location.city.trim()
+      location.contact_name.trim() &&
+      location.phone_number.trim() &&
+      location.address_line_1.trim() &&
+      location.city.trim()
   );
 }
 
@@ -602,7 +605,11 @@ export function ReservationWizard({
                 </Select>
               ) : null}
               {outboundLocationMode === "new" ? (
-                <SavedLocationFields layout="single" value={newOutboundLocation} onChange={setNewOutboundLocation} />
+                <SavedLocationFields
+                  layout="single"
+                  value={newOutboundLocation}
+                  onChange={setNewOutboundLocation}
+                />
               ) : null}
             </div>
 

@@ -61,17 +61,20 @@ function emptyLocationDraft(): SavedLocationInput {
     country: "Philippines",
     area: "",
     notes: "",
-    is_default: false
+    is_default: false,
+    latitude: null,
+    longitude: null,
+    geocode_failed: false
   };
 }
 
 function locationComplete(location: SavedLocationInput) {
-  return (
+  return Boolean(
     location.label.trim() &&
-    location.contact_name.trim() &&
-    location.phone_number.trim() &&
-    location.address_line_1.trim() &&
-    location.city.trim()
+      location.contact_name.trim() &&
+      location.phone_number.trim() &&
+      location.address_line_1.trim() &&
+      location.city.trim()
   );
 }
 
@@ -452,7 +455,11 @@ export function VendorCartSetupModal({
               ) : null}
 
               {outboundLocationMode === "new" ? (
-                <SavedLocationFields layout="single" value={newOutboundLocation} onChange={setNewOutboundLocation} />
+                <SavedLocationFields
+                  layout="single"
+                  value={newOutboundLocation}
+                  onChange={setNewOutboundLocation}
+                />
               ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -495,14 +502,38 @@ export function VendorCartSetupModal({
               </div>
 
               {fulfillmentTemplate ? (
-                <p className="text-xs text-muted-foreground">
-                  Delivery fees for this vendor start at PHP{" "}
-                  {(
-                    Number(fulfillmentTemplate.effective_fulfillment.outbound_delivery_fee) +
-                    Number(fulfillmentTemplate.effective_fulfillment.return_delivery_fee)
-                  ).toLocaleString()}{" "}
-                  per costume.
-                </p>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    {fulfillmentTemplate.effective_fulfillment.delivery_provider === "LALAMOVE" ? (
+                      <>
+                        Delivery fees are quoted live by{" "}
+                        <span className="inline-flex items-center gap-1 rounded-sm border border-orange-400/40 bg-orange-50/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-orange-800 dark:bg-orange-950/20 dark:text-orange-300">
+                          Lalamove
+                        </span>{" "}
+                        at booking time. Fallback fees start at PHP{" "}
+                        {(
+                          Number(fulfillmentTemplate.effective_fulfillment.outbound_delivery_fee) +
+                          Number(fulfillmentTemplate.effective_fulfillment.return_delivery_fee)
+                        ).toLocaleString()}{" "}
+                        per costume.
+                      </>
+                    ) : (
+                      <>
+                        Delivery fees for this vendor start at PHP{" "}
+                        {(
+                          Number(fulfillmentTemplate.effective_fulfillment.outbound_delivery_fee) +
+                          Number(fulfillmentTemplate.effective_fulfillment.return_delivery_fee)
+                        ).toLocaleString()}{" "}
+                        per costume.
+                      </>
+                    )}
+                  </p>
+                  {fulfillmentTemplate.effective_fulfillment.delivery_provider === "LALAMOVE" ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      Return fee is an estimate — re-quoted when you initiate return.
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </section>
           ) : null}

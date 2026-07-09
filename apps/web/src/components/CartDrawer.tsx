@@ -574,6 +574,8 @@ export function CartDrawer() {
                             fulfillmentSummary={fulfillment?.summary ?? null}
                             fulfillmentLocation={fulfillment?.location ?? null}
                             fulfillmentFee={fulfillmentFee}
+                            isLalamoveFulfillment={item.fulfillment?.delivery_provider === "LALAMOVE"}
+                            returnFeeIsEstimate={item.fulfillment?.return_fee_is_estimate === true}
                             onToggle={() => toggleReservationSelection(item.id)}
                             onRemove={() => void handleRemove(item.id)}
                             onCompleteBooking={() => void startCompleteBooking(item)}

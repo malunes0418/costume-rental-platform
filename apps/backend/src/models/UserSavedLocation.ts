@@ -16,6 +16,8 @@ export interface UserSavedLocationAttributes {
   country?: string | null;
   area?: string | null;
   notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   is_default: boolean;
   created_at?: Date;
   updated_at?: Date;
@@ -24,7 +26,17 @@ export interface UserSavedLocationAttributes {
 export interface UserSavedLocationCreationAttributes
   extends Optional<
     UserSavedLocationAttributes,
-    "id" | "address_line_2" | "barangay" | "province" | "postal_code" | "country" | "area" | "notes" | "is_default"
+    | "id"
+    | "address_line_2"
+    | "barangay"
+    | "province"
+    | "postal_code"
+    | "country"
+    | "area"
+    | "notes"
+    | "latitude"
+    | "longitude"
+    | "is_default"
   > {}
 
 export class UserSavedLocation
@@ -45,6 +57,8 @@ export class UserSavedLocation
   public country!: string | null;
   public area!: string | null;
   public notes!: string | null;
+  public latitude!: number | null;
+  public longitude!: number | null;
   public is_default!: boolean;
   public created_at!: Date;
   public updated_at!: Date;
@@ -66,6 +80,8 @@ UserSavedLocation.init(
     country: { type: DataTypes.STRING(120), allowNull: true, defaultValue: "Philippines" },
     area: { type: DataTypes.STRING(120), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    latitude: { type: DataTypes.DECIMAL(10, 7), allowNull: true },
+    longitude: { type: DataTypes.DECIMAL(10, 7), allowNull: true },
     is_default: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }

@@ -43,12 +43,15 @@ import {
   confirmVendorReturn,
   dispatchReservation,
   listVendorReservations,
+  previewLalamoveDispatch,
   rejectReservation,
   reviewVendorPayment,
   requestReservationSurcharge,
   waiveReservationAdjustment,
+  getReservationDelivery,
   type Reservation
 } from "@/lib/vendor";
+import type { DeliveryOrder, LalamoveDispatchQuote } from "@/lib/fulfillment";
 
 const OPERATION_TIMELINE: ReservationStatus[] = [...FULFILLMENT_OPERATION_STATUSES];
 
@@ -195,6 +198,10 @@ export default function VendorReservationsPage() {
   const [surchargeNote, setSurchargeNote] = useState("");
   const [dispatchProof, setDispatchProof] = useState<File | null>(null);
   const [returnProof, setReturnProof] = useState<File | null>(null);
+  const [lalamoveQuote, setLalamoveQuote] = useState<LalamoveDispatchQuote | null>(null);
+  const [lalamoveQuoteLoading, setLalamoveQuoteLoading] = useState(false);
+  const [lalamoveQuoteError, setLalamoveQuoteError] = useState<string | null>(null);
+  const [selectedDeliveryOrders, setSelectedDeliveryOrders] = useState<DeliveryOrder[]>([]);
 
   const fetchReservations = useCallback(
     async (showError = true) => {
@@ -227,12 +234,34 @@ export default function VendorReservationsPage() {
     if (!selectedReservation) {
       setSurchargeAmount("");
       setSurchargeNote("");
+      setLalamoveQuote(null);
+      setLalamoveQuoteError(null);
+      setSelectedDeliveryOrders([]);
       return;
     }
 
     const pendingAdjustment = getPendingAdjustment(selectedReservation);
     setSurchargeAmount(pendingAdjustment ? String(pendingAdjustment.amount) : "");
     setSurchargeNote(pendingAdjustment?.note || "");
+    setLalamoveQuote(null);
+    setLalamoveQuoteError(null);
+
+    let cancelled = false;
+    getReservationDelivery(selectedReservation.id)
+      .then((response) => {
+        if (!cancelled) {
+          setSelectedDeliveryOrders(
+            [response.outbound, response.return].filter((o): o is DeliveryOrder => o !== null)
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedDeliveryOrders([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedReservation]);
 
   async function handleApprove(id: number) {
@@ -296,6 +325,27 @@ export default function VendorReservationsPage() {
     }
   }
 
+  async function handleFetchLalamoveQuote(id: number) {
+    setLalamoveQuoteLoading(true);
+    setLalamoveQuoteError(null);
+    try {
+      const result = await previewLalamoveDispatch(id);
+      if (result.quote) {
+        setLalamoveQuote(result.quote);
+      } else {
+        setLalamoveQuoteError(
+          result.provider === "MANUAL"
+            ? "Lalamove is not configured for this vendor. Use manual dispatch."
+            : "Could not get a Lalamove quote — ensure both vendor and renter locations have coordinates."
+        );
+      }
+    } catch (error: unknown) {
+      setLalamoveQuoteError(getErrorMessage(error, "Unable to fetch Lalamove quote."));
+    } finally {
+      setLalamoveQuoteLoading(false);
+    }
+  }
+
   async function handleDispatch(id: number) {
     if (!user) return;
     setActioningId(id);
@@ -303,6 +353,7 @@ export default function VendorReservationsPage() {
       await dispatchReservation(id, dispatchProof || undefined);
       toast.success("Reservation dispatched.");
       setDispatchProof(null);
+      setLalamoveQuote(null);
       await fetchReservations(false);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to dispatch reservation."));
@@ -902,48 +953,202 @@ export default function VendorReservationsPage() {
                   </div>
                 ) : selectedReservation.status === "CONFIRMED" ? (
                   <div className="space-y-4">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      Dispatch the costume when it is ready for pickup or delivery. A photo is optional but recommended.
-                    </p>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(event) => setDispatchProof(event.target.files?.[0] || null)}
-                      className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleDispatch(selectedReservation.id)}
-                      disabled={actioningId === selectedReservation.id}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-                    >
-                      Dispatch Costume
-                    </button>
+                    {selectedReservation.fulfillment?.delivery_provider === "LALAMOVE" ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="max-w-2xl text-sm text-muted-foreground">
+                            This reservation uses Lalamove courier delivery. Get a fresh quote before confirming dispatch.
+                          </p>
+                          <span className="inline-flex items-center rounded-xl border border-orange-400/40 bg-orange-50/60 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-widest text-orange-800 dark:bg-orange-950/20 dark:text-orange-300">
+                            Lalamove
+                          </span>
+                        </div>
+
+                        {lalamoveQuote ? (
+                          <div className="rounded-xl border border-border bg-muted/20 p-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Live quote</p>
+                            <p className="mt-2 font-display text-2xl font-semibold text-foreground">
+                              {lalamoveQuote.price_currency} {Number(lalamoveQuote.price_amount).toLocaleString()}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Vehicle: {lalamoveQuote.service_type} · Quote valid for a few minutes
+                            </p>
+                          </div>
+                        ) : lalamoveQuoteError ? (
+                          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                            {lalamoveQuoteError}
+                          </div>
+                        ) : null}
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleFetchLalamoveQuote(selectedReservation.id)}
+                            disabled={lalamoveQuoteLoading}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                          >
+                            {lalamoveQuoteLoading ? "Fetching quote…" : lalamoveQuote ? "Refresh quote" : "Get Lalamove quote"}
+                          </button>
+
+                          {lalamoveQuote ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleDispatch(selectedReservation.id)}
+                              disabled={actioningId === selectedReservation.id}
+                              className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                            >
+                              {actioningId === selectedReservation.id ? "Booking…" : "Confirm & book Lalamove"}
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <details className="group">
+                          <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground">
+                            Manual dispatch instead
+                          </summary>
+                          <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Attach a photo and dispatch without Lalamove. Use this as a fallback.
+                            </p>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={(event) => setDispatchProof(event.target.files?.[0] || null)}
+                              className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleDispatch(selectedReservation.id)}
+                              disabled={actioningId === selectedReservation.id}
+                              className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                            >
+                              Manual dispatch
+                            </button>
+                          </div>
+                        </details>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="max-w-2xl text-sm text-muted-foreground">
+                          Dispatch the costume when it is ready for pickup or delivery. A photo is optional but recommended.
+                        </p>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(event) => setDispatchProof(event.target.files?.[0] || null)}
+                          className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-[10px] file:font-semibold file:uppercase file:tracking-widest"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleDispatch(selectedReservation.id)}
+                          disabled={actioningId === selectedReservation.id}
+                          className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                        >
+                          Dispatch Costume
+                        </button>
+                      </>
+                    )}
+
+                    {selectedDeliveryOrders.length > 0 ? (
+                      <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Active delivery orders</p>
+                        {selectedDeliveryOrders.map((order) => (
+                          <div key={order.id} className="rounded-xl border border-border bg-background px-4 py-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                {order.leg} leg
+                              </span>
+                              {order.status ? (
+                                <span className="rounded-xl border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                  {order.status}
+                                </span>
+                              ) : null}
+                            </div>
+                            {order.driver_name ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Driver: {order.driver_name}
+                                {order.driver_phone ? ` · ${order.driver_phone}` : ""}
+                              </p>
+                            ) : null}
+                            {order.share_link ? (
+                              <a
+                                href={order.share_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary transition-colors hover:text-primary/80"
+                              >
+                                Track on Lalamove
+                                <ExternalLinkIcon className="size-3" />
+                              </a>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : selectedReservation.status === "DELIVERY_SCHEDULED" || selectedReservation.status === "WITH_RENTER" ? (
-                  <div className="rounded-xl border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                    Waiting for the renter to {selectedReservation.status === "DELIVERY_SCHEDULED" ? "confirm receipt with a photo" : "initiate the return with a photo"}.
-                    {selectedReservation.fulfillment?.renter_received_proof_url ? (
-                      <a
-                        href={resolveApiAsset(selectedReservation.fulfillment.renter_received_proof_url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
-                      >
-                        View renter receipt proof
-                        <ExternalLinkIcon className="size-3" />
-                      </a>
-                    ) : null}
-                    {selectedReservation.fulfillment?.return_initiated_proof_url ? (
-                      <a
-                        href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
-                      >
-                        View renter return proof
-                        <ExternalLinkIcon className="size-3" />
-                      </a>
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                      Waiting for the renter to {selectedReservation.status === "DELIVERY_SCHEDULED" ? "confirm receipt with a photo" : "initiate the return with a photo"}.
+                      {selectedReservation.fulfillment?.renter_received_proof_url ? (
+                        <a
+                          href={resolveApiAsset(selectedReservation.fulfillment.renter_received_proof_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                        >
+                          View renter receipt proof
+                          <ExternalLinkIcon className="size-3" />
+                        </a>
+                      ) : null}
+                      {selectedReservation.fulfillment?.return_initiated_proof_url ? (
+                        <a
+                          href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                        >
+                          View renter return proof
+                          <ExternalLinkIcon className="size-3" />
+                        </a>
+                      ) : null}
+                    </div>
+
+                    {selectedDeliveryOrders.length > 0 ? (
+                      <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Lalamove delivery orders</p>
+                        {selectedDeliveryOrders.map((order) => (
+                          <div key={order.id} className="rounded-xl border border-border bg-background px-4 py-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                {order.leg} leg
+                              </span>
+                              {order.status ? (
+                                <span className="rounded-xl border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                  {order.status}
+                                </span>
+                              ) : null}
+                            </div>
+                            {order.driver_name ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Driver: {order.driver_name}
+                                {order.driver_phone ? ` · ${order.driver_phone}` : ""}
+                              </p>
+                            ) : null}
+                            {order.share_link ? (
+                              <a
+                                href={order.share_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary transition-colors hover:text-primary/80"
+                              >
+                                Track on Lalamove
+                                <ExternalLinkIcon className="size-3" />
+                              </a>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 ) : selectedReservation.status === "RETURN_PENDING" ? (

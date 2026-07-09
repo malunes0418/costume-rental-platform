@@ -143,6 +143,16 @@ export class VendorController {
     }
   }
 
+  async quoteDispatch(req: Request, res: Response) {
+    try {
+      const vendorId = (req as any).user.id;
+      const result = await vendorService.quoteDispatch(vendorId, Number(req.params.id));
+      ApiResponse.ok(res, result);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
   async dispatchReservation(req: Request, res: Response) {
     try {
       const vendorId = (req as any).user.id;

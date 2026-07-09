@@ -46,6 +46,8 @@ export interface LocationSnapshot extends JsonObject {
   country?: string | null;
   area?: string | null;
   notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export function isFulfillmentMode(value: string): value is FulfillmentMode {

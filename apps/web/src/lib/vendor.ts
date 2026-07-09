@@ -2,6 +2,9 @@ import { apiFetch } from "./api";
 import type {
   CostumeFulfillmentOverride,
   CostumeFulfillmentOverrideInput,
+  DeliveryOrder,
+  LalamoveDispatchQuote,
+  LalamoveDispatchQuoteResponse,
   ReservationAdjustment,
   ReservationFulfillment,
   VendorFulfillmentSettings,
@@ -374,7 +377,7 @@ export function dispatchReservation(id: number, proof?: File) {
   if (proof) {
     form.set("proof", proof);
   }
-  return apiFetch<Reservation>(`/api/vendors/reservations/${id}/dispatch`, {
+  return apiFetch<{ reservation: Reservation | null; delivery_order: unknown }>(`/api/vendors/reservations/${id}/dispatch`, {
     method: "POST",
     body: proof ? form : undefined
   });
@@ -428,6 +431,18 @@ export type Subscription = {
 
 export function getMySubscription() {
   return apiFetch<Subscription | null>("/api/subscriptions/me");
+}
+
+export function getReservationDelivery(reservationId: number) {
+  return apiFetch<{ outbound: DeliveryOrder | null; return: DeliveryOrder | null }>(
+    `/api/reservations/${reservationId}/delivery`
+  );
+}
+
+export function previewLalamoveDispatch(reservationId: number) {
+  return apiFetch<LalamoveDispatchQuoteResponse>(
+    `/api/vendors/reservations/${reservationId}/dispatch-quote`
+  );
 }
 
 export function subscribeToPlan(planName: string) {

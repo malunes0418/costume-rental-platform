@@ -23,6 +23,7 @@ export interface ReservationFulfillmentAttributes {
   return_window_end?: Date | null;
   outbound_fee: number;
   return_fee: number;
+  return_fee_is_estimate: boolean;
   outside_service_area: boolean;
   vendor_approval_status: ReservationFulfillmentApprovalStatus;
   vendor_approval_note?: string | null;
@@ -52,6 +53,7 @@ export interface ReservationFulfillmentCreationAttributes
     | "delivery_window_end"
     | "return_window_start"
     | "return_window_end"
+    | "return_fee_is_estimate"
     | "vendor_approval_note"
     | "outbound_dispatched_at"
     | "outbound_dispatch_proof_url"
@@ -83,6 +85,7 @@ export class ReservationFulfillment
   public return_window_end!: Date | null;
   public outbound_fee!: number;
   public return_fee!: number;
+  public return_fee_is_estimate!: boolean;
   public outside_service_area!: boolean;
   public vendor_approval_status!: ReservationFulfillmentApprovalStatus;
   public vendor_approval_note!: string | null;
@@ -116,6 +119,7 @@ ReservationFulfillment.init(
     return_window_end: { type: DataTypes.DATE, allowNull: true },
     outbound_fee: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     return_fee: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    return_fee_is_estimate: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     outside_service_area: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     vendor_approval_status: {
       type: DataTypes.ENUM("PENDING_VENDOR_REVIEW", "APPROVED", "REJECTED"),

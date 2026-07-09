@@ -151,10 +151,10 @@ export function confirmReservationReceived(reservationId: number, proof: File) {
 export function initiateReservationReturn(reservationId: number, proof: File) {
   const form = new FormData();
   form.set("proof", proof);
-  return apiFetch<ReservationWithItems>(`/api/reservations/${reservationId}/initiate-return`, {
-    method: "POST",
-    body: form
-  });
+  return apiFetch<{ reservation: ReservationWithItems | null; delivery_order: unknown }>(
+    `/api/reservations/${reservationId}/initiate-return`,
+    { method: "POST", body: form }
+  );
 }
 
 export function cancelReservation(reservationId: number) {

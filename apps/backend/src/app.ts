@@ -51,6 +51,8 @@ app.head("/health", (_req, res) => {
 
 app.use("/api/auth", routes.auth);
 app.use("/api/health", routes.health);
+// Webhooks are unauthenticated; token in URL path is the shared secret
+app.use("/api/webhooks", routes.webhooks);
 
 // Public browse routes (Airbnb-like guest experience).
 app.use("/api/costumes", routes.costumes);

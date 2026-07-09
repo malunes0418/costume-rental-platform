@@ -14,12 +14,16 @@ import { Costume } from "../models/Costume";
 import { Reservation } from "../models/Reservation";
 import { ReservationFulfillment } from "../models/ReservationFulfillment";
 import { ReservationItem } from "../models/ReservationItem";
+import { VendorFulfillmentSettings } from "../models/VendorFulfillmentSettings";
 import { User } from "../models/User";
 import { NotificationService } from "./NotificationService";
 import { assertNoBlockingPaymentForRenterCancel } from "./reservationPaymentGuards";
+import { LalamoveOrderService, type BookedDeliveryResult } from "./lalamove/LalamoveOrderService";
+import type { LocationSnapshot } from "../domain/fulfillment";
 
 export class HandoffService {
   private notificationService = new NotificationService();
+  private lalamoveOrderService = new LalamoveOrderService();
 
   private formatLifecycleLabel(status: ReservationStatus) {
     return status.toLowerCase().split("_").join(" ");
@@ -90,12 +94,61 @@ export class HandoffService {
     fulfillment[column] = this.proofStoragePath(file);
   }
 
-  async dispatchReservation(vendorId: number, reservationId: number, file?: Express.Multer.File) {
+  async quoteDispatch(vendorId: number, reservationId: number): Promise<{
+    provider: string;
+    quote: import("./lalamove/LalamoveOrderService").DispatchQuoteResult | null;
+  }> {
+    const reservation = await this.findReservationForVendor(reservationId, vendorId);
+    const fulfillment = await this.requireFulfillment(reservation.id);
+
+    const settings = await this.lalamoveOrderService.getLalamoveSettings(vendorId);
+    if (!settings || fulfillment.outbound_method !== "DELIVERY") {
+      return { provider: "MANUAL", quote: null };
+    }
+
+    const vendorLoc = settings.primary_location as LocationSnapshot | null;
+    const renterLoc = fulfillment.outbound_location_snapshot as LocationSnapshot | null;
+
+    if (!vendorLoc?.latitude || !vendorLoc?.longitude || !renterLoc?.latitude || !renterLoc?.longitude) {
+      return { provider: "LALAMOVE", quote: null };
+    }
+
+    const serviceType = settings.lalamove_service_type ?? "MOTORCYCLE";
+    const quote = await this.lalamoveOrderService.quoteOutbound(vendorLoc, renterLoc, serviceType);
+    return { provider: "LALAMOVE", quote };
+  }
+
+  async dispatchReservation(vendorId: number, reservationId: number, file?: Express.Multer.File): Promise<{
+    reservation: Reservation;
+    delivery_order: BookedDeliveryResult | null;
+  }> {
     const reservation = await this.findReservationForVendor(reservationId, vendorId);
     assertReservationTransition(reservation.status, "DELIVERY_SCHEDULED", "Reservation");
 
     const fulfillment = await this.requireFulfillment(reservation.id);
+
+    // Attempt Lalamove booking when the vendor is configured for LALAMOVE delivery
+    let deliveryOrder: BookedDeliveryResult | null = null;
+    const settings = await this.lalamoveOrderService.getLalamoveSettings(vendorId);
+    if (settings && fulfillment.outbound_method === "DELIVERY") {
+      const vendorLoc = settings.primary_location as LocationSnapshot | null;
+      const renterLoc = fulfillment.outbound_location_snapshot as LocationSnapshot | null;
+      const serviceType = settings.lalamove_service_type ?? "MOTORCYCLE";
+
+      if (vendorLoc?.latitude && vendorLoc?.longitude && renterLoc?.latitude && renterLoc?.longitude) {
+        // Throws on 402 (insufficient wallet) or other API errors — caller should surface to vendor
+        deliveryOrder = await this.lalamoveOrderService.bookOutbound(
+          reservation.id,
+          vendorLoc,
+          renterLoc,
+          serviceType,
+          Number(fulfillment.outbound_fee)
+        );
+      }
+    }
+
     fulfillment.outbound_dispatched_at = new Date();
+    // Proof is optional when Lalamove is handling POD
     await this.applyProof(fulfillment, "outbound_dispatch_proof_url", file, false);
     await fulfillment.save();
 
@@ -103,14 +156,18 @@ export class HandoffService {
     reservation.vendor_status = deriveVendorReservationStatus(reservation.status, reservation.vendor_status);
     await reservation.save();
 
+    const notificationBody = deliveryOrder
+      ? `Reservation #${reservation.id} has been dispatched via Lalamove. Track your delivery using the link in your reservation details.`
+      : `Reservation #${reservation.id} is now ready for handoff. Please confirm when you receive the costume with a photo.`;
+
     await this.notificationService.create(
       reservation.user_id,
       "RESERVATION_FULFILLMENT_UPDATED",
       "Costume dispatched",
-      `Reservation #${reservation.id} is now ${reservation.status === "DELIVERY_SCHEDULED" ? "ready for handoff" : "updated"}. Please confirm when you receive the costume with a photo.`
+      notificationBody
     );
 
-    return reservation;
+    return { reservation, delivery_order: deliveryOrder };
   }
 
   async confirmRenterReceived(userId: number, reservationId: number, file?: Express.Multer.File) {
@@ -139,30 +196,60 @@ export class HandoffService {
     return reservation;
   }
 
-  async initiateReturn(userId: number, reservationId: number, file?: Express.Multer.File) {
+  async initiateReturn(userId: number, reservationId: number, file?: Express.Multer.File): Promise<{
+    reservation: Reservation;
+    delivery_order: BookedDeliveryResult | null;
+  }> {
     const reservation = await this.findReservationForRenter(reservationId, userId);
     assertReservationTransition(reservation.status, "RETURN_PENDING", "Reservation");
 
     const fulfillment = await this.requireFulfillment(reservation.id);
+
+    // Attempt Lalamove booking for the return leg
+    let deliveryOrder: BookedDeliveryResult | null = null;
+    const vendorId = await this.resolveVendorId(reservation.id);
+    if (vendorId) {
+      const settings = await this.lalamoveOrderService.getLalamoveSettings(vendorId);
+      if (settings && fulfillment.return_method === "DELIVERY") {
+        const renterLoc = fulfillment.return_location_snapshot as LocationSnapshot | null;
+        const vendorLoc = settings.primary_location as LocationSnapshot | null;
+        const serviceType = settings.lalamove_service_type ?? "MOTORCYCLE";
+
+        if (renterLoc?.latitude && renterLoc?.longitude && vendorLoc?.latitude && vendorLoc?.longitude) {
+          // Throws on 402 or other API errors — surface to renter
+          deliveryOrder = await this.lalamoveOrderService.bookReturn(
+            reservation.id,
+            renterLoc,
+            vendorLoc,
+            serviceType,
+            Number(fulfillment.return_fee)
+          );
+        }
+      }
+    }
+
     fulfillment.return_initiated_at = new Date();
-    await this.applyProof(fulfillment, "return_initiated_proof_url", file, true);
+    // Proof required for manual returns; optional when Lalamove handles POD
+    await this.applyProof(fulfillment, "return_initiated_proof_url", file, !deliveryOrder);
     await fulfillment.save();
 
     reservation.status = "RETURN_PENDING";
     reservation.vendor_status = deriveVendorReservationStatus(reservation.status, reservation.vendor_status);
     await reservation.save();
 
-    const vendorId = await this.resolveVendorId(reservation.id);
     if (vendorId) {
+      const notificationBody = deliveryOrder
+        ? `The renter initiated a return for reservation #${reservation.id} via Lalamove. You will be notified when the delivery arrives.`
+        : `The renter initiated a return for reservation #${reservation.id}.`;
       await this.notificationService.create(
         vendorId,
         "RESERVATION_FULFILLMENT_UPDATED",
         "Return initiated",
-        `The renter initiated a return for reservation #${reservation.id}.`
+        notificationBody
       );
     }
 
-    return reservation;
+    return { reservation, delivery_order: deliveryOrder };
   }
 
   async confirmVendorReturn(vendorId: number, reservationId: number, file?: Express.Multer.File) {

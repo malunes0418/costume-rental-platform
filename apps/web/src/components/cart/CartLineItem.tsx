@@ -26,6 +26,8 @@ interface CartLineItemProps {
   fulfillmentSummary: string | null;
   fulfillmentLocation: string | null;
   fulfillmentFee: number;
+  isLalamoveFulfillment?: boolean;
+  returnFeeIsEstimate?: boolean;
   onToggle: () => void;
   onRemove: () => void;
   onCompleteBooking: () => void;
@@ -40,6 +42,8 @@ export function CartLineItem({
   fulfillmentSummary,
   fulfillmentLocation,
   fulfillmentFee,
+  isLalamoveFulfillment = false,
+  returnFeeIsEstimate = false,
   onToggle,
   onRemove,
   onCompleteBooking,
@@ -136,6 +140,17 @@ export function CartLineItem({
             {fulfillmentFee > 0 ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 Includes PHP {Number(fulfillmentFee).toLocaleString()} in fulfillment fees
+                {isLalamoveFulfillment ? (
+                  <>
+                    {" "}
+                    <span className="inline-flex items-center rounded-sm border border-orange-400/40 bg-orange-50/60 px-1 py-px text-[8px] font-semibold uppercase tracking-widest text-orange-800 dark:bg-orange-950/20 dark:text-orange-300">
+                      Lalamove
+                    </span>
+                  </>
+                ) : null}
+                {returnFeeIsEstimate ? (
+                  <span className="ml-1 text-[10px] text-muted-foreground">(return fee est.)</span>
+                ) : null}
               </p>
             ) : null}
             <p className="mt-2 font-display text-lg font-semibold tabular-nums text-primary">

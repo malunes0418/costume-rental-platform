@@ -21,6 +21,11 @@ import { UserNotificationPreferences } from "./UserNotificationPreferences";
 import { ReservationFulfillment } from "./ReservationFulfillment";
 import { ReservationAdjustment } from "./ReservationAdjustment";
 import { VendorPaymentMethod } from "./VendorPaymentMethod";
+import { DeliveryOrder } from "./DeliveryOrder";
+
+Reservation.hasMany(DeliveryOrder, { foreignKey: "reservation_id", as: "deliveryOrders" });
+DeliveryOrder.belongsTo(Reservation, { foreignKey: "reservation_id" });
+
 User.hasMany(OAuthAccount, { foreignKey: "user_id" });
 OAuthAccount.belongsTo(User, { foreignKey: "user_id" });
 
@@ -159,5 +164,6 @@ export const db = {
   UserNotificationPreferences,
   ReservationFulfillment,
   ReservationAdjustment,
-  VendorPaymentMethod
+  VendorPaymentMethod,
+  DeliveryOrder
 };

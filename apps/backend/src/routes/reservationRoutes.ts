@@ -11,6 +11,7 @@ router.post("/cart/items", authMiddleware, (req, res) => controller.addCostumeTo
 router.patch("/cart/:reservationId", authMiddleware, (req, res) => controller.configureCartReservation(req, res));
 router.post("/checkout", authMiddleware, (req, res) => controller.checkout(req, res));
 router.get("/my", authMiddleware, (req, res) => controller.myReservations(req, res));
+router.get("/:id/delivery", authMiddleware, (req, res) => controller.getDeliveryStatus(req, res));
 router.get("/:id/handoff-proofs/:type", authMiddleware, (req, res) => controller.handoffProof(req, res));
 router.post("/:id/confirm-received", authMiddleware, upload.single("proof"), (req, res) =>
   controller.confirmReceived(req, res)

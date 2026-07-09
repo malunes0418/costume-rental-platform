@@ -556,8 +556,13 @@ export class VendorService {
   }
 
   async dispatchReservation(vendorId: number, reservationId: number, file?: Express.Multer.File) {
-    await this.handoffService.dispatchReservation(vendorId, reservationId, file);
-    return (await this.hydrateReservationForVendor(vendorId, reservationId)) || null;
+    const { delivery_order } = await this.handoffService.dispatchReservation(vendorId, reservationId, file);
+    const reservation = (await this.hydrateReservationForVendor(vendorId, reservationId)) || null;
+    return { reservation, delivery_order };
+  }
+
+  async quoteDispatch(vendorId: number, reservationId: number) {
+    return this.handoffService.quoteDispatch(vendorId, reservationId);
   }
 
   async confirmVendorReturn(vendorId: number, reservationId: number, file?: Express.Multer.File) {

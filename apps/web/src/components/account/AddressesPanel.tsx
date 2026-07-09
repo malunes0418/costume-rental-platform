@@ -40,6 +40,9 @@ function emptyLocationDraft(): SavedLocationInput {
     area: "",
     notes: "",
     is_default: false,
+    latitude: null,
+    longitude: null,
+    geocode_failed: false,
   };
 }
 
@@ -107,6 +110,9 @@ export function AddressesPanel() {
       area: location.area || "",
       notes: location.notes || "",
       is_default: location.is_default,
+      latitude: location.latitude ?? null,
+      longitude: location.longitude ?? null,
+      geocode_failed: location.geocode_failed ?? false,
     });
     setIsModalOpen(true);
   }
@@ -223,6 +229,15 @@ export function AddressesPanel() {
                         Default
                       </span>
                     ) : null}
+                    {location.latitude && location.longitude ? (
+                      <span className="rounded-full border border-emerald-400/40 bg-emerald-50/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400">
+                        Delivery quoting ready
+                      </span>
+                    ) : location.geocode_failed ? (
+                      <span className="rounded-full border border-orange-400/40 bg-orange-50/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-orange-700 dark:bg-orange-950/20 dark:text-orange-300">
+                        Geocode failed
+                      </span>
+                    ) : null}
                   </div>
 
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -234,6 +249,13 @@ export function AddressesPanel() {
                     <span className="mx-1.5 text-border">·</span>
                     {location.phone_number}
                   </p>
+
+                  {location.geocode_failed ? (
+                    <p className="mt-2 text-xs leading-relaxed text-orange-700 dark:text-orange-300">
+                      We couldn&apos;t geocode this address. Live delivery quotes will fall back to fixed fees.
+                      Try re-saving with a more specific address to retry.
+                    </p>
+                  ) : null}
 
                   {location.notes ? (
                     <p className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">

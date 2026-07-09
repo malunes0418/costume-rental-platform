@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ExternalLinkIcon as ExternalLink, ImageIcon, UploadIcon as Upload } from "@radix-ui/react-icons";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -8,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { resolveApiAsset } from "@/lib/assets";
 import type { Payment, ReservationWithItems } from "@/lib/account";
-import type { ReservationAdjustment } from "@/lib/fulfillment";
+import type { DeliveryOrder, ReservationAdjustment } from "@/lib/fulfillment";
 import { countRentalDaysInclusive } from "@/lib/pricing";
+import { getReservationDelivery } from "@/lib/vendor";
 import {
   buildReserveAgainHref,
   currentJourneyStep,
@@ -57,6 +59,31 @@ export function ActiveReservationCard({
   onHandoffFileChange,
   onAdjustmentFileChange
 }: ActiveReservationCardProps) {
+  const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrder[]>([]);
+
+  const isLalamoveReservation = reservation.fulfillment?.delivery_provider === "LALAMOVE";
+  const isActiveDeliveryStatus =
+    reservation.status === "DELIVERY_SCHEDULED" ||
+    reservation.status === "WITH_RENTER" ||
+    reservation.status === "RETURN_PENDING";
+
+  useEffect(() => {
+    if (!isLalamoveReservation || !isActiveDeliveryStatus) return;
+
+    let cancelled = false;
+    getReservationDelivery(reservation.id)
+      .then((response) => {
+        if (!cancelled) {
+          setDeliveryOrders([response.outbound, response.return].filter((o): o is DeliveryOrder => o !== null));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reservation.id, reservation.status, isLalamoveReservation, isActiveDeliveryStatus]);
+
   const firstItem = reservation.items?.[0];
   const title = firstItem?.Costume?.name || `Reservation #${reservation.id}`;
   const image =
@@ -287,11 +314,65 @@ export function ActiveReservationCard({
             </div>
           ) : null}
 
+          {deliveryOrders.length > 0 ? (
+            <div className="space-y-3 rounded-xl border border-border bg-background p-4">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Courier delivery</p>
+                <span className="inline-flex items-center rounded-sm border border-orange-400/40 bg-orange-50/60 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-widest text-orange-800 dark:bg-orange-950/20 dark:text-orange-300">
+                  Lalamove
+                </span>
+              </div>
+              {deliveryOrders.map((order) => (
+                <div key={order.id} className="space-y-1">
+                  {order.status ? (
+                    <p className="text-sm font-medium text-foreground capitalize">
+                      {order.leg === "OUTBOUND" ? "Outbound" : "Return"} · {order.status.replace(/_/g, " ").toLowerCase()}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {order.leg === "OUTBOUND" ? "Outbound delivery" : "Return delivery"}
+                    </p>
+                  )}
+                  {order.driver_name ? (
+                    <p className="text-xs text-muted-foreground">
+                      {order.driver_name}
+                      {order.driver_phone ? (
+                        <>
+                          {" · "}
+                          <a
+                            href={`tel:${order.driver_phone}`}
+                            className="font-medium text-foreground transition-colors hover:text-primary"
+                          >
+                            {order.driver_phone}
+                          </a>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Driver not yet assigned</p>
+                  )}
+                  {order.share_link ? (
+                    <a
+                      href={order.share_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), actionLabelClass, "mt-1")}
+                    >
+                      Track on Lalamove <ExternalLink className="ml-1 size-3" />
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {reservation.status === "DELIVERY_SCHEDULED" ? (
             <div className="space-y-3 rounded-xl border border-border bg-background p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Confirm receipt</p>
               <p className="text-sm text-muted-foreground">
-                Upload a photo showing the costume in your possession. Required before the rental period begins.
+                {isLalamoveReservation
+                  ? "Confirm that you received the costume from the Lalamove courier."
+                  : "Upload a photo showing the costume in your possession. Required before the rental period begins."}
               </p>
               <input
                 type="file"
@@ -314,7 +395,9 @@ export function ActiveReservationCard({
             <div className="space-y-3 rounded-xl border border-border bg-background p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Return costume</p>
               <p className="text-sm text-muted-foreground">
-                Upload a photo of the costume as you prepare to return it.
+                {isLalamoveReservation
+                  ? "Initiate the return — a Lalamove courier will be booked to pick up the costume."
+                  : "Upload a photo of the costume as you prepare to return it."}
               </p>
               <input
                 type="file"

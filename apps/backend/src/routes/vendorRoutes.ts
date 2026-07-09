@@ -40,6 +40,9 @@ router.post("/payments/review", ensureApprovedVendor, (req, res) => vendorContro
 router.post("/reservations/:id/approve", ensureApprovedVendor, (req, res) => vendorController.approveReservation(req, res));
 router.post("/reservations/:id/reject", ensureApprovedVendor, (req, res) => vendorController.rejectReservation(req, res));
 router.post("/reservations/:id/surcharge", ensureApprovedVendor, (req, res) => vendorController.requestReservationSurcharge(req, res));
+router.get("/reservations/:id/dispatch-quote", ensureApprovedVendor, (req, res) =>
+  vendorController.quoteDispatch(req, res)
+);
 router.post("/reservations/:id/dispatch", ensureApprovedVendor, upload.single("proof"), (req, res) =>
   vendorController.dispatchReservation(req, res)
 );

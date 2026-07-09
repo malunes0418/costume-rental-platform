@@ -20,6 +20,8 @@ export interface VendorFulfillmentSettingsRequest {
   return_pickup_fee?: number | string;
   return_delivery_fee?: number | string;
   service_areas?: ServiceAreaDefinition[] | ServiceAreaDefinition | null;
+  delivery_provider?: VendorFulfillmentSettingsAttributes["delivery_provider"];
+  lalamove_service_type?: string | null;
 }
 
 export type VendorFulfillmentSettingsResponse = VendorFulfillmentSettingsAttributes | null;
@@ -43,6 +45,9 @@ export interface UserSavedLocationRequest {
   area?: string | null;
   notes?: string | null;
   is_default?: boolean;
+  /** Client map-pin coordinates; when present these win over server geocoding. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export type UserSavedLocationResponse = UserSavedLocationAttributes;
@@ -100,6 +105,7 @@ export interface PreparedReservationFulfillment {
   return_window_end?: Date | null;
   outbound_fee: number;
   return_fee: number;
+  return_fee_is_estimate?: boolean;
   outside_service_area: boolean;
   vendor_approval_status: ReservationFulfillmentAttributes["vendor_approval_status"];
   vendor_approval_note?: string | null;
@@ -115,6 +121,8 @@ export interface EffectiveCostumeFulfillmentResponse {
   outbound_delivery_fee: number;
   return_pickup_fee: number;
   return_delivery_fee: number;
+  delivery_provider: VendorFulfillmentSettingsAttributes["delivery_provider"];
+  lalamove_service_type: string | null;
   costume_override: CostumeFulfillmentOverrideAttributes | null;
 }
 
