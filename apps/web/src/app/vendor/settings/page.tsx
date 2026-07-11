@@ -102,7 +102,7 @@ export default function VendorSettingsPage() {
   const needsPaymentDetails = profile?.blockingReasons.includes("PAYMENT_DETAILS_REQUIRED") ?? false;
   const activeCount = useMemo(() => methods.filter((method) => method.is_active !== false).length, [methods]);
   const inactiveCount = methods.length - activeCount;
-  const storeName = profile?.storeName?.trim() || "your atelier";
+  const storeName = profile?.profile?.business_name?.trim() || "your atelier";
 
   function openCreateDialog() {
     setEditing(null);
