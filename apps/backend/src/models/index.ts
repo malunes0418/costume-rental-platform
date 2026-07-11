@@ -22,9 +22,50 @@ import { ReservationFulfillment } from "./ReservationFulfillment";
 import { ReservationAdjustment } from "./ReservationAdjustment";
 import { VendorPaymentMethod } from "./VendorPaymentMethod";
 import { DeliveryOrder } from "./DeliveryOrder";
+import { AdminAuditLog } from "./AdminAuditLog";
+import { ContentReport } from "./ContentReport";
+import { Dispute } from "./Dispute";
+import { DisputeMessage } from "./DisputeMessage";
+import { VendorEarningEntry } from "./VendorEarningEntry";
+import { VendorPayout } from "./VendorPayout";
+import { PlatformSetting } from "./PlatformSetting";
 
 Reservation.hasMany(DeliveryOrder, { foreignKey: "reservation_id", as: "deliveryOrders" });
 DeliveryOrder.belongsTo(Reservation, { foreignKey: "reservation_id" });
+
+User.hasMany(AdminAuditLog, { foreignKey: "actor_id", as: "adminAuditLogs" });
+AdminAuditLog.belongsTo(User, { foreignKey: "actor_id", as: "actor" });
+
+User.hasMany(ContentReport, { foreignKey: "reporter_id", as: "contentReports" });
+ContentReport.belongsTo(User, { foreignKey: "reporter_id", as: "reporter" });
+User.hasMany(ContentReport, { foreignKey: "resolved_by", as: "resolvedContentReports" });
+ContentReport.belongsTo(User, { foreignKey: "resolved_by", as: "resolver" });
+
+Reservation.hasMany(Dispute, { foreignKey: "reservation_id", as: "disputes" });
+Dispute.belongsTo(Reservation, { foreignKey: "reservation_id", as: "reservation" });
+User.hasMany(Dispute, { foreignKey: "opened_by", as: "openedDisputes" });
+Dispute.belongsTo(User, { foreignKey: "opened_by", as: "opener" });
+User.hasMany(Dispute, { foreignKey: "against_user_id", as: "disputesAgainst" });
+Dispute.belongsTo(User, { foreignKey: "against_user_id", as: "againstUser" });
+Dispute.hasMany(DisputeMessage, { foreignKey: "dispute_id", as: "messages" });
+DisputeMessage.belongsTo(Dispute, { foreignKey: "dispute_id", as: "dispute" });
+User.hasMany(DisputeMessage, { foreignKey: "author_id", as: "disputeMessages" });
+DisputeMessage.belongsTo(User, { foreignKey: "author_id", as: "author" });
+
+User.hasMany(VendorEarningEntry, { foreignKey: "vendor_id", as: "earningEntries" });
+VendorEarningEntry.belongsTo(User, { foreignKey: "vendor_id", as: "vendor" });
+Reservation.hasMany(VendorEarningEntry, { foreignKey: "reservation_id", as: "earningEntries" });
+VendorEarningEntry.belongsTo(Reservation, { foreignKey: "reservation_id", as: "reservation" });
+VendorPayout.hasMany(VendorEarningEntry, { foreignKey: "payout_id", as: "entries" });
+VendorEarningEntry.belongsTo(VendorPayout, { foreignKey: "payout_id", as: "payout" });
+
+User.hasMany(VendorPayout, { foreignKey: "vendor_id", as: "payouts" });
+VendorPayout.belongsTo(User, { foreignKey: "vendor_id", as: "vendor" });
+User.hasMany(VendorPayout, { foreignKey: "created_by", as: "createdPayouts" });
+VendorPayout.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
+User.hasMany(PlatformSetting, { foreignKey: "updated_by", as: "updatedSettings" });
+PlatformSetting.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
 
 User.hasMany(OAuthAccount, { foreignKey: "user_id" });
 OAuthAccount.belongsTo(User, { foreignKey: "user_id" });
@@ -165,5 +206,12 @@ export const db = {
   ReservationFulfillment,
   ReservationAdjustment,
   VendorPaymentMethod,
-  DeliveryOrder
+  DeliveryOrder,
+  AdminAuditLog,
+  ContentReport,
+  Dispute,
+  DisputeMessage,
+  VendorEarningEntry,
+  VendorPayout,
+  PlatformSetting
 };

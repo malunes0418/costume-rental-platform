@@ -214,22 +214,42 @@ export function CostumeCard({
 export function CostumeCardSkeleton({ variant = "grid" }: { variant?: "grid" | "list" }) {
   if (variant === "list") {
     return (
-      <div className="panel-card flex overflow-hidden">
-        <Skeleton className="w-32 shrink-0 sm:w-40" />
-        <div className="flex flex-1 flex-col gap-3 p-4">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
+      <div className="panel-card flex overflow-hidden" aria-hidden="true">
+        <div className="costume-loading-shimmer w-32 shrink-0 self-stretch min-h-28 sm:w-40" />
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <Skeleton className="mb-1 h-4 w-20 rounded-md" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="mt-1 h-3 w-1/2" />
+            <div className="mt-2 flex items-baseline gap-1">
+              <Skeleton className="h-6 w-14" />
+              <Skeleton className="h-2.5 w-14" />
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
+            <Skeleton className="size-10 rounded-sm" />
+            <Skeleton className="size-10 rounded-full" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <Skeleton className="aspect-[3/4] w-full rounded-xl" />
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-3 w-1/2" />
-    </div>
+    <article className="flex flex-col" aria-hidden="true">
+      <div className="costume-card-frame relative aspect-[3/4] w-full overflow-hidden bg-muted">
+        <div className="costume-loading-shimmer absolute inset-0" />
+        <Skeleton className="absolute left-3 top-3 h-[18px] w-[4.5rem] rounded-md bg-secondary" />
+        <Skeleton className="absolute right-3 top-3 size-9 rounded-sm bg-secondary" />
+      </div>
+      <div className="mt-3 space-y-1">
+        <Skeleton className="h-5 w-[90%]" />
+        <Skeleton className="h-[11px] w-[70%]" />
+        <div className="costume-card-price flex items-baseline gap-1">
+          <Skeleton className="h-[1.375rem] w-14" />
+          <Skeleton className="h-2.5 w-14" />
+        </div>
+      </div>
+    </article>
   );
 }

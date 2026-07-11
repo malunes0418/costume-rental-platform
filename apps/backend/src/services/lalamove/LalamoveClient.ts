@@ -118,16 +118,59 @@ export class LalamoveClient {
 
   private buildAuthorizationHeader(method: string, path: string, body: string): {
     Authorization: string;
-    "X-LLM-Country": string;
-    "X-Request-ID": string;
+    Market: string;
+    "Request-ID": string;
   } {
     const timestamp = Date.now().toString();
     const signature = this.buildSignature(method, path, body, timestamp);
     return {
       Authorization: `hmac ${this.apiKey}:${timestamp}:${signature}`,
-      "X-LLM-Country": this.market,
-      "X-Request-ID": `${timestamp}-${Math.random().toString(36).slice(2)}`
+      // Lalamove v3 requires `Market` (UN/LOCODE). Older docs used X-LLM-Country.
+      Market: this.market,
+      "Request-ID": `${timestamp}-${Math.random().toString(36).slice(2)}`
     };
+  }
+
+  /** Extract a human-readable Lalamove error code from varied error body shapes. */
+  static extractErrorCode(json: Record<string, unknown> | null, fallbackText?: string): string {
+    if (!json) {
+      return fallbackText?.trim().slice(0, 200) || "UNKNOWN";
+    }
+
+    if (typeof json.message === "string" && json.message.trim()) {
+      return json.message;
+    }
+    if (typeof json.code === "string" && json.code.trim()) {
+      return json.code;
+    }
+
+    const errors = json.errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      const first = errors[0] as Record<string, unknown>;
+      const id = typeof first?.id === "string" ? first.id : null;
+      const detail = typeof first?.detail === "string" ? first.detail : null;
+      const message = typeof first?.message === "string" ? first.message : null;
+      return [id, detail || message].filter(Boolean).join(": ") || "UNKNOWN";
+    }
+
+    if (errors && typeof errors === "object") {
+      const err = errors as Record<string, unknown>;
+      const id = typeof err.id === "string" ? err.id : null;
+      const detail = typeof err.detail === "string" ? err.detail : null;
+      const message = typeof err.message === "string" ? err.message : null;
+      return [id, detail || message].filter(Boolean).join(": ") || "UNKNOWN";
+    }
+
+    return "UNKNOWN";
+  }
+
+  /** Lalamove wraps successful payloads as `{ data: T }`. */
+  private unwrapData<T>(json: Record<string, unknown> | null): T {
+    if (!json) return {} as T;
+    if ("data" in json && json.data !== undefined && json.data !== null) {
+      return json.data as T;
+    }
+    return json as T;
   }
 
   // ── HTTP helpers ───────────────────────────────────────────────────────
@@ -159,11 +202,11 @@ export class LalamoveClient {
     }
 
     if (!response.ok) {
-      const code = (json?.message as string) ?? (json?.code as string) ?? "UNKNOWN";
+      const code = LalamoveClient.extractErrorCode(json, text);
       throw new LalamoveApiError(response.status, code, `Lalamove API error ${response.status}: ${code}`);
     }
 
-    return (json ?? {}) as T;
+    return this.unwrapData<T>(json);
   }
 
   // ── Public API ─────────────────────────────────────────────────────────

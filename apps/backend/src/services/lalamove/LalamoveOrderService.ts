@@ -119,21 +119,35 @@ export class LalamoveOrderService {
     const client = this.client();
     const quotation = await client.createQuotation(quotePayload);
 
-    const senderStop = quotation.stops[0] as { stopId?: string };
-    const recipientStop = quotation.stops[1] as { stopId?: string };
+    const senderStop = quotation.stops?.[0] as { stopId?: string } | undefined;
+    const recipientStop = quotation.stops?.[1] as { stopId?: string } | undefined;
+    const senderStopId = senderStop?.stopId;
+    const recipientStopId = recipientStop?.stopId;
+
+    if (!quotation.quotationId || !senderStopId || !recipientStopId) {
+      throw new Error(
+        `Lalamove ${leg} quotation response was missing quotationId/stopId — check Market header and response unwrapping`
+      );
+    }
+
+    const senderPhone = from.phone_number?.trim() ?? "";
+    const recipientPhone = to.phone_number?.trim() ?? "";
+    if (!senderPhone || !recipientPhone) {
+      throw new Error(`Cannot book Lalamove ${leg}: sender and recipient phone numbers are required (E.164, e.g. +63917…)`);
+    }
 
     const order = await client.placeOrder({
       quotationId: quotation.quotationId,
       sender: {
-        stopId: senderStop.stopId ?? "",
-        name: from.contact_name ?? "",
-        phone: from.phone_number ?? ""
+        stopId: senderStopId,
+        name: from.contact_name?.trim() || "Sender",
+        phone: senderPhone
       },
       recipients: [
         {
-          stopId: recipientStop.stopId ?? "",
-          name: to.contact_name ?? "",
-          phone: to.phone_number ?? "",
+          stopId: recipientStopId,
+          name: to.contact_name?.trim() || "Recipient",
+          phone: recipientPhone,
           remarks: to.notes ?? undefined
         }
       ],

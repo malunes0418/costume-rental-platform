@@ -4,16 +4,20 @@ export const sortOptions = [
   { value: "price_desc", label: "Price: High → Low" },
 ] as const;
 
+/**
+ * Values must match costume.category strings stored in the API/DB.
+ * TODO: make filtering robust — shared taxonomy or API-driven facets
+ * so hardcoded labels can’t drift from stored categories again.
+ */
 export const categoryFilters = [
   { value: "", label: "All" },
-  { value: "superhero", label: "Superhero" },
-  { value: "halloween", label: "Halloween" },
-  { value: "historical", label: "Historical" },
-  { value: "fantasy", label: "Fantasy" },
-  { value: "anime", label: "Anime" },
-  { value: "theatrical", label: "Theatrical" },
-  { value: "vintage", label: "Vintage" },
-  { value: "sci_fi", label: "Sci-Fi" },
+  { value: "Superheroes", label: "Superheroes" },
+  { value: "Horror & Halloween", label: "Halloween" },
+  { value: "Historical & Fantasy", label: "Historical" },
+  { value: "Anime & Gaming", label: "Anime" },
+  { value: "Movies & TV", label: "Movies & TV" },
+  { value: "Theatrical", label: "Theatrical" },
+  { value: "Sci-Fi", label: "Sci-Fi" },
 ];
 
 export function categoryLabel(value: string) {

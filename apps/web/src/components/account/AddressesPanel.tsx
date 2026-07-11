@@ -23,7 +23,6 @@ import {
   updateSavedLocation,
 } from "@/lib/account";
 import { formatLocationSummary, type SavedLocation, type SavedLocationInput } from "@/lib/fulfillment";
-import { cn } from "@/lib/utils";
 
 function emptyLocationDraft(): SavedLocationInput {
   return {
@@ -48,10 +47,27 @@ function emptyLocationDraft(): SavedLocationInput {
 
 function AddressesLoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-32 w-full rounded-xl" />
-      <Skeleton className="h-32 w-full rounded-xl" />
-    </div>
+    <ul className="space-y-4" aria-hidden="true">
+      {Array.from({ length: 2 }, (_, index) => (
+        <li key={index} className="panel-card p-0">
+          <article className="flex gap-4 p-5 md:p-6">
+            <Skeleton className="mt-0.5 size-9 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-6 w-32 rounded-md" />
+                {index === 0 ? <Skeleton className="h-5 w-16 rounded-full" /> : null}
+              </div>
+              <Skeleton className="h-4 w-full max-w-md rounded-md" />
+              <Skeleton className="h-3 w-48 rounded-md" />
+            </div>
+            <div className="flex shrink-0 flex-col gap-1">
+              <Skeleton className="size-8 rounded-md" />
+              <Skeleton className="size-8 rounded-md" />
+            </div>
+          </article>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -206,13 +222,15 @@ export function AddressesPanel() {
       </header>
 
       {isLoading ? (
-        <AddressesLoadingSkeleton />
+        <div role="status" aria-live="polite" aria-busy="true" aria-label="Loading addresses">
+          <AddressesLoadingSkeleton />
+        </div>
       ) : savedLocations.length > 0 ? (
         <ul className="space-y-4">
-          {savedLocations.map((location, index) => (
+          {savedLocations.map((location) => (
             <li
               key={location.id}
-              className={cn("panel-card p-0", index === 0 && "animate-fade-up-delay-1")}
+              className="panel-card p-0"
             >
               <article className="flex gap-4 p-5 md:p-6">
                 <div className="detail-chip-icon detail-chip-icon--coral mt-0.5">

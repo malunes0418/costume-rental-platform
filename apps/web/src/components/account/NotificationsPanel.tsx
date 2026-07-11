@@ -86,10 +86,37 @@ function preferencesEqual(a: NotificationPreferences, b: NotificationPreferences
 
 function NotificationsLoadingSkeleton() {
   return (
-    <div className="space-y-3">
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <Skeleton className="h-24 w-full rounded-xl" />
+    <div className="panel-card overflow-hidden" aria-hidden="true">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-5 md:px-8">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-3.5 rounded-sm" />
+          <Skeleton className="h-3 w-12 rounded-md" />
+          <Skeleton className="size-1 rounded-full" />
+          <Skeleton className="size-3.5 rounded-sm" />
+          <Skeleton className="h-3 w-10 rounded-md" />
+        </div>
+        <Skeleton className="h-7 w-28 rounded-full" />
+      </div>
+
+      <ul className="divide-y divide-border">
+        {CATEGORIES.map(({ prefix }) => (
+          <li key={prefix} className="px-6 py-5 md:px-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 gap-4">
+                <Skeleton className="mt-0.5 size-9 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-28 rounded-md" />
+                  <Skeleton className="h-3 w-full max-w-xs rounded-md" />
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Skeleton className="h-7 w-20 rounded-full" />
+                <Skeleton className="h-7 w-16 rounded-full" />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -203,11 +230,31 @@ export function NotificationsPanel() {
 
   if (isLoading || !preferences) {
     return (
-      <div className="mx-auto max-w-2xl animate-fade-up">
-        <header className="mb-8">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="mt-4 h-8 w-48" />
-          <Skeleton className="mt-3 h-12 w-full max-w-md" />
+      <div
+        className="mx-auto max-w-2xl animate-fade-up"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading notification preferences"
+      >
+        <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkle size="sm" animated={false} className="opacity-75" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
+                Backstage alerts
+              </p>
+            </div>
+            <h2 className="section-heading mt-3">Notifications</h2>
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+              Choose how SnapCos reaches you — email for the record, push for the moment. Reservation
+              and payment alerts keep your rentals on track.
+            </p>
+          </div>
+          <div className="shrink-0" aria-hidden="true">
+            <Skeleton className="h-8 w-12 rounded-md" />
+            <Skeleton className="mt-1.5 h-3 w-20 rounded-md" />
+          </div>
         </header>
         <NotificationsLoadingSkeleton />
       </div>
@@ -271,17 +318,14 @@ export function NotificationsPanel() {
         </div>
 
         <ul className="divide-y divide-border">
-          {CATEGORIES.map(({ prefix, label, description, Icon, accent }, index) => {
+          {CATEGORIES.map(({ prefix, label, description, Icon, accent }) => {
             const emailKey = `${prefix}_email` as keyof NotificationPreferences;
             const pushKey = `${prefix}_push` as keyof NotificationPreferences;
             const emailOn = Boolean(preferences[emailKey]);
             const pushOn = Boolean(preferences[pushKey]);
 
             return (
-              <li
-                key={prefix}
-                className={cn("px-6 py-5 md:px-8", index === 0 && "animate-fade-up-delay-1")}
-              >
+              <li key={prefix} className="px-6 py-5 md:px-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 gap-4">
                     <div

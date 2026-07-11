@@ -2,25 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import {
-  adminListUsers,
-  adminListReservations,
-  adminListPendingVendors,
-  type AdminUser,
-  type AdminReservation,
-  type PendingVendor,
-} from "@/lib/admin";
+import { adminGetOverview, type AdminOverviewResponse } from "@/lib/admin";
 import { getReservationStatusMeta, isReservationStatus } from "@/lib/reservationStatus";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminPageHeader, AdminKpiStrip, AdminQueueBanner } from "@/components/admin";
 import {
   PersonIcon,
   CalendarIcon,
   CardStackIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
+  ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
-
-// ── helpers ────────────────────────────────────────────────────────────────────
 
 function fmt(d?: string) {
   if (!d) return "—";
@@ -31,19 +22,17 @@ function currency(n: number | string) {
   return `₱${Number(n).toLocaleString()}`;
 }
 
-// ── components ─────────────────────────────────────────────────────────────────
-
 function StatusChip({ status }: { status: string }) {
   const s = status?.toUpperCase();
   const cls = isReservationStatus(s)
     ? getReservationStatusMeta(s).className
     : s === "APPROVED" || s === "ACTIVE" || s === "COMPLETED"
-    ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-    : s === "PENDING"
-    ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-    : s === "REJECTED" || s === "CANCELLED"
-    ? "border-destructive/20 bg-destructive/5 text-destructive"
-    : "border-border bg-muted/50 text-muted-foreground";
+      ? "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+      : s === "PENDING"
+        ? "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+        : s === "REJECTED" || s === "CANCELLED"
+          ? "border-destructive/20 bg-destructive/5 text-destructive"
+          : "border-border bg-muted/50 text-muted-foreground";
 
   return (
     <span className={`rounded-xl border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest ${cls}`}>
@@ -52,56 +41,13 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-function KpiCard({
-  label, value, icon: Icon, sub, trend,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  sub?: string;
-  trend?: { dir: "up" | "down"; text: string };
-}) {
-  return (
-    <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
-          {label}
-        </p>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border">
-          <Icon className="size-3.5 text-muted-foreground" />
-        </div>
-      </div>
-      <p className="font-display text-4xl font-semibold tracking-tight text-foreground leading-none">
-        {value}
-      </p>
-      {(sub || trend) && (
-        <div className="flex items-center gap-2 mt-auto">
-          {trend && (
-            <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${
-              trend.dir === "up" ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-            }`}>
-              {trend.dir === "up"
-                ? <ArrowUpIcon className="size-2.5" />
-                : <ArrowDownIcon className="size-2.5" />}
-              {trend.text}
-            </span>
-          )}
-          {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── mini bar chart (pure CSS) ──────────────────────────────────────────────────
-
 function MiniBarChart({ data, label }: { data: number[]; label: string }) {
   const max = Math.max(...data, 1);
   const days = ["M", "T", "W", "T", "F", "S", "S"];
   return (
     <div>
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
-      <div className="flex items-end gap-1 h-16">
+      <div className="flex h-16 items-end gap-1">
         {data.map((v, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1">
             <div
@@ -116,181 +62,129 @@ function MiniBarChart({ data, label }: { data: number[]; label: string }) {
   );
 }
 
-// ── page ───────────────────────────────────────────────────────────────────────
-
 export default function AdminOverviewPage() {
   const { user } = useAuth();
-
-  const [users, setUsers]                   = useState<AdminUser[]>([]);
-  const [reservations, setReservations]     = useState<AdminReservation[]>([]);
-  const [pendingVendors, setPendingVendors] = useState<PendingVendor[]>([]);
-  const [loading, setLoading]               = useState(true);
+  const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user || user.role !== "ADMIN") return;
-    Promise.allSettled([
-      adminListUsers(),
-      adminListReservations(),
-      adminListPendingVendors(),
-    ]).then(([u, r, v]) => {
-      const safe = <T,>(res: PromiseSettledResult<T>, fallback: T): T =>
-        res.status === "fulfilled" ? res.value : fallback;
-
-      const arr = <T,>(val: T) =>
-        Array.isArray(val) ? val : ((val as any)?.data ?? []);
-
-      setUsers(arr(safe(u, [])));
-      setReservations(arr(safe(r, [])));
-      setPendingVendors(arr(safe(v, [])));
-    }).finally(() => setLoading(false));
+    adminGetOverview()
+      .then(setOverview)
+      .catch(() => setOverview(null))
+      .finally(() => setLoading(false));
   }, [user]);
-
-  // ── derived analytics ──────────────────────────────────────────────────────
-
-  const pendingCount    = pendingVendors.length;
-  const activeReservations = reservations.filter((reservation) =>
-    !["CART", "CANCELLED", "COMPLETED", "REJECTED_BY_VENDOR"].includes(reservation.status)
-  ).length;
-
-  // Reservations per day of week (last 7 buckets)
-  const byDay = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    return reservations.filter((r) => r.created_at?.slice(0, 10) === key).length;
-  });
-
-  // Quoted reservation totals per day (last 7)
-  const quotedByDay = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    return reservations
-      .filter((reservation) => reservation.created_at?.slice(0, 10) === key)
-      .reduce((sum, reservation) => sum + Number(reservation.total_price), 0);
-  });
-
-  // Status breakdown
-  const statusGroups = reservations.reduce<Record<string, number>>((acc, r) => {
-    acc[r.status] = (acc[r.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const recentActivity = [
-    ...reservations.slice(-8).map((r) => ({
-      id: `res-${r.id}`,
-      label: `Reservation #${r.id}`,
-      sub: `${fmt(r.start_date)} → ${fmt(r.end_date)}`,
-      amount: currency(r.total_price),
-      status: r.status,
-      date: r.created_at,
-    })),
-  ]
-    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
-    .slice(0, 8);
-
-  // ── skeleton ───────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="p-8 space-y-8">
+      <div className="space-y-8 p-8">
         <div className="space-y-2">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-9 w-48" />
         </div>
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 rounded-xl" />
+          ))}
         </div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <Skeleton className="h-48 col-span-2 rounded-xl" />
+          <Skeleton className="col-span-2 h-48 rounded-xl" />
           <Skeleton className="h-48 rounded-xl" />
         </div>
       </div>
     );
   }
 
-  // ── render ─────────────────────────────────────────────────────────────────
+  if (!overview) {
+    return (
+      <div className="p-6 md:p-10">
+        <AdminPageHeader title="Overview" description="Unable to load platform overview." />
+      </div>
+    );
+  }
+
+  const { queues, kpis, series, statusBreakdown, recentActivity } = overview;
+  const actionCount =
+    queues.pendingVendors +
+    queues.flaggedCostumes +
+    (queues.openReports || 0) +
+    (queues.openDisputes || 0) +
+    (queues.pendingPayouts || 0);
 
   return (
-    <div className="p-6 md:p-10 space-y-10">
+    <div className="space-y-10 p-6 md:p-10">
+      <AdminPageHeader eyebrow="Platform overview" title="Overview" />
 
-      {/* Header */}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Platform overview
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-          Overview
-        </h1>
-      </div>
+      <AdminKpiStrip
+        items={[
+          {
+            key: "active",
+            label: "Active bookings",
+            value: kpis.activeReservations,
+            icon: CalendarIcon,
+            sub: "in progress",
+          },
+          {
+            key: "reservations",
+            label: "Reservations",
+            value: kpis.totalReservations,
+            icon: CalendarIcon,
+            sub: "all time",
+          },
+          {
+            key: "users",
+            label: "Users",
+            value: kpis.totalUsers,
+            icon: PersonIcon,
+            sub: "registered accounts",
+          },
+          {
+            key: "action",
+            label: "Action required",
+            value: actionCount,
+            icon: CardStackIcon,
+            sub: `${queues.pendingVendors} vendors · ${queues.flaggedCostumes + (queues.openReports || 0)} mod · ${queues.openDisputes || 0} disputes`,
+            trend: actionCount > 0 ? { dir: "up", text: "needs review" } : undefined,
+          },
+        ]}
+      />
 
-      {/* ── KPI row ── */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiCard
-          label="Active bookings"
-          value={activeReservations}
-          icon={CalendarIcon}
-          sub="in progress"
-        />
-        <KpiCard
-          label="Reservations"
-          value={reservations.length}
-          icon={CalendarIcon}
-          sub="all time"
-        />
-        <KpiCard
-          label="Users"
-          value={users.length}
-          icon={PersonIcon}
-          sub="registered accounts"
-        />
-        <KpiCard
-          label="Action required"
-          value={pendingCount}
-          icon={CardStackIcon}
-          sub={`${pendingCount} vendor applications`}
-          trend={pendingCount > 0 ? { dir: "up", text: "needs review" } : undefined}
-        />
-      </div>
-
-      {/* ── Charts row ── */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-
-        {/* Reservations trend */}
-        <div className="xl:col-span-2 rounded-xl border border-border bg-card p-6 space-y-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">7-day activity</p>
-              <p className="mt-1 font-display text-2xl font-semibold text-foreground">Reservations vs Quoted Value</p>
-            </div>
+        <div className="space-y-6 rounded-xl border border-border bg-card p-6 xl:col-span-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              7-day activity
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold text-foreground">
+              Reservations vs Quoted Value
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-6">
-            <MiniBarChart data={byDay} label="Reservations" />
-            <MiniBarChart data={quotedByDay} label="Quoted value (PHP)" />
+            <MiniBarChart data={series.reservationsLast7Days} label="Reservations" />
+            <MiniBarChart data={series.quotedValueLast7Days} label="Quoted value (PHP)" />
           </div>
         </div>
 
-        {/* Status breakdown */}
         <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Reservation status
           </p>
-          <p className="mt-1 font-display text-2xl font-semibold text-foreground mb-6">
-            Breakdown
-          </p>
-          {Object.keys(statusGroups).length === 0 ? (
+          <p className="mb-6 mt-1 font-display text-2xl font-semibold text-foreground">Breakdown</p>
+          {Object.keys(statusBreakdown).length === 0 ? (
             <p className="text-sm text-muted-foreground">No data.</p>
           ) : (
             <div className="space-y-3">
-              {Object.entries(statusGroups).map(([status, count]) => {
-                const pct = Math.round((count / reservations.length) * 100);
+              {Object.entries(statusBreakdown).map(([status, count]) => {
+                const pct = Math.round((count / Math.max(kpis.totalReservations, 1)) * 100);
                 return (
                   <div key={status}>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 flex items-center justify-between">
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         {status}
                       </span>
                       <span className="text-xs font-semibold text-foreground">{pct}%</span>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-primary transition-all duration-500"
                         style={{ width: `${pct}%` }}
@@ -304,58 +198,80 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      {/* ── Recent activity ── */}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-6 py-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Recent activity
           </p>
-          <p className="mt-0.5 font-display text-xl font-semibold text-foreground">
-            Latest transactions
-          </p>
+          <p className="mt-0.5 font-display text-xl font-semibold text-foreground">Latest transactions</p>
         </div>
         <div className="divide-y divide-border">
           {recentActivity.length === 0 && (
-            <p className="px-6 py-10 text-sm text-muted-foreground text-center">No activity yet.</p>
+            <p className="px-6 py-10 text-center text-sm text-muted-foreground">No activity yet.</p>
           )}
           {recentActivity.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-4 px-6 py-4">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{item.label}</p>
+                <p className="truncate text-sm font-semibold text-foreground">{item.label}</p>
                 <p className="text-[11px] text-muted-foreground">{item.sub}</p>
               </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <span className="font-display text-sm font-semibold text-foreground">{item.amount}</span>
+              <div className="flex shrink-0 items-center gap-4">
+                <span className="font-display text-sm font-semibold text-foreground">
+                  {currency(item.amount)}
+                </span>
                 <StatusChip status={item.status} />
-                <span className="text-[10px] text-muted-foreground hidden sm:block">{fmt(item.date)}</span>
+                <span className="hidden text-[10px] text-muted-foreground sm:block">{fmt(item.date)}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Pending alerts ── */}
-      {pendingCount > 0 && (
-        <div className="rounded-xl border border-amber-400/30 bg-amber-50/50 dark:bg-amber-900/10 p-6">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
-            Action required
-          </p>
-          <p className="mt-1 font-display text-xl font-semibold text-foreground">
-            {pendingCount} item{pendingCount !== 1 ? "s" : ""} need your attention
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {pendingCount > 0 && (
-              <a
-                href="/admin/vendors"
-                className="inline-flex h-9 items-center rounded-xl border border-foreground bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Review {pendingCount} vendor{pendingCount !== 1 ? "s" : ""}
-              </a>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="space-y-4">
+        {queues.pendingVendors > 0 && (
+          <AdminQueueBanner
+            count={queues.pendingVendors}
+            title={`${queues.pendingVendors} vendor application${queues.pendingVendors !== 1 ? "s" : ""} need review`}
+            href="/admin/vendors"
+            ctaLabel={`Review ${queues.pendingVendors} vendor${queues.pendingVendors !== 1 ? "s" : ""}`}
+          />
+        )}
 
+        {(queues.flaggedCostumes > 0 || (queues.openReports || 0) > 0) && (
+          <AdminQueueBanner
+            count={queues.flaggedCostumes + (queues.openReports || 0)}
+            title={`${queues.flaggedCostumes} flagged · ${queues.openReports || 0} open report${(queues.openReports || 0) !== 1 ? "s" : ""}`}
+            description="Review moderation queues for listings and content reports."
+            href="/admin/moderation"
+            ctaLabel="Open moderation"
+          >
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+              <ExclamationTriangleIcon className="size-3" />
+              {queues.flaggedCostumes + (queues.openReports || 0)} items
+            </span>
+          </AdminQueueBanner>
+        )}
+
+        {(queues.openDisputes || 0) > 0 && (
+          <AdminQueueBanner
+            count={queues.openDisputes}
+            title={`${queues.openDisputes} open dispute${queues.openDisputes !== 1 ? "s" : ""}`}
+            description="Support cases awaiting review or resolution."
+            href="/admin/disputes"
+            ctaLabel="Open disputes"
+          />
+        )}
+
+        {(queues.pendingPayouts || 0) > 0 && (
+          <AdminQueueBanner
+            count={queues.pendingPayouts}
+            title={`${queues.pendingPayouts} pending payout${queues.pendingPayouts !== 1 ? "s" : ""}`}
+            description="Mark settlements paid or failed after manual transfer."
+            href="/admin/payouts"
+            ctaLabel="Open payouts"
+          />
+        )}
+      </div>
     </div>
   );
 }

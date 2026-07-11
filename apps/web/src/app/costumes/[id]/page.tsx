@@ -379,7 +379,7 @@ export default function CostumeDetailPage() {
   const pricingNote =
     data.costume.pricing_mode === "PACKAGE"
       ? `Includes ${data.costume.package_included_days} day${data.costume.package_included_days === 1 ? "" : "s"}. ${packagePricingNote}`
-      : "Delivery and return pickup included. Choose dates and your address to see your full quote.";
+      : "Delivery and return included. Choose dates and your address to see your full quote.";
 
   const pricingDescription =
     data.costume.pricing_mode === "PACKAGE"

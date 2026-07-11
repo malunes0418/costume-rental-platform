@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   CalendarIcon,
@@ -54,6 +54,20 @@ import {
 import type { DeliveryOrder, LalamoveDispatchQuote } from "@/lib/fulfillment";
 
 const OPERATION_TIMELINE: ReservationStatus[] = [...FULFILLMENT_OPERATION_STATUSES];
+
+const NEEDS_ATTENTION_STATUSES = new Set<ReservationStatus>([
+  "PENDING_PAYMENT",
+  "PENDING_VENDOR_REVIEW",
+  "AWAITING_SURCHARGE_PAYMENT"
+]);
+
+const IN_MOTION_STATUSES = new Set<ReservationStatus>([
+  "CONFIRMED",
+  "DELIVERY_SCHEDULED",
+  "WITH_RENTER",
+  "RETURN_PENDING",
+  "RETURNED"
+]);
 
 function formatDate(date?: string, pattern = "MMM d, yyyy") {
   if (!date) return "-";
@@ -414,14 +428,42 @@ export default function VendorReservationsPage() {
   const selectedOutsideServiceArea = Boolean(selectedReservation?.fulfillment?.outside_service_area);
   const canVerifySelectedPayment = Boolean(selectedPayment?.proof_url && selectedPayment.status === "PENDING");
 
+  const boardCounts = useMemo(() => {
+    let needsAttention = 0;
+    let inMotion = 0;
+    let completed = 0;
+
+    for (const reservation of reservations) {
+      if (NEEDS_ATTENTION_STATUSES.has(reservation.status)) {
+        needsAttention += 1;
+      } else if (IN_MOTION_STATUSES.has(reservation.status)) {
+        inMotion += 1;
+      } else if (reservation.status === "COMPLETED") {
+        completed += 1;
+      }
+    }
+
+    return {
+      total: reservations.length,
+      needsAttention,
+      inMotion,
+      completed
+    };
+  }, [reservations]);
+
+  const selectedCostumeName =
+    selectedReservation?.items?.[0]?.Costume?.name ||
+    (selectedReservation ? `Reservation #${selectedReservation.id}` : "");
+
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-10">
-        <div className="mb-10 space-y-4">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-10 w-64" />
+      <div className="mx-auto max-w-[1200px] px-6 py-12">
+        <div className="mb-8 space-y-3">
+          <Skeleton className="h-3 w-28 rounded-full" />
+          <Skeleton className="h-10 w-56 rounded-xl" />
+          <Skeleton className="h-4 w-full max-w-md rounded-full" />
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
             <Skeleton key={index} className="h-20 w-full rounded-xl" />
           ))}
@@ -431,45 +473,152 @@ export default function VendorReservationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 pb-32 pt-10">
-      <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-2">
-          <p className="animate-fade-up text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-12">
+      <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-xl space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Orders
           </p>
-          <h1 className="animate-fade-up-delay-1 font-display text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             Reservations
           </h1>
-          <p className="animate-fade-up-delay-2 max-w-2xl text-sm text-muted-foreground">
-            Review submitted fulfillment details exactly as the renter chose them, request any outside-area surcharge when necessary, and guide every approved booking through the handoff lifecycle.
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+            Verify receipts, approve delivery plans, and move each rental from confirmation through return.
           </p>
         </div>
-      </div>
+
+        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm" aria-label="Reservation counts">
+          <div className="flex items-baseline gap-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Total</dt>
+            <dd className="font-display text-xl font-semibold tabular-nums text-foreground">
+              {boardCounts.total}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Needs you</dt>
+            <dd
+              className={cn(
+                "font-display text-xl font-semibold tabular-nums",
+                boardCounts.needsAttention > 0
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-foreground"
+              )}
+            >
+              {boardCounts.needsAttention}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">In motion</dt>
+            <dd className="font-display text-xl font-semibold tabular-nums text-foreground">
+              {boardCounts.inMotion}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Closed</dt>
+            <dd className="font-display text-xl font-semibold tabular-nums text-foreground">
+              {boardCounts.completed}
+            </dd>
+          </div>
+        </dl>
+      </header>
 
       {reservations.length === 0 ? (
-        <div className="flex flex-col items-center gap-8 rounded-xl border border-border bg-card px-12 py-24 text-center">
-          <div className="text-muted-foreground/20">
-            <CalendarIcon className="size-12" />
-          </div>
-          <div className="space-y-2">
-            <p className="font-display text-3xl font-semibold text-foreground">No reservations yet.</p>
-            <p className="text-muted-foreground">When users rent your costumes, they will appear here.</p>
-          </div>
+        <div className="rounded-xl border border-dashed border-border bg-card px-8 py-14 text-center">
+          <CalendarIcon className="mx-auto size-10 text-muted-foreground/30" />
+          <p className="mt-5 font-display text-2xl font-semibold text-foreground md:text-3xl">
+            No reservations yet
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+            When renters book your costumes, they appear here for payment review, approval, and delivery.
+          </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <table className="hidden w-full text-left text-sm md:table">
-            <thead className="border-b border-border bg-muted/50 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              <tr>
-                <th className="p-4 font-medium">Reservation</th>
-                <th className="p-4 font-medium">Renter</th>
-                <th className="p-4 font-medium">Dates</th>
-                <th className="p-4 font-medium">Quoted</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+        <section>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                All bookings
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-semibold text-foreground">
+                Reservation list
+              </h2>
+            </div>
+            {boardCounts.needsAttention > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {boardCounts.needsAttention} booking{boardCounts.needsAttention === 1 ? "" : "s"} need a decision
+              </p>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <table className="hidden w-full text-left text-sm md:table">
+              <thead className="border-b border-border bg-muted/40 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="p-4 font-medium">Reservation</th>
+                  <th className="p-4 font-medium">Renter</th>
+                  <th className="p-4 font-medium">Dates</th>
+                  <th className="p-4 font-medium">Quoted</th>
+                  <th className="p-4 font-medium">Status</th>
+                  <th className="p-4 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {reservations.map((reservation) => {
+                  const firstItem = reservation.items?.[0];
+                  const vendorStatus = getVendorDecisionMeta(reservation);
+                  const paymentStatus = getReceiptStatusMeta(reservation);
+                  const paidSurcharge = getPaidAdjustmentTotal(reservation);
+                  const needsYou = NEEDS_ATTENTION_STATUSES.has(reservation.status);
+
+                  return (
+                    <tr key={reservation.id} className="reservations-row">
+                      <td className="p-4">
+                        <p className="font-display text-base font-semibold text-foreground">
+                          {firstItem?.Costume?.name || `Reservation #${reservation.id}`}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          #{reservation.id} · {reservation.items?.length || 0} item
+                          {(reservation.items?.length || 0) === 1 ? "" : "s"}
+                          {needsYou ? " · Needs review" : ""}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="font-medium text-foreground">
+                          {reservation.User?.name || `User #${reservation.user_id}`}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {reservation.User?.email || "No email available"}
+                        </p>
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {formatDate(reservation.start_date, "MMM d")} - {formatDate(reservation.end_date)}
+                      </td>
+                      <td className="p-4 font-semibold text-primary">
+                        {formatMoney(Number(reservation.total_price) + paidSurcharge)}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-col gap-1.5">
+                          {statusPill(vendorStatus.label, vendorStatus.className)}
+                          {statusPill(paymentStatus.label, paymentStatus.className)}
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReservation(reservation)}
+                          className="hover-snap inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90"
+                        >
+                          <MagnifyingGlassIcon className="size-3.5" />
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div className="space-y-3 p-3 md:hidden">
               {reservations.map((reservation) => {
                 const firstItem = reservation.items?.[0];
                 const vendorStatus = getVendorDecisionMeta(reservation);
@@ -477,114 +626,79 @@ export default function VendorReservationsPage() {
                 const paidSurcharge = getPaidAdjustmentTotal(reservation);
 
                 return (
-                  <tr key={reservation.id} className="transition-colors hover:bg-muted/30">
-                    <td className="p-4">
-                      <p className="font-display text-base font-semibold text-foreground">
-                        {firstItem?.Costume?.name || `Reservation #${reservation.id}`}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        #{reservation.id} · {reservation.items?.length || 0} item
-                        {(reservation.items?.length || 0) === 1 ? "" : "s"}
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-medium text-foreground">
-                        {reservation.User?.name || `User #${reservation.user_id}`}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {reservation.User?.email || "No email available"}
-                      </p>
-                    </td>
-                    <td className="p-4 text-xs text-muted-foreground">
-                      {formatDate(reservation.start_date, "MMM d")} - {formatDate(reservation.end_date)}
-                    </td>
-                    <td className="p-4 font-semibold text-foreground">
-                      {formatMoney(Number(reservation.total_price) + paidSurcharge)}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex flex-col gap-1.5">
-                        {statusPill(vendorStatus.label, vendorStatus.className)}
-                        {statusPill(paymentStatus.label, paymentStatus.className)}
+                  <div
+                    key={reservation.id}
+                    className="reservations-mobile-card space-y-4 rounded-xl border border-border bg-card p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="font-display text-lg font-semibold text-foreground">
+                          {firstItem?.Costume?.name || `Reservation #${reservation.id}`}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          #{reservation.id} · {reservation.User?.name || `User #${reservation.user_id}`}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {formatDate(reservation.start_date, "MMM d")} - {formatDate(reservation.end_date)}
+                        </p>
                       </div>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedReservation(reservation)}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <MagnifyingGlassIcon className="size-3.5" />
-                        Review
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div className="divide-y divide-border md:hidden">
-            {reservations.map((reservation) => {
-              const firstItem = reservation.items?.[0];
-              const vendorStatus = getVendorDecisionMeta(reservation);
-              const paymentStatus = getReceiptStatusMeta(reservation);
-
-              return (
-                <div key={reservation.id} className="space-y-4 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="font-display text-lg font-semibold text-foreground">
-                        {firstItem?.Costume?.name || `Reservation #${reservation.id}`}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        #{reservation.id} · {reservation.User?.name || `User #${reservation.user_id}`}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {formatDate(reservation.start_date, "MMM d")} - {formatDate(reservation.end_date)}
+                      <p className="shrink-0 font-semibold text-primary">
+                        {formatMoney(Number(reservation.total_price) + paidSurcharge)}
                       </p>
                     </div>
-                    <p className="shrink-0 font-semibold text-foreground">
-                      {formatMoney(reservation.total_price)}
-                    </p>
-                  </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {statusPill(vendorStatus.label, vendorStatus.className)}
-                    {statusPill(paymentStatus.label, paymentStatus.className)}
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      {statusPill(vendorStatus.label, vendorStatus.className)}
+                      {statusPill(paymentStatus.label, paymentStatus.className)}
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedReservation(reservation)}
-                    className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <MagnifyingGlassIcon className="size-3.5" />
-                    Review Reservation
-                  </button>
-                </div>
-              );
-            })}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReservation(reservation)}
+                      className="hover-snap flex h-10 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90"
+                    >
+                      <MagnifyingGlassIcon className="size-3.5" />
+                      Review reservation
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
       <Dialog open={!!selectedReservation} onOpenChange={(open: boolean) => !open && setSelectedReservation(null)}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-xl border border-border bg-background shadow-none sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="font-display text-2xl font-semibold text-foreground">
-              Reservation #{selectedReservation?.id}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Review the booking, fulfillment selections, surcharge history, and operational state before you take action.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-background p-0 shadow-coral sm:max-w-4xl">
+          <div className="relative shrink-0 overflow-hidden border-b border-border px-6 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
+            <div className="reservation-modal-header-glow pointer-events-none absolute inset-0" aria-hidden="true" />
+            <DialogHeader className="relative space-y-3 text-left">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
+                  Reservation #{selectedReservation?.id}
+                </p>
+                {selectedVendorDecision
+                  ? statusPill(selectedVendorDecision.label, selectedVendorDecision.className)
+                  : null}
+                {selectedReceiptStatus
+                  ? statusPill(selectedReceiptStatus.label, selectedReceiptStatus.className)
+                  : null}
+              </div>
+              <DialogTitle className="font-display text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl">
+                {selectedCostumeName}
+              </DialogTitle>
+              <DialogDescription className="max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+                Review the booking, delivery plan, surcharge history, and status — then take the next action.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
           {selectedReservation && (
-            <div className="mt-2 space-y-6">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-6 sm:px-8 sm:py-7">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="rounded-xl border border-border bg-card p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Renter</p>
-                  <p className="mt-3 font-medium text-foreground">
+                  <p className="mt-3 font-display text-xl font-semibold text-foreground">
                     {selectedReservation.User?.name || `User #${selectedReservation.user_id}`}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -592,50 +706,65 @@ export default function VendorReservationsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedVendorDecision && statusPill(selectedVendorDecision.label, selectedVendorDecision.className)}
-                    {selectedReceiptStatus && statusPill(selectedReceiptStatus.label, selectedReceiptStatus.className)}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Rental Window</p>
-                  <p className="mt-3 text-sm text-foreground">
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Rental window</p>
+                  <p className="mt-3 font-display text-xl font-semibold text-foreground">
+                    {formatDate(selectedReservation.start_date, "MMM d")} – {formatDate(selectedReservation.end_date)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {formatDate(selectedReservation.start_date)} to {formatDate(selectedReservation.end_date)}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Financials</p>
-                  <p className="mt-3 font-display text-2xl font-semibold text-foreground">
-                    {formatMoney(Number(selectedReservation.total_price) + selectedPaidSurcharge)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Base quote {formatMoney(selectedReservation.total_price)}
-                    {selectedPaidSurcharge > 0 ? ` · Paid surcharge ${formatMoney(selectedPaidSurcharge)}` : ""}
-                  </p>
+                <div className="reservation-modal-finance rounded-xl p-5 md:col-span-2">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                        Quoted total
+                      </p>
+                      <p className="mt-3 font-display text-4xl font-semibold leading-none tracking-tight text-foreground md:text-5xl">
+                        {formatMoney(Number(selectedReservation.total_price) + selectedPaidSurcharge)}
+                      </p>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        Base {formatMoney(selectedReservation.total_price)}
+                        {selectedPaidSurcharge > 0
+                          ? ` · Paid surcharge ${formatMoney(selectedPaidSurcharge)}`
+                          : " · No surcharge paid"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedVendorDecision
+                        ? statusPill(selectedVendorDecision.label, selectedVendorDecision.className)
+                        : null}
+                      {selectedReceiptStatus
+                        ? statusPill(selectedReceiptStatus.label, selectedReceiptStatus.className)
+                        : null}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <section className="rounded-xl border border-border bg-muted/20 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Costume Details</p>
+              <section className="rounded-xl border border-border bg-card p-5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Costume details</p>
                 <div className="mt-4 space-y-3">
                   {selectedReservation.items?.map((item) => {
                     const pricingSummary = getReservationItemPricingSummary(item);
                     return (
                       <div
                         key={item.id}
-                        className="flex flex-col gap-2 rounded-xl border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <p className="font-medium text-foreground">{item.Costume?.name || `Costume #${item.costume_id}`}</p>
+                          <p className="font-display text-lg font-semibold text-foreground">
+                            {item.Costume?.name || `Costume #${item.costume_id}`}
+                          </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {formatMoney(pricingSummary.amount)} {pricingSummary.label}
                           </p>
                         </div>
-                        <p className="font-semibold text-foreground">{formatMoney(item.subtotal)}</p>
+                        <p className="font-display text-xl font-semibold text-primary">
+                          {formatMoney(item.subtotal)}
+                        </p>
                       </div>
                     );
                   })}
@@ -643,12 +772,12 @@ export default function VendorReservationsPage() {
               </section>
 
               {selectedReservation.fulfillment ? (
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
+                <section className="rounded-xl border border-border bg-card p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fulfillment Plan</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Delivery plan</p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Review the exact handoff methods, locations, and windows the renter submitted.
+                        Exact methods, locations, and windows the renter submitted.
                       </p>
                     </div>
                     {selectedReservation.fulfillment.outside_service_area
@@ -657,9 +786,9 @@ export default function VendorReservationsPage() {
                   </div>
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
                       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Outbound</p>
-                      <p className="mt-2 font-medium text-foreground">
+                      <p className="mt-2 font-display text-lg font-semibold text-foreground">
                         {FULFILLMENT_METHOD_LABELS[selectedReservation.fulfillment.outbound_method]}
                       </p>
                       <p className="mt-1 text-xs leading-6 text-muted-foreground">
@@ -675,14 +804,14 @@ export default function VendorReservationsPage() {
                       </p>
                       <p className="mt-2 text-xs leading-6 text-muted-foreground">
                         {selectedReservation.fulfillment.outbound_method === "PICKUP"
-                          ? "Vendor collection point"
+                          ? "Atelier location"
                           : formatLocationSummary(selectedReservation.fulfillment.outbound_location_snapshot)}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
                       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Return</p>
-                      <p className="mt-2 font-medium text-foreground">
+                      <p className="mt-2 font-display text-lg font-semibold text-foreground">
                         {FULFILLMENT_METHOD_LABELS[selectedReservation.fulfillment.return_method]}
                       </p>
                       <p className="mt-1 text-xs leading-6 text-muted-foreground">
@@ -693,15 +822,15 @@ export default function VendorReservationsPage() {
                       </p>
                       <p className="mt-2 text-xs leading-6 text-muted-foreground">
                         {selectedReservation.fulfillment.return_method === "PICKUP"
-                          ? "Vendor collection point"
+                          ? "Atelier location"
                           : formatLocationSummary(selectedReservation.fulfillment.return_location_snapshot)}
                       </p>
                     </div>
                   </div>
 
                   {selectedReservation.fulfillment.vendor_approval_note ? (
-                    <div className="mt-4 rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vendor Note</p>
+                    <div className="mt-4 rounded-xl border border-border bg-muted/20 px-4 py-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vendor note</p>
                       <p className="mt-2 text-sm leading-7 text-muted-foreground">
                         {selectedReservation.fulfillment.vendor_approval_note}
                       </p>
@@ -711,8 +840,8 @@ export default function VendorReservationsPage() {
               ) : null}
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.95fr)]">
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Payments & Adjustments</p>
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Payments & Adjustments</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Keep initial reservation payments separate from any supplemental surcharge collection.
                   </p>
@@ -722,18 +851,21 @@ export default function VendorReservationsPage() {
                       const paymentStatus = getPaymentStatusMeta(payment.status);
 
                       return (
-                        <div key={payment.id} className="rounded-xl border border-border bg-background px-4 py-3">
+                        <div key={payment.id} className="rounded-xl border border-border bg-muted/20 px-4 py-4">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-foreground">Payment #{payment.id}</p>
+                                <p className="font-display text-lg font-semibold text-foreground">Payment #{payment.id}</p>
                                 {statusPill(paymentStatus.label, paymentStatus.className)}
                                 <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                   {PAYMENT_PURPOSE_LABELS[payment.payment_purpose]}
                                 </span>
                               </div>
+                              <p className="font-display text-xl font-semibold text-primary">
+                                {formatMoney(payment.amount)}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatMoney(payment.amount)} · Submitted {formatDate(payment.created_at)}
+                                Submitted {formatDate(payment.created_at)}
                               </p>
                               {payment.reservationAdjustment?.note ? (
                                 <p className="text-xs leading-6 text-muted-foreground">
@@ -750,7 +882,7 @@ export default function VendorReservationsPage() {
                                 href={resolveApiAsset(payment.proof_url)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary transition-colors hover:text-primary/80"
                               >
                                 Open Receipt
                                 <ExternalLinkIcon className="size-3" />
@@ -768,12 +900,12 @@ export default function VendorReservationsPage() {
                     {selectedReservation.adjustments?.map((adjustment) => {
                       const adjustmentStatus = getAdjustmentStatusMeta(adjustment);
                       return (
-                        <div key={adjustment.id} className="rounded-xl border border-border bg-background px-4 py-3">
+                        <div key={adjustment.id} className="rounded-xl border border-border bg-muted/20 px-4 py-4">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-foreground">Outside-area surcharge</p>
+                            <p className="font-display text-lg font-semibold text-foreground">Outside-area surcharge</p>
                             {statusPill(adjustmentStatus.label, adjustmentStatus.className)}
                           </div>
-                          <p className="mt-2 text-sm text-foreground">{formatMoney(adjustment.amount)}</p>
+                          <p className="mt-2 font-display text-2xl font-semibold text-primary">{formatMoney(adjustment.amount)}</p>
                           {adjustment.note ? (
                             <p className="mt-1 text-xs leading-6 text-muted-foreground">{adjustment.note}</p>
                           ) : null}
@@ -782,7 +914,7 @@ export default function VendorReservationsPage() {
                     })}
 
                     {!selectedReservation.payments?.length && !selectedReservation.adjustments?.length ? (
-                      <div className="rounded-xl border border-dashed border-border bg-background px-4 py-8 text-center">
+                      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">No financial activity yet</p>
                         <p className="mt-2 text-sm text-muted-foreground">
                           Payment and surcharge history will appear here as the reservation progresses.
@@ -792,9 +924,9 @@ export default function VendorReservationsPage() {
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Receipt Preview</p>
-                  <div className="mt-4 overflow-hidden rounded-xl border border-border bg-background">
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Receipt Preview</p>
+                  <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
                     {selectedPayment?.proof_url ? (
                       <img
                         src={resolveApiAsset(selectedPayment.proof_url)}
@@ -816,8 +948,8 @@ export default function VendorReservationsPage() {
               </div>
 
               {FULFILLMENT_OPERATION_STATUSES.includes(selectedReservation.status) ? (
-                <section className="rounded-xl border border-border bg-muted/20 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Operational Timeline</p>
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Operational Timeline</p>
                   <div className="mt-4 grid gap-2 sm:grid-cols-4">
                     {OPERATION_TIMELINE.map((step) => {
                       const meta = reservationStatusMeta(selectedReservation, step);
@@ -826,10 +958,10 @@ export default function VendorReservationsPage() {
                         <div
                           key={step}
                           className={cn(
-                            "rounded-xl border px-3 py-3 text-xs",
-                            state === "current" && "border-foreground bg-background text-foreground",
+                            "rounded-xl border px-3 py-4 text-xs",
+                            state === "current" && "border-primary/40 bg-primary text-primary-foreground shadow-coral",
                             state === "complete" && "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-400",
-                            state === "upcoming" && "border-border bg-background text-muted-foreground"
+                            state === "upcoming" && "border-border bg-muted/20 text-muted-foreground"
                           )}
                         >
                           <p className="text-[10px] font-semibold uppercase tracking-widest">{meta.label}</p>
@@ -840,18 +972,21 @@ export default function VendorReservationsPage() {
                 </section>
               ) : null}
 
-              <div className="border-t border-border pt-6">
+              <div className="reservation-modal-actions -mx-6 -mb-6 rounded-b-2xl px-6 py-6 sm:-mx-8 sm:px-8 sm:py-7">
                 {canVerifySelectedPayment && selectedPayment ? (
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      Confirm that this receipt matches payment received through your payment method before reviewing the booking.
-                    </p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
+                      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                        Confirm that this receipt matches payment received through your payment method before reviewing the booking.
+                      </p>
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => handlePaymentReview(selectedPayment.id, "REJECTED")}
                         disabled={actioningId === selectedPayment.id}
-                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+                        className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
                       >
                         <Cross2Icon className="size-3.5" />
                         Reject Receipt
@@ -860,7 +995,7 @@ export default function VendorReservationsPage() {
                         type="button"
                         onClick={() => handlePaymentReview(selectedPayment.id, "APPROVED")}
                         disabled={actioningId === selectedPayment.id}
-                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
+                        className="hover-snap inline-flex h-11 items-center justify-center gap-1.5 rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                       >
                         <CheckIcon className="size-3.5" />
                         Verify Payment
@@ -869,9 +1004,12 @@ export default function VendorReservationsPage() {
                   </div>
                 ) : canReviewSelectedReservation ? (
                   <div className="space-y-5">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      Review the submitted fulfillment details exactly as selected. Approve or reject the booking, or request a supplemental surcharge if the delivery address falls outside your practical service area.
-                    </p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
+                      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                        Review the submitted fulfillment details exactly as selected. Approve or reject the booking, or request a supplemental surcharge if the delivery address falls outside your practical service area.
+                      </p>
+                    </div>
 
                     {selectedOutsideServiceArea && !selectedPendingAdjustment ? (
                       <div className="rounded-xl border border-orange-400/30 bg-orange-50/60 px-4 py-3 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
@@ -879,7 +1017,7 @@ export default function VendorReservationsPage() {
                       </div>
                     ) : null}
 
-                    <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
+                    <div className="grid gap-4 rounded-xl border border-border bg-background/80 p-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
                       <div className="space-y-3">
                         <label className="block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                           Outside-area surcharge
@@ -888,14 +1026,14 @@ export default function VendorReservationsPage() {
                           value={surchargeAmount}
                           onChange={(event) => setSurchargeAmount(event.target.value)}
                           placeholder="0.00"
-                          className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-foreground"
+                          className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary"
                         />
                         <textarea
                           value={surchargeNote}
                           onChange={(event) => setSurchargeNote(event.target.value)}
                           rows={4}
                           placeholder="Explain why this address needs an outside-area surcharge."
-                          className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none transition-colors focus:border-foreground"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none transition-colors focus:border-primary"
                         />
                       </div>
 
@@ -911,7 +1049,7 @@ export default function VendorReservationsPage() {
                             type="button"
                             onClick={() => handleReject(selectedReservation.id)}
                             disabled={actioningId === selectedReservation.id}
-                            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 px-4 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+                            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
                           >
                             <Cross2Icon className="size-3.5" />
                             Reject
@@ -920,7 +1058,7 @@ export default function VendorReservationsPage() {
                             type="button"
                             onClick={() => handleRequestSurcharge(selectedReservation.id)}
                             disabled={actioningId === selectedReservation.id}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-orange-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-orange-700 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 disabled:opacity-40"
+                            className="inline-flex h-11 items-center justify-center rounded-xl border border-orange-400/40 bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-orange-700 transition-colors hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 disabled:opacity-40"
                           >
                             Request Surcharge
                           </button>
@@ -928,7 +1066,7 @@ export default function VendorReservationsPage() {
                             type="button"
                             onClick={() => handleApprove(selectedReservation.id)}
                             disabled={actioningId === selectedReservation.id}
-                            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/40 px-4 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 disabled:opacity-40"
+                            className="hover-snap inline-flex h-11 items-center justify-center gap-1.5 rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                           >
                             <CheckIcon className="size-3.5" />
                             Approve As Submitted
@@ -939,6 +1077,7 @@ export default function VendorReservationsPage() {
                   </div>
                 ) : selectedReservation.status === "AWAITING_SURCHARGE_PAYMENT" && selectedPendingAdjustment ? (
                   <div className="space-y-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
                     <div className="rounded-xl border border-orange-400/30 bg-orange-50/60 px-4 py-4 text-sm text-orange-900 dark:bg-orange-900/10 dark:text-orange-200">
                       Waiting for the renter to settle the supplemental request of {formatMoney(selectedPendingAdjustment.amount)} before this reservation can move into fulfillment.
                     </div>
@@ -946,13 +1085,14 @@ export default function VendorReservationsPage() {
                       type="button"
                       onClick={() => handleWaiveSurcharge(selectedReservation.id, selectedPendingAdjustment.id)}
                       disabled={actioningId === selectedReservation.id}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
                     >
                       Waive Surcharge
                     </button>
                   </div>
                 ) : selectedReservation.status === "CONFIRMED" ? (
                   <div className="space-y-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
                     {selectedReservation.fulfillment?.delivery_provider === "LALAMOVE" ? (
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -965,9 +1105,9 @@ export default function VendorReservationsPage() {
                         </div>
 
                         {lalamoveQuote ? (
-                          <div className="rounded-xl border border-border bg-muted/20 p-4">
+                          <div className="rounded-xl border border-primary/20 bg-background p-5 shadow-coral">
                             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Live quote</p>
-                            <p className="mt-2 font-display text-2xl font-semibold text-foreground">
+                            <p className="mt-2 font-display text-3xl font-semibold text-foreground">
                               {lalamoveQuote.price_currency} {Number(lalamoveQuote.price_amount).toLocaleString()}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -985,7 +1125,7 @@ export default function VendorReservationsPage() {
                             type="button"
                             onClick={() => void handleFetchLalamoveQuote(selectedReservation.id)}
                             disabled={lalamoveQuoteLoading}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                            className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
                           >
                             {lalamoveQuoteLoading ? "Fetching quote…" : lalamoveQuote ? "Refresh quote" : "Get Lalamove quote"}
                           </button>
@@ -995,7 +1135,7 @@ export default function VendorReservationsPage() {
                               type="button"
                               onClick={() => void handleDispatch(selectedReservation.id)}
                               disabled={actioningId === selectedReservation.id}
-                              className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                              className="hover-snap inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                             >
                               {actioningId === selectedReservation.id ? "Booking…" : "Confirm & book Lalamove"}
                             </button>
@@ -1006,7 +1146,7 @@ export default function VendorReservationsPage() {
                           <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground">
                             Manual dispatch instead
                           </summary>
-                          <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                          <div className="mt-3 space-y-3 rounded-xl border border-border bg-background p-4">
                             <p className="text-xs text-muted-foreground">
                               Attach a photo and dispatch without Lalamove. Use this as a fallback.
                             </p>
@@ -1020,7 +1160,7 @@ export default function VendorReservationsPage() {
                               type="button"
                               onClick={() => void handleDispatch(selectedReservation.id)}
                               disabled={actioningId === selectedReservation.id}
-                              className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                              className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-5 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted disabled:opacity-40"
                             >
                               Manual dispatch
                             </button>
@@ -1030,7 +1170,7 @@ export default function VendorReservationsPage() {
                     ) : (
                       <>
                         <p className="max-w-2xl text-sm text-muted-foreground">
-                          Dispatch the costume when it is ready for pickup or delivery. A photo is optional but recommended.
+                          Dispatch the costume when it is ready for delivery. A photo is optional but recommended.
                         </p>
                         <input
                           type="file"
@@ -1042,7 +1182,7 @@ export default function VendorReservationsPage() {
                           type="button"
                           onClick={() => void handleDispatch(selectedReservation.id)}
                           disabled={actioningId === selectedReservation.id}
-                          className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                          className="hover-snap inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                         >
                           Dispatch Costume
                         </button>
@@ -1088,14 +1228,15 @@ export default function VendorReservationsPage() {
                   </div>
                 ) : selectedReservation.status === "DELIVERY_SCHEDULED" || selectedReservation.status === "WITH_RENTER" ? (
                   <div className="space-y-4">
-                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Status</p>
+                    <div className="rounded-xl border border-border bg-background px-4 py-4 text-sm text-muted-foreground">
                       Waiting for the renter to {selectedReservation.status === "DELIVERY_SCHEDULED" ? "confirm receipt with a photo" : "initiate the return with a photo"}.
                       {selectedReservation.fulfillment?.renter_received_proof_url ? (
                         <a
                           href={resolveApiAsset(selectedReservation.fulfillment.renter_received_proof_url)}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
                         >
                           View renter receipt proof
                           <ExternalLinkIcon className="size-3" />
@@ -1106,7 +1247,7 @@ export default function VendorReservationsPage() {
                           href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                          className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
                         >
                           View renter return proof
                           <ExternalLinkIcon className="size-3" />
@@ -1153,15 +1294,18 @@ export default function VendorReservationsPage() {
                   </div>
                 ) : selectedReservation.status === "RETURN_PENDING" ? (
                   <div className="space-y-4">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      Confirm the costume has been returned. You can attach an optional photo for your records.
-                    </p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
+                      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                        Confirm the costume has been returned. You can attach an optional photo for your records.
+                      </p>
+                    </div>
                     {selectedReservation.fulfillment?.return_initiated_proof_url ? (
                       <a
                         href={resolveApiAsset(selectedReservation.fulfillment.return_initiated_proof_url)}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-primary"
                       >
                         View renter return proof
                         <ExternalLinkIcon className="size-3" />
@@ -1177,29 +1321,35 @@ export default function VendorReservationsPage() {
                       type="button"
                       onClick={() => handleConfirmReturn(selectedReservation.id)}
                       disabled={actioningId === selectedReservation.id}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                      className="hover-snap inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                     >
                       Confirm Return Received
                     </button>
                   </div>
                 ) : selectedReservation.status === "RETURNED" ? (
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="max-w-2xl text-sm text-muted-foreground">
-                      Close out the rental once inspection is complete.
-                    </p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Next action</p>
+                      <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                        Close out the rental once inspection is complete.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleComplete(selectedReservation.id)}
                       disabled={actioningId === selectedReservation.id}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-foreground bg-primary px-4 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                      className="hover-snap inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground shadow-coral transition-colors hover:bg-primary/90 disabled:opacity-40"
                     >
                       Complete Rental
                     </button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This reservation is in a terminal or waiting state. Reopen the modal anytime to check the fulfillment record, surcharge history, or payment evidence.
-                  </p>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">Status</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      This reservation is in a terminal or waiting state. Reopen the modal anytime to check the fulfillment record, surcharge history, or payment evidence.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

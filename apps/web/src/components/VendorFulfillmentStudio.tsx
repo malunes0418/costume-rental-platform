@@ -18,9 +18,11 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import {
+  DELIVERY_ONLY,
   FULFILLMENT_MODE_LABELS,
   LALAMOVE_SERVICE_TYPE_LABELS,
   LALAMOVE_SERVICE_TYPES,
+  SELECTABLE_FULFILLMENT_MODES,
   type DeliveryProvider,
   type FulfillmentMode,
   type LalamoveServiceType,
@@ -69,8 +71,8 @@ function formFromSettings(settings: VendorFulfillmentSettings | null): FormState
     notes: settings?.primary_location?.notes || "",
     latitude: settings?.primary_location?.latitude ?? null,
     longitude: settings?.primary_location?.longitude ?? null,
-    outbound_mode: settings?.outbound_mode || "BOTH",
-    return_mode: settings?.return_mode || "BOTH",
+    outbound_mode: DELIVERY_ONLY ? "DELIVERY" : settings?.outbound_mode || "DELIVERY",
+    return_mode: DELIVERY_ONLY ? "DELIVERY" : settings?.return_mode || "DELIVERY",
     outbound_pickup_fee: String(settings?.outbound_pickup_fee ?? 0),
     outbound_delivery_fee: String(settings?.outbound_delivery_fee ?? 0),
     return_pickup_fee: String(settings?.return_pickup_fee ?? 0),
@@ -102,36 +104,38 @@ function hasCoords(latitude: number | null, longitude: number | null) {
 
 export function VendorFulfillmentStudio({
   settings,
-  onSaved
+  onSaved,
+  layout = "page",
 }: {
   settings: VendorFulfillmentSettings | null;
   onSaved: (settings: VendorFulfillmentSettings) => void;
+  layout?: "page" | "dialog";
 }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const [form, setForm] = useState<FormState>(() => formFromSettings(settings));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationEntryMode, setLocationEntryMode] = useState<LocationEntryMode>(() =>
-    apiKey && !settings?.primary_location?.address_line_1 ? "search" : "manual"
+    apiKey ? "search" : "manual"
   );
-  const [locationConfirmed, setLocationConfirmed] = useState(() =>
-    hasCoords(
-      settings?.primary_location?.latitude ?? null,
-      settings?.primary_location?.longitude ?? null
-    )
-  );
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
 
   useEffect(() => {
     const next = formFromSettings(settings);
     setForm(next);
-    setLocationConfirmed(hasCoords(next.latitude, next.longitude));
-    if (!apiKey) {
-      setLocationEntryMode("manual");
-    } else if (!next.address_line_1.trim()) {
-      setLocationEntryMode("search");
-    } else {
-      setLocationEntryMode("manual");
-    }
+    setLocationEntryMode(apiKey ? "search" : "manual");
+    // Only show the "location found" banner after a fresh Places pick this session.
+    setLocationConfirmed(apiKey ? false : hasCoords(next.latitude, next.longitude));
   }, [settings, apiKey]);
+
+  const searchDefaultQuery = useMemo(() => {
+    const parts = [
+      settings?.primary_location?.address_line_1,
+      settings?.primary_location?.barangay,
+      settings?.primary_location?.city,
+      settings?.primary_location?.province,
+    ].filter(Boolean);
+    return parts.join(", ");
+  }, [settings]);
 
   const serviceAreaPreview = useMemo(
     () =>
@@ -169,9 +173,10 @@ export function VendorFulfillmentStudio({
   }
 
   function validate() {
-    const pickupAllowed = form.outbound_mode !== "DELIVERY" || form.return_mode !== "DELIVERY";
-    if (pickupAllowed && (!form.address_line_1.trim() || !form.city.trim())) {
-      throw new Error("Primary business location address and city are required whenever pickup is offered");
+    if (DELIVERY_ONLY || form.outbound_mode === "DELIVERY" || form.return_mode === "DELIVERY") {
+      if (!form.address_line_1.trim() || !form.city.trim()) {
+        throw new Error("Primary business location address and city are required for delivery.");
+      }
     }
   }
 
@@ -179,6 +184,9 @@ export function VendorFulfillmentStudio({
     try {
       validate();
       setIsSubmitting(true);
+
+      const outboundMode = DELIVERY_ONLY ? "DELIVERY" : form.outbound_mode;
+      const returnMode = DELIVERY_ONLY ? "DELIVERY" : form.return_mode;
 
       const payload: VendorFulfillmentSettingsInput = {
         primary_location:
@@ -195,11 +203,11 @@ export function VendorFulfillmentStudio({
                 longitude: form.longitude
               }
             : null,
-        outbound_mode: form.outbound_mode,
-        return_mode: form.return_mode,
-        outbound_pickup_fee: form.outbound_pickup_fee,
+        outbound_mode: outboundMode,
+        return_mode: returnMode,
+        outbound_pickup_fee: DELIVERY_ONLY ? "0" : form.outbound_pickup_fee,
         outbound_delivery_fee: form.outbound_delivery_fee,
-        return_pickup_fee: form.return_pickup_fee,
+        return_pickup_fee: DELIVERY_ONLY ? "0" : form.return_pickup_fee,
         return_delivery_fee: form.return_delivery_fee,
         service_areas: parseServiceAreas(form.service_areas_text),
         delivery_provider: form.delivery_provider,
@@ -226,34 +234,43 @@ export function VendorFulfillmentStudio({
     }
   }
 
-  const showAddressFields =
-    locationEntryMode === "manual" || locationConfirmed || Boolean(form.address_line_1.trim());
+  const showAddressFields = locationEntryMode === "manual";
+
+  const isDialog = layout === "dialog";
 
   return (
-    <section className="grid gap-10 border-b border-border pb-14 pt-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <div className="space-y-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-          Fulfillment direction
-        </p>
-        <h2 className="max-w-xl font-display text-4xl font-semibold leading-tight text-foreground">
-          Set the handoff rhythm before each piece enters circulation.
-        </h2>
-        <p className="max-w-[58ch] text-sm leading-8 text-muted-foreground">
-          Define how reservations leave your atelier, how they return, which neighborhoods you reliably serve, and which fixed fees should already be snapped onto every booking.
-        </p>
-        {serviceAreaPreview.length > 0 ? (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {serviceAreaPreview.map((area) => (
-              <span
-                key={area}
-                className="rounded-sm border border-border px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
-              >
-                {area}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
+    <section
+      className={
+        isDialog
+          ? "grid gap-8"
+          : "grid gap-10 border-b border-border pb-14 pt-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
+      }
+    >
+      {!isDialog ? (
+        <div className="space-y-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+            Fulfillment direction
+          </p>
+          <h2 className="max-w-xl font-display text-4xl font-semibold leading-tight text-foreground">
+            Set the handoff rhythm before each piece enters circulation.
+          </h2>
+          <p className="max-w-[58ch] text-sm leading-8 text-muted-foreground">
+            Define how reservations leave your atelier, how they return, which neighborhoods you reliably serve, and which fixed fees should already be snapped onto every booking.
+          </p>
+          {serviceAreaPreview.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {serviceAreaPreview.map((area) => (
+                <span
+                  key={area}
+                  className="rounded-sm border border-border px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-foreground"
+                >
+                  {area}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-8">
         <div className="grid gap-5 md:grid-cols-2">
@@ -267,24 +284,26 @@ export function VendorFulfillmentStudio({
             />
           </div>
 
-          {locationEntryMode === "search" && apiKey ? (
+          {apiKey && locationEntryMode === "search" ? (
             <div className="space-y-3 md:col-span-2">
               <AddressAutocompleteInput
                 label="Search primary location"
-                placeholder="Search your atelier, studio, or pickup point…"
+                placeholder="Search your atelier, studio, or dispatch point…"
+                defaultQuery={searchDefaultQuery}
                 onResolved={handleResolved}
               />
               {locationConfirmed ? (
-                <p className="rounded-sm border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
-                  Location found — Lalamove can quote from these coordinates. Tweak details below if needed.
+                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+                  Location found — coordinates are pinned for live delivery quotes. Use manual entry only if you need to edit street details.
                 </p>
               ) : null}
               <button
                 type="button"
                 onClick={() => {
                   setLocationEntryMode("manual");
-                  setLocationConfirmed(false);
-                  setForm((current) => ({ ...current, latitude: null, longitude: null }));
+                  if (!locationConfirmed) {
+                    setForm((current) => ({ ...current, latitude: null, longitude: null }));
+                  }
                 }}
                 className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
@@ -293,8 +312,10 @@ export function VendorFulfillmentStudio({
             </div>
           ) : (
             <div className="space-y-2 md:col-span-2">
-              <p className="rounded-sm border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Manual entry — we&apos;ll geocode this address on save. Prefer search when enabling Lalamove.
+              <p className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                {apiKey
+                  ? "Manual entry — we&apos;ll geocode this address on save. Prefer search when enabling Lalamove."
+                  : "Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable Places address search. Until then, enter the address manually."}
               </p>
               {apiKey ? (
                 <button
@@ -369,51 +390,59 @@ export function VendorFulfillmentStudio({
           </div>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-widest text-muted-foreground">Default outbound mode</Label>
-            <Select value={form.outbound_mode} onValueChange={(value: string) => updateField("outbound_mode", value as FulfillmentMode)}>
-              <SelectTrigger className="h-11 w-full rounded-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["BOTH", "PICKUP", "DELIVERY"] as FulfillmentMode[]).map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {FULFILLMENT_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {!DELIVERY_ONLY ? (
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground">Default outbound mode</Label>
+              <Select value={form.outbound_mode} onValueChange={(value: string) => updateField("outbound_mode", value as FulfillmentMode)}>
+                <SelectTrigger className="h-11 w-full rounded-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SELECTABLE_FULFILLMENT_MODES.map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {FULFILLMENT_MODE_LABELS[mode]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground">Default return mode</Label>
+              <Select value={form.return_mode} onValueChange={(value: string) => updateField("return_mode", value as FulfillmentMode)}>
+                <SelectTrigger className="h-11 w-full rounded-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SELECTABLE_FULFILLMENT_MODES.map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {FULFILLMENT_MODE_LABELS[mode]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-widest text-muted-foreground">Default return mode</Label>
-            <Select value={form.return_mode} onValueChange={(value: string) => updateField("return_mode", value as FulfillmentMode)}>
-              <SelectTrigger className="h-11 w-full rounded-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["BOTH", "PICKUP", "DELIVERY"] as FulfillmentMode[]).map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {FULFILLMENT_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        ) : (
+          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm leading-7 text-muted-foreground">
+            This house runs on delivery for outbound and return. Set your atelier location and delivery fees below.
           </div>
-        </div>
+        )}
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-widest text-muted-foreground">Outbound pickup fee</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.outbound_pickup_fee}
-              onChange={(event) => updateField("outbound_pickup_fee", event.target.value)}
-              className="h-11 rounded-sm"
-            />
-          </div>
+        <div className={DELIVERY_ONLY ? "grid gap-5 md:grid-cols-2" : "grid gap-5 md:grid-cols-2"}>
+          {!DELIVERY_ONLY ? (
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground">Outbound pickup fee</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.outbound_pickup_fee}
+                onChange={(event) => updateField("outbound_pickup_fee", event.target.value)}
+                className="h-11 rounded-sm"
+              />
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-widest text-muted-foreground">Outbound delivery fee</Label>
             <Input
@@ -425,17 +454,19 @@ export function VendorFulfillmentStudio({
               className="h-11 rounded-sm"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-widest text-muted-foreground">Return pickup fee</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.return_pickup_fee}
-              onChange={(event) => updateField("return_pickup_fee", event.target.value)}
-              className="h-11 rounded-sm"
-            />
-          </div>
+          {!DELIVERY_ONLY ? (
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground">Return pickup fee</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.return_pickup_fee}
+                onChange={(event) => updateField("return_pickup_fee", event.target.value)}
+                className="h-11 rounded-sm"
+              />
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-widest text-muted-foreground">Return delivery fee</Label>
             <Input
@@ -520,7 +551,7 @@ export function VendorFulfillmentStudio({
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
           <p className="max-w-[42ch] text-xs leading-6 text-muted-foreground">
-            Pickup-enabled configurations should always include a usable atelier location so renters see a clear handoff point.
+            Delivery configurations should always include a usable atelier location so couriers and renters share a clear dispatch point.
           </p>
           <Button
             type="button"

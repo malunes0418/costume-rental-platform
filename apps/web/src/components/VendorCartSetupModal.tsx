@@ -294,7 +294,7 @@ export function VendorCartSetupModal({
           <DialogDescription>
             {profileComplete
               ? `Set rental dates for each costume from ${vendorName}. Your saved delivery defaults will apply automatically.`
-              : `Set rental dates for each costume from ${vendorName}. Delivery and return pickup apply to all costumes from this vendor.`}
+              : `Set rental dates for each costume from ${vendorName}. Delivery and return apply to all costumes from this vendor.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -416,7 +416,7 @@ export function VendorCartSetupModal({
 
               <h3 className="text-sm font-medium text-foreground">Delivery for this vendor</h3>
               <p className="text-sm text-muted-foreground">
-                One address and pickup window set applies to every costume from {vendorName}.
+                One address and delivery window set applies to every costume from {vendorName}.
               </p>
 
               <div className="grid gap-2 sm:grid-cols-2">
@@ -482,7 +482,7 @@ export function VendorCartSetupModal({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Return pickup window</Label>
+                  <Label>Return window</Label>
                   <Select
                     value={returnWindowSlot}
                     onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}

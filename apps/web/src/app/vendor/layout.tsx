@@ -98,8 +98,98 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   if (loading || isAuthLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Skeleton className="h-10 w-10 rounded-sm" />
+      <div className="flex h-screen overflow-hidden page-bg">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
+          <div className="flex h-20 items-center border-b border-border px-6">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-28 rounded-lg" />
+              <Skeleton className="h-2.5 w-20 rounded-full" />
+            </div>
+          </div>
+          <div className="space-y-3 border-b border-border bg-muted/30 px-6 py-5">
+            <Skeleton className="h-6 w-36 rounded-lg" />
+            <Skeleton className="h-3 w-44 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <div className="flex flex-1 flex-col gap-2 px-3 py-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-10 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-3 border-t border-border px-4 py-4">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-8 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3 w-24 rounded-full" />
+                <Skeleton className="h-2.5 w-32 rounded-full" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-9 rounded-xl" />
+              <Skeleton className="h-9 rounded-xl" />
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex h-16 items-center justify-between border-b border-border px-4 md:hidden">
+            <Skeleton className="size-9 rounded-xl" />
+            <div className="space-y-1.5">
+              <Skeleton className="mx-auto h-3 w-24 rounded-full" />
+              <Skeleton className="mx-auto h-2 w-14 rounded-full" />
+            </div>
+            <Skeleton className="size-9 rounded-xl" />
+          </div>
+
+          <main className="flex-1 overflow-y-auto bg-muted/40">
+            <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-12">
+              <div className="overflow-hidden rounded-2xl border border-border bg-card px-6 py-8 sm:px-8 sm:py-10">
+                <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-xl space-y-4">
+                    <Skeleton className="h-3 w-44 rounded-full" />
+                    <Skeleton className="h-12 w-full max-w-md rounded-xl md:h-16" />
+                    <Skeleton className="h-4 w-full max-w-sm rounded-full" />
+                    <Skeleton className="h-4 w-3/4 max-w-xs rounded-full" />
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <Skeleton className="h-11 w-40 rounded-md" />
+                      <Skeleton className="h-11 w-44 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <Skeleton key={index} className="h-[4.5rem] min-w-[7rem] rounded-xl" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10 space-y-4">
+                <Skeleton className="h-12 w-full rounded-xl" />
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={index} className="h-8 w-24 rounded-full" />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 sm:gap-5">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="overflow-hidden rounded-xl border border-border bg-card">
+                    <Skeleton className="aspect-[3/4] w-full rounded-none" />
+                    <div className="space-y-3 p-4 sm:p-5">
+                      <Skeleton className="h-6 w-3/4 rounded-lg" />
+                      <Skeleton className="h-3 w-1/2 rounded-full" />
+                      <div className="flex items-end justify-between pt-2">
+                        <Skeleton className="h-7 w-20 rounded-lg" />
+                        <Skeleton className="h-6 w-10 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }

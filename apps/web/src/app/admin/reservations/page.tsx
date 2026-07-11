@@ -282,7 +282,7 @@ export default function AdminReservationsPage() {
                       <p className="mt-1 text-xs leading-6 text-muted-foreground">
                         {selectedRes.fulfillment.outbound_method === "DELIVERY"
                           ? formatLocationSummary(selectedRes.fulfillment.outbound_location_snapshot)
-                          : "Vendor collection point"}
+                          : "Atelier location"}
                       </p>
                     </div>
                     <div>
@@ -292,7 +292,7 @@ export default function AdminReservationsPage() {
                       <p className="mt-1 text-xs leading-6 text-muted-foreground">
                         {selectedRes.fulfillment.return_method === "DELIVERY"
                           ? formatLocationSummary(selectedRes.fulfillment.return_location_snapshot)
-                          : "Vendor collection point"}
+                          : "Atelier location"}
                       </p>
                     </div>
                   </div>

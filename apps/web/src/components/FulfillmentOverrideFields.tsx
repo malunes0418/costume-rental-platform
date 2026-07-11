@@ -9,6 +9,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import {
+  DELIVERY_ONLY,
   FULFILLMENT_MODE_LABELS,
   narrowingOptionsForMode,
   type FulfillmentMode,
@@ -37,6 +38,10 @@ export function FulfillmentOverrideFields({
   onOutboundChange: (value: OverrideChoice) => void;
   onReturnChange: (value: OverrideChoice) => void;
 }) {
+  if (DELIVERY_ONLY) {
+    return null;
+  }
+
   const outboundBase = vendorSettings?.outbound_mode ?? "BOTH";
   const returnBase = vendorSettings?.return_mode ?? "BOTH";
 

@@ -41,8 +41,8 @@ import {
   fulfillmentFeesForBookingMethods,
   hasCompleteDeliveryProfile,
   isLocationOutsideServiceAreas,
-  modeAllowsMethod,
   resolveDeliveryBookingMethods,
+  supportsDeliveryBooking,
   type FulfillmentPreferences,
   type FulfillmentWindowSlot,
   type ReservationFulfillmentSelectionInput,
@@ -403,8 +403,8 @@ export function ReservationWizard({
       toast.error("Please choose dates first.");
       return;
     }
-    if (!modeAllowsMethod(data.effective_fulfillment.outbound_mode, "DELIVERY")) {
-      toast.error("This costume is pickup-only and cannot be booked with delivery.");
+    if (!supportsDeliveryBooking(data.effective_fulfillment)) {
+      toast.error("This costume is not available for delivery right now.");
       return;
     }
     if (!validateDeliveryStep()) return;
@@ -633,7 +633,7 @@ export function ReservationWizard({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Return pickup window</Label>
+                <Label>Return window</Label>
                 <Select
                   value={returnWindowSlot}
                   onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}
@@ -654,7 +654,7 @@ export function ReservationWizard({
 
             <p className="text-sm text-muted-foreground">
               {bookingMethods.return_method === "DELIVERY"
-                ? "Return pickup uses the same address as delivery."
+                ? "Return uses the same address as delivery."
                 : "Return is at the vendor location on your end date."}
             </p>
 
@@ -681,7 +681,7 @@ export function ReservationWizard({
               <Badge variant="outline">Delivery to you</Badge>
               <Badge variant="outline">
                 {bookingMethods.return_method === "DELIVERY"
-                  ? "Return pickup at same address"
+                  ? "Return at same address"
                   : "Return at vendor location"}
               </Badge>
             </div>
@@ -748,7 +748,7 @@ export function ReservationWizard({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Return pickup window</Label>
+                    <Label>Return window</Label>
                     <Select
                       value={returnWindowSlot}
                       onValueChange={(value: string) => setReturnWindowSlot(value as FulfillmentWindowSlot)}

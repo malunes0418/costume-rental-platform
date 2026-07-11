@@ -4,6 +4,43 @@ import { classifyLalamoveEvent, mapLalamoveStatus } from "./LalamoveWebhookServi
 
 // ─── HMAC signature tests ────────────────────────────────────────────────────
 
+describe("LalamoveClient.extractErrorCode", () => {
+  it("reads top-level message codes", async () => {
+    const { LalamoveClient } = await import("./LalamoveClient");
+    expect(LalamoveClient.extractErrorCode({ message: "ERR_OUT_OF_SERVICE_AREA" })).toBe(
+      "ERR_OUT_OF_SERVICE_AREA"
+    );
+  });
+
+  it("reads errors array with id + detail", async () => {
+    const { LalamoveClient } = await import("./LalamoveClient");
+    expect(
+      LalamoveClient.extractErrorCode({
+        errors: [
+          {
+            id: "ERR_INVALID_FIELD",
+            message: "Please verify your field.",
+            detail: "'market' validation failed: value cannot be null or empty."
+          }
+        ]
+      })
+    ).toBe("ERR_INVALID_FIELD: 'market' validation failed: value cannot be null or empty.");
+  });
+
+  it("reads errors object shape", async () => {
+    const { LalamoveClient } = await import("./LalamoveClient");
+    expect(
+      LalamoveClient.extractErrorCode({
+        errors: {
+          id: "ERR_INVALID_RESPONSE",
+          message: "Non-200 response received",
+          detail: "'url' validation failed"
+        }
+      })
+    ).toBe("ERR_INVALID_RESPONSE: 'url' validation failed");
+  });
+});
+
 describe("LalamoveClient.buildSignature", () => {
   const API_KEY = "test-api-key";
   const API_SECRET = "test-api-secret";

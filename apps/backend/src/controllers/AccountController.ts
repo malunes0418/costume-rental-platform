@@ -10,6 +10,7 @@ import type {
   UpdateProfileResponse
 } from "../dto/account.dto";
 import { AccountService } from "../services/AccountService";
+import { platformSettingsService } from "../services/PlatformSettingsService";
 
 const accountService = new AccountService();
 
@@ -62,6 +63,17 @@ export class AccountController {
         req.body as NotificationPreferencesRequest
       );
       ApiResponse.ok(res, preferences as NotificationPreferencesResponse);
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e);
+    }
+  }
+
+  async getPlatformSettings(req: Request, res: Response) {
+    try {
+      const settings = await platformSettingsService.getAll();
+      ApiResponse.ok(res, {
+        platform_fee_rate: settings.platform_fee_rate
+      });
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }

@@ -25,7 +25,7 @@ import { useAuth } from "../../lib/auth";
 
 const BACKSTAGE_PERKS = [
   { label: "Saved costumes", detail: "Wishlist and favorites, synced across devices" },
-  { label: "Reservations", detail: "Upcoming rentals, receipts, and pickup details" },
+  { label: "Reservations", detail: "Upcoming rentals, receipts, and delivery details" },
   { label: "Vendor tools", detail: "One login for renting and listing" },
 ] as const;
 

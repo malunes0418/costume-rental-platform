@@ -50,9 +50,41 @@ type DeliveryPreferencesPanelProps = {
 
 function DeliveryLoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="h-28 w-full rounded-xl" />
-      <Skeleton className="h-40 w-full rounded-xl" />
+    <div className="panel-card overflow-hidden" aria-hidden="true">
+      <div className="border-b border-border px-6 py-6 md:px-8">
+        <div className="mb-4 flex items-center gap-2">
+          <Skeleton className="size-4 rounded-sm" />
+          <Skeleton className="h-3 w-28 rounded-md" />
+        </div>
+        <ul className="space-y-2">
+          {Array.from({ length: 2 }, (_, index) => (
+            <li key={index} className="rounded-xl border border-border px-4 py-3">
+              <Skeleton className="h-5 w-28 rounded-md" />
+              <Skeleton className="mt-2 h-3 w-full max-w-sm rounded-md" />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="space-y-8 px-6 py-8 md:px-8">
+        {Array.from({ length: 2 }, (_, section) => (
+          <div key={section} className="space-y-3">
+            <div>
+              <Skeleton className="h-3 w-32 rounded-md" />
+              <Skeleton className="mt-2 h-3 w-56 max-w-full rounded-md" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className="rounded-xl border border-border px-3 py-3">
+                  <Skeleton className="size-4 rounded-sm" />
+                  <Skeleton className="mt-2 h-4 w-20 rounded-md" />
+                  <Skeleton className="mt-1.5 h-3 w-28 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -204,11 +236,25 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl animate-fade-up">
+      <div
+        className="mx-auto max-w-2xl animate-fade-up"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading delivery preferences"
+      >
         <header className="mb-8">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="mt-4 h-8 w-56" />
-          <Skeleton className="mt-3 h-12 w-full max-w-md" />
+          <div className="flex items-center gap-2">
+            <Sparkle size="sm" animated={false} className="opacity-75" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
+              Handoff rhythm
+            </p>
+          </div>
+          <h2 className="section-heading mt-3">Delivery preferences</h2>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Your default delivery and return windows. New reservations inherit these so checkout stays
+            fast.
+          </p>
         </header>
         <DeliveryLoadingSkeleton />
       </div>
@@ -226,7 +272,7 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
         </div>
         <h2 className="section-heading mt-3">Delivery preferences</h2>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-          Your default drop-off and pickup windows. New reservations inherit these so checkout stays
+          Your default delivery and return windows. New reservations inherit these so checkout stays
           fast.
         </p>
       </header>
@@ -325,8 +371,8 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
           />
 
           <WindowPicker
-            label="Return pickup window"
-            description="When vendors collect the costume after your event."
+            label="Return window"
+            description="When the costume is collected after your event."
             value={returnWindowSlot}
             onChange={setReturnWindowSlot}
             accent="gold"

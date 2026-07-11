@@ -16,12 +16,12 @@ const marqueeLabels = categoryFilters
   .map((c) => c.label);
 
 const floatingTags = [
-  { label: "Superhero", className: "left-[6%] top-[20%] -rotate-[14deg]" },
+  { label: "Superheroes", className: "left-[6%] top-[20%] -rotate-[14deg]" },
   { label: "Anime", className: "right-[7%] top-[24%] rotate-[10deg]" },
-  { label: "Fantasy", className: "left-[10%] bottom-[30%] rotate-[8deg]" },
+  { label: "Historical", className: "left-[10%] bottom-[30%] rotate-[8deg]" },
   { label: "Theatrical", className: "right-[9%] bottom-[28%] -rotate-[11deg]" },
   { label: "Sci-Fi", className: "left-[22%] top-[12%] rotate-[6deg] max-md:hidden" },
-  { label: "Vintage", className: "right-[20%] top-[14%] -rotate-[7deg] max-md:hidden" },
+  { label: "Movies & TV", className: "right-[20%] top-[14%] -rotate-[7deg] max-md:hidden" },
 ] as const;
 
 function HeroMarquee() {

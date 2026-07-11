@@ -284,6 +284,7 @@ function MarketplacePageInner() {
             facets={facets}
             priceBounds={priceBounds}
             onChange={handleFilterChange}
+            loading={isLoading}
             className="hidden lg:block"
           />
 
@@ -317,7 +318,7 @@ function MarketplacePageInner() {
             {view === "grid" ? (
               <div className="marketplace-card-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
                 {isLoading
-                  ? Array.from({ length: 6 }).map((_, i) => <CostumeCardSkeleton key={i} />)
+                  ? Array.from({ length: PAGE_SIZE }).map((_, i) => <CostumeCardSkeleton key={i} />)
                   : filteredItems.length
                     ? filteredItems.map((c) => (
                         <CostumeCard key={c.id} costume={c} savedIds={savedIds} variant="grid" />
@@ -329,7 +330,9 @@ function MarketplacePageInner() {
             ) : (
               <div className="space-y-3">
                 {isLoading
-                  ? Array.from({ length: 4 }).map((_, i) => <CostumeCardSkeleton key={i} variant="list" />)
+                  ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                      <CostumeCardSkeleton key={i} variant="list" />
+                    ))
                   : filteredItems.length
                     ? filteredItems.map((c) => (
                         <CostumeCard key={c.id} costume={c} savedIds={savedIds} variant="list" />

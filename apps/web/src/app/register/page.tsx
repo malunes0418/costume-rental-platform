@@ -27,7 +27,7 @@ import { useAuth } from "../../lib/auth";
 const TRUST_POINTS = [
   { label: "Browse free", detail: "No credit card required to explore the collection" },
   { label: "Save anything", detail: "Wishlist costumes and come back when you're ready" },
-  { label: "Book fast", detail: "Reserve in minutes — cancel anytime before pickup" },
+  { label: "Book fast", detail: "Reserve in minutes — cancel anytime before delivery" },
 ] as const;
 
 const FLOATING_TAGS = [

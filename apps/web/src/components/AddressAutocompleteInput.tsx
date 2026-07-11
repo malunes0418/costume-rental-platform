@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import { useJsApiLoader } from "@react-google-maps/api";
 import { Loader2, MapPin, Search } from "lucide-react";
 
@@ -29,6 +39,8 @@ type AddressAutocompleteInputProps = {
   className?: string;
   label?: string;
   placeholder?: string;
+  /** Prefill the search box (e.g. existing formatted address). */
+  defaultQuery?: string;
 };
 
 function componentLongName(
@@ -89,7 +101,7 @@ function mapPlaceToFields(place: google.maps.places.PlaceResult): ResolvedAddres
     area,
     latitude: Number(location.lat().toFixed(7)),
     longitude: Number(location.lng().toFixed(7)),
-    formatted_address: place.formatted_address || undefined
+    formatted_address: place.formatted_address || undefined,
   };
 }
 
@@ -97,29 +109,41 @@ export function AddressAutocompleteInput({
   onResolved,
   className,
   label = "Search address",
-  placeholder = "Start typing a street, building, or landmark…"
+  placeholder = "Start typing a street, building, or landmark…",
+  defaultQuery = "",
 }: AddressAutocompleteInputProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const listboxId = useId();
   const { isLoaded, loadError } = useJsApiLoader({
     id: "snapcos-google-places",
     googleMapsApiKey: apiKey,
-    libraries: PLACES_LIBRARIES
+    libraries: PLACES_LIBRARIES,
   });
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultQuery);
   const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const attributionRef = useRef<HTMLDivElement | null>(null);
+  const inputWrapRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setQuery(defaultQuery);
+  }, [defaultQuery]);
 
   const ensureSessionToken = useCallback(() => {
     if (!sessionTokenRef.current && typeof google !== "undefined") {
@@ -142,6 +166,28 @@ export function AddressAutocompleteInput({
     };
   }, []);
 
+  const updateMenuPosition = useCallback(() => {
+    const node = inputWrapRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    setMenuBox({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, predictions.length, updateMenuPosition]);
+
   const runPredictionSearch = useCallback(
     (value: string) => {
       if (!autocompleteServiceRef.current || value.trim().length < 3) {
@@ -157,7 +203,7 @@ export function AddressAutocompleteInput({
         {
           input: value,
           componentRestrictions: { country: "ph" },
-          sessionToken: token ?? undefined
+          sessionToken: token ?? undefined,
         },
         (results, status) => {
           setIsSearching(false);
@@ -197,11 +243,10 @@ export function AddressAutocompleteInput({
         {
           placeId: prediction.place_id,
           fields: ["geometry.location", "address_components", "formatted_address", "name"],
-          sessionToken: token ?? undefined
+          sessionToken: token ?? undefined,
         },
         (place, status) => {
           setIsResolving(false);
-          // End the billing session after Place Details (per Google session pricing).
           sessionTokenRef.current = null;
 
           if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
@@ -246,46 +291,25 @@ export function AddressAutocompleteInput({
     if (loadError) return "Google Places failed to load. Enter the address manually instead.";
     if (!apiKey) return null;
     if (!isLoaded) return "Loading address search…";
-    return "Philippines addresses only. Pick a suggestion to enable live delivery quotes.";
+    return "Philippines addresses only. Pick a suggestion to pin coordinates for live delivery quotes.";
   }, [apiKey, isLoaded, loadError]);
 
   if (!apiKey) {
     return null;
   }
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      <Label className="text-xs uppercase tracking-widest text-muted-foreground">{label}</Label>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(event) => handleQueryChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => {
-            if (predictions.length > 0) setOpen(true);
-          }}
-          onBlur={() => {
-            // Delay so suggestion clicks register before the list closes.
-            window.setTimeout(() => setOpen(false), 150);
-          }}
-          placeholder={placeholder}
-          disabled={!isLoaded || Boolean(loadError) || isResolving}
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={listboxId}
-          aria-autocomplete="list"
-          className="h-11 rounded-sm pl-10 pr-10"
-        />
-        {(isSearching || isResolving) && (
-          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-
-        {open && predictions.length > 0 ? (
+  const suggestionList =
+    open && predictions.length > 0 && menuBox && mounted
+      ? createPortal(
           <ul
             id={listboxId}
             role="listbox"
-            className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-sm border border-border bg-background shadow-lg"
+            className="fixed z-[130] max-h-60 overflow-auto rounded-xl border border-border bg-card shadow-lg"
+            style={{
+              top: menuBox.top,
+              left: menuBox.left,
+              width: menuBox.width,
+            }}
           >
             {predictions.map((prediction, index) => (
               <li key={prediction.place_id} role="option" aria-selected={index === activeIndex}>
@@ -310,14 +334,45 @@ export function AddressAutocompleteInput({
                 </button>
               </li>
             ))}
-          </ul>
-        ) : null}
+          </ul>,
+          document.body
+        )
+      : null;
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label className="text-xs uppercase tracking-widest text-muted-foreground">{label}</Label>
+      <div ref={inputWrapRef} className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => handleQueryChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            if (predictions.length > 0) setOpen(true);
+          }}
+          onBlur={() => {
+            window.setTimeout(() => setOpen(false), 150);
+          }}
+          placeholder={placeholder}
+          disabled={!isLoaded || Boolean(loadError) || isResolving}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          className="h-11 rounded-xl border-border bg-background pl-10 pr-10"
+          autoComplete="off"
+        />
+        {(isSearching || isResolving) && (
+          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+        )}
       </div>
+
+      {suggestionList}
 
       {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
-      {/* Required attribution container for PlacesService; visually hidden. */}
       <div ref={attributionRef} className="hidden" aria-hidden="true" />
     </div>
   );

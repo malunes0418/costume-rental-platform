@@ -830,7 +830,7 @@ h4 {
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: costumeShimmer 2.2s var(--ease-out-expo) infinite;
+  animation: costumeShimmer 2.2s linear infinite;
 }
 
 .marketplace-loading-dot {
@@ -901,12 +901,6 @@ h4 {
     color-mix(in oklch, var(--muted) 40%, var(--background));
 }
 
-.reservations-hero-glow {
-  background:
-    radial-gradient(ellipse 60% 80% at 90% 20%, oklch(0.68 0.16 28 / 0.08), transparent 60%),
-    radial-gradient(ellipse 50% 60% at 10% 80%, oklch(0.80 0.12 80 / 0.06), transparent 55%);
-}
-
 .wishlist-hero-glow {
   background:
     radial-gradient(ellipse 55% 70% at 85% 15%, oklch(0.80 0.12 80 / 0.1), transparent 58%),
@@ -917,6 +911,214 @@ h4 {
   background:
     radial-gradient(ellipse 58% 72% at 92% 18%, oklch(0.68 0.16 28 / 0.09), transparent 58%),
     radial-gradient(ellipse 48% 58% at 8% 82%, oklch(0.80 0.12 80 / 0.08), transparent 52%);
+}
+
+.subscription-hero-glow {
+  background:
+    radial-gradient(ellipse 70% 90% at 88% 8%, oklch(0.68 0.16 28 / 0.14), transparent 55%),
+    radial-gradient(ellipse 55% 70% at 8% 92%, oklch(0.80 0.12 80 / 0.12), transparent 50%),
+    radial-gradient(ellipse 40% 50% at 50% 50%, oklch(0.68 0.16 28 / 0.04), transparent 70%);
+}
+
+.subscription-price-stage {
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in oklch, var(--brand-coral-soft) 70%, var(--card)) 0%,
+      color-mix(in oklch, var(--brand-gold-soft) 55%, var(--card)) 100%
+    );
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, var(--border));
+  box-shadow: var(--shadow-coral);
+}
+
+.subscription-cue {
+  transition:
+    transform var(--dur-fast) var(--ease-out-expo),
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.subscription-cue:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 45%, var(--card));
+}
+
+.apply-hero-glow {
+  background:
+    radial-gradient(ellipse 65% 85% at 12% 10%, oklch(0.80 0.12 80 / 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 75% at 92% 88%, oklch(0.68 0.16 28 / 0.12), transparent 52%),
+    radial-gradient(ellipse 35% 45% at 55% 40%, oklch(0.68 0.16 28 / 0.04), transparent 70%);
+}
+
+.apply-form-stage {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklch, var(--card) 88%, var(--brand-ink)) 0%,
+      color-mix(in oklch, var(--brand-coral-soft) 40%, var(--card)) 100%
+    );
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--border));
+  box-shadow: var(--shadow-coral);
+}
+
+.apply-upload-zone {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo),
+    transform var(--dur-fast) var(--ease-out-expo);
+}
+
+.apply-upload-zone:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 50%, transparent);
+}
+
+.apply-upload-zone[data-filled="true"] {
+  border-style: solid;
+  border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 55%, transparent);
+}
+
+.vendor-hero-glow {
+  background:
+    radial-gradient(ellipse 70% 90% at 85% 12%, oklch(0.68 0.16 28 / 0.13), transparent 55%),
+    radial-gradient(ellipse 55% 70% at 10% 90%, oklch(0.80 0.12 80 / 0.11), transparent 50%),
+    radial-gradient(ellipse 40% 50% at 45% 45%, oklch(0.68 0.16 28 / 0.035), transparent 70%);
+}
+
+.vendor-stat-chip {
+  transition:
+    transform var(--dur-fast) var(--ease-out-expo),
+    border-color var(--dur-slow) var(--ease-out-expo),
+    box-shadow var(--dur-slow) var(--ease-out-expo);
+}
+
+.vendor-stat-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-coral);
+}
+
+.inventory-hero-glow {
+  background:
+    radial-gradient(ellipse 60% 70% at 92% 12%, oklch(0.68 0.16 28 / 0.05), transparent 58%),
+    radial-gradient(ellipse 48% 58% at 8% 88%, oklch(0.80 0.12 80 / 0.04), transparent 52%);
+}
+
+.inventory-listing-card {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.inventory-listing-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 18%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 18%, var(--card));
+}
+
+.reservations-hero-glow {
+  background:
+    radial-gradient(ellipse 60% 70% at 90% 12%, oklch(0.68 0.16 28 / 0.05), transparent 58%),
+    radial-gradient(ellipse 48% 58% at 8% 88%, oklch(0.80 0.12 80 / 0.04), transparent 52%);
+}
+
+.reservations-row {
+  transition: background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.reservations-row:hover {
+  background-color: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.reservations-mobile-card {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.reservations-mobile-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 18%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 18%, var(--card));
+}
+
+.reservation-modal-header-glow {
+  background:
+    radial-gradient(ellipse 70% 100% at 92% 0%, oklch(0.68 0.16 28 / 0.16), transparent 55%),
+    radial-gradient(ellipse 55% 90% at 8% 100%, oklch(0.80 0.12 80 / 0.12), transparent 50%);
+}
+
+.reservation-modal-finance {
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in oklch, var(--brand-coral-soft) 70%, var(--card)) 0%,
+      color-mix(in oklch, var(--brand-gold-soft) 55%, var(--card)) 100%
+    );
+  border: 1px solid color-mix(in oklch, var(--primary) 24%, var(--border));
+  box-shadow: var(--shadow-coral);
+}
+
+.reservation-modal-actions {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--brand-coral-soft) 28%, var(--background)) 0%,
+      color-mix(in oklch, var(--muted) 35%, var(--background)) 100%
+    );
+  border-top: 1px solid color-mix(in oklch, var(--primary) 16%, var(--border));
+}
+
+.earnings-row {
+  transition: background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.earnings-row:hover {
+  background-color: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.earnings-mobile-card {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.earnings-mobile-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 18%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 18%, var(--card));
+}
+
+.settings-hero-glow {
+  background:
+    radial-gradient(ellipse 60% 70% at 90% 12%, oklch(0.80 0.12 80 / 0.05), transparent 58%),
+    radial-gradient(ellipse 48% 58% at 8% 88%, oklch(0.68 0.16 28 / 0.04), transparent 52%);
+}
+
+.settings-method-card {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.settings-method-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 18%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 18%, var(--card));
+}
+
+.settings-upload-zone {
+  transition:
+    border-color var(--dur-slow) var(--ease-out-expo),
+    background-color var(--dur-slow) var(--ease-out-expo);
+}
+
+.settings-upload-zone:hover {
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 35%, transparent);
+}
+
+.settings-upload-zone[data-filled="true"] {
+  border-style: solid;
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  background-color: color-mix(in oklch, var(--brand-coral-soft) 40%, transparent);
 }
 
 .notification-panel-glow {
@@ -1270,7 +1472,7 @@ h4 {
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: costumeShimmer 2s var(--ease-out-expo) infinite;
+  animation: costumeShimmer 2s linear infinite;
 }
 
 @keyframes costumeShimmer {

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { GearIcon } from "@radix-ui/react-icons";
 
+import { Sparkle } from "@/components/brand/Sparkle";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
 import { DeliveryPreferencesPanel } from "@/components/account/DeliveryPreferencesPanel";
 import { NotificationsPanel } from "@/components/account/NotificationsPanel";
@@ -32,13 +33,105 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof User }> = [
   { id: "notifications", label: "Notifications", icon: Bell }
 ];
 
+function SettingsSidebarSkeleton() {
+  return (
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-card" aria-hidden="true">
+      <div className="border-b border-border px-6 py-6">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Account</p>
+        <h1 className="mt-1 font-display text-2xl font-semibold text-foreground">Settings</h1>
+      </div>
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
+        {TABS.map(({ id, label }) => (
+          <div
+            key={id}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5",
+              id === "personal" ? "bg-primary/15" : "bg-transparent"
+            )}
+          >
+            <Skeleton className="size-3.5 shrink-0 rounded-sm" />
+            <Skeleton className={cn("h-3 rounded-md", id === "personal" ? "w-24" : "w-20")} />
+            <span className="sr-only">{label}</span>
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+function PersonalInfoPanelSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl" aria-hidden="true">
+      <header className="mb-8">
+        <div className="flex items-center gap-2">
+          <Sparkle size="sm" animated={false} className="opacity-75" />
+          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
+            Your profile
+          </p>
+        </div>
+        <h2 className="section-heading mt-3">Personal info</h2>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+          The face you show renters and vendors. Keep your name current so handoffs and messages land
+          with the right person.
+        </p>
+      </header>
+
+      <div className="panel-card overflow-hidden">
+        <div className="border-b border-border px-6 py-10 md:px-8">
+          <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-center sm:gap-10">
+            <Skeleton className="size-36 shrink-0 rounded-full md:size-44" />
+            <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
+              <Skeleton className="mx-auto h-8 w-48 rounded-md sm:mx-0 md:h-9" />
+              <Skeleton className="mx-auto h-4 w-56 rounded-md sm:mx-0" />
+              <Skeleton className="mx-auto mt-4 h-3 w-64 max-w-full rounded-md sm:mx-0" />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6 px-6 py-8 md:px-8">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20 rounded-md" />
+            <Skeleton className="h-11 w-full rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-14 rounded-md" />
+            <div className="detail-chip bg-muted/30 py-3">
+              <Skeleton className="size-9 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-48 max-w-full rounded-md" />
+                <Skeleton className="h-3 w-64 max-w-full rounded-md" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AccountSettingsPageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16">
-      <Skeleton className="mb-8 h-10 w-64" />
-      <div className="flex gap-8">
-        <Skeleton className="hidden h-80 w-64 md:block" />
-        <Skeleton className="h-80 flex-1" />
+    <div
+      className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading account settings"
+    >
+      <div className="hidden md:flex">
+        <SettingsSidebarSkeleton />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-border px-4 py-4 md:hidden" aria-hidden="true">
+          <Skeleton className="size-9 rounded-xl" />
+          <Skeleton className="h-3 w-24 rounded-md" />
+          <div className="size-9" />
+        </div>
+
+        <div className="flex-1 px-6 py-8 md:px-10">
+          <PersonalInfoPanelSkeleton />
+        </div>
       </div>
     </div>
   );

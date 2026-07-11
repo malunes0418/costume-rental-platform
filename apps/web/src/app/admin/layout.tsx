@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { adminGetOverview } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -15,14 +16,35 @@ import {
   ExitIcon,
   HamburgerMenuIcon,
   LockClosedIcon,
+  CubeIcon,
+  ExclamationTriangleIcon,
+  ReaderIcon,
+  ChatBubbleIcon,
+  ArchiveIcon,
+  GearIcon,
 } from "@radix-ui/react-icons";
 
-const NAV = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeKey?: "pendingVendors" | "flaggedCostumes" | "openReports" | "openDisputes" | "pendingPayouts";
+};
+
+const NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: StackIcon },
-  { href: "/admin/vendors", label: "Vendors", icon: CardStackIcon },
+  { href: "/admin/inventory", label: "Inventory", icon: CubeIcon },
+  { href: "/admin/moderation", label: "Moderation", icon: ExclamationTriangleIcon, badgeKey: "openReports" },
+  { href: "/admin/vendors", label: "Vendors", icon: CardStackIcon, badgeKey: "pendingVendors" },
   { href: "/admin/reservations", label: "Reservations", icon: CalendarIcon },
+  { href: "/admin/disputes", label: "Disputes", icon: ChatBubbleIcon, badgeKey: "openDisputes" },
+  { href: "/admin/payouts", label: "Payouts", icon: ArchiveIcon, badgeKey: "pendingPayouts" },
   { href: "/admin/users", label: "Users", icon: PersonIcon },
+  { href: "/admin/audit", label: "Audit", icon: ReaderIcon },
+  { href: "/admin/settings", label: "Settings", icon: GearIcon },
 ];
+
+type BadgeCounts = Partial<Record<NonNullable<NavItem["badgeKey"]>, number>>;
 
 type AdminSidebarProps = {
   email?: string;
@@ -31,9 +53,27 @@ type AdminSidebarProps = {
   onLogout: () => void;
   onNavigate: () => void;
   pathname: string;
+  badges: BadgeCounts;
 };
 
-function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }: AdminSidebarProps) {
+function NavBadge({ count }: { count?: number }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-lg bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-amber-700 dark:text-amber-400">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+function AdminSidebar({
+  email,
+  initials,
+  name,
+  onLogout,
+  onNavigate,
+  pathname,
+  badges,
+}: AdminSidebarProps) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-20 items-center justify-between gap-3 border-b border-border px-6">
@@ -48,9 +88,15 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-4" aria-label="Admin navigation">
-        {NAV.map(({ href, label, icon: Icon }) => {
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" aria-label="Admin navigation">
+        {NAV.map(({ href, label, icon: Icon, badgeKey }) => {
           const isActive = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+          const badgeCount =
+            badgeKey === "openReports"
+              ? (badges.openReports || 0) + (badges.flaggedCostumes || 0)
+              : badgeKey
+                ? badges[badgeKey]
+                : undefined;
           return (
             <Link
               key={href}
@@ -64,7 +110,8 @@ function AdminSidebar({ email, initials, name, onLogout, onNavigate, pathname }:
               )}
             >
               <Icon className="size-3.5 shrink-0" />
-              {label}
+              <span className="truncate">{label}</span>
+              <NavBadge count={badgeCount} />
             </Link>
           );
         })}
@@ -100,6 +147,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [badges, setBadges] = useState<BadgeCounts>({});
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -111,6 +159,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace("/");
     }
   }, [isAuthLoading, user, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "ADMIN") return;
+    adminGetOverview()
+      .then((overview) => {
+        setBadges({
+          pendingVendors: overview.queues.pendingVendors,
+          flaggedCostumes: overview.queues.flaggedCostumes,
+          openReports: overview.queues.openReports,
+          openDisputes: overview.queues.openDisputes,
+          pendingPayouts: overview.queues.pendingPayouts,
+        });
+      })
+      .catch(() => setBadges({}));
+  }, [user, pathname]);
 
   if (isAuthLoading || !user || user.role !== "ADMIN") return null;
 
@@ -133,6 +196,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           onLogout={() => void handleLogout()}
           onNavigate={() => setSidebarOpen(false)}
           pathname={pathname}
+          badges={badges}
         />
       </div>
 
@@ -150,6 +214,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onLogout={() => void handleLogout()}
               onNavigate={() => setSidebarOpen(false)}
               pathname={pathname}
+              badges={badges}
             />
           </div>
         </div>

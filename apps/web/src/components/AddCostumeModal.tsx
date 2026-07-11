@@ -160,8 +160,13 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
       }}
     >
       <DialogTrigger asChild>
-        <Button size="lg" disabled={disabled}>
-          <Plus className="mr-2 size-4" /> Add Costume
+        <Button
+          size="lg"
+          disabled={disabled}
+          className="h-11 gap-2 rounded-md px-6 text-xs font-semibold uppercase tracking-widest shadow-coral"
+        >
+          <Plus className="size-3.5" />
+          Add costume
         </Button>
       </DialogTrigger>
 

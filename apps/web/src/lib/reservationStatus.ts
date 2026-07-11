@@ -38,7 +38,10 @@ export function isReservationStatus(value: string): value is ReservationStatus {
 }
 
 export function getDeliveryScheduledLabel(outboundMethod?: FulfillmentMethod | null) {
-  return outboundMethod === "PICKUP" ? "Ready for Pickup" : "Out for Delivery";
+  if (outboundMethod === "PICKUP") {
+    return "Ready for handoff";
+  }
+  return "Out for Delivery";
 }
 
 export function getReservationStatusMeta(

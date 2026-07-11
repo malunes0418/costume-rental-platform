@@ -1,5 +1,12 @@
 export type FulfillmentMode = "PICKUP" | "DELIVERY" | "BOTH";
 export type FulfillmentMethod = "PICKUP" | "DELIVERY";
+
+/** Temporary product focus: hide pickup options and copy across the web app. */
+export const DELIVERY_ONLY = true;
+
+export const SELECTABLE_FULFILLMENT_MODES: FulfillmentMode[] = DELIVERY_ONLY
+  ? ["DELIVERY"]
+  : ["BOTH", "PICKUP", "DELIVERY"];
 export type FulfillmentWindowSlot = "MORNING" | "AFTERNOON" | "EVENING";
 export type PaymentPurpose = "INITIAL_RESERVATION" | "RESERVATION_ADJUSTMENT";
 export type ReservationAdjustmentStatus = "PENDING" | "PAID" | "WAIVED" | "REJECTED";
@@ -57,13 +64,13 @@ export type LalamoveDispatchQuoteResponse = {
 };
 
 export const FULFILLMENT_MODE_LABELS: Record<FulfillmentMode, string> = {
-  PICKUP: "Pickup only",
-  DELIVERY: "Delivery only",
-  BOTH: "Pickup or delivery"
+  PICKUP: DELIVERY_ONLY ? "Delivery" : "Pickup only",
+  DELIVERY: DELIVERY_ONLY ? "Delivery" : "Delivery only",
+  BOTH: DELIVERY_ONLY ? "Delivery" : "Pickup or delivery"
 };
 
 export const FULFILLMENT_METHOD_LABELS: Record<FulfillmentMethod, string> = {
-  PICKUP: "Pickup",
+  PICKUP: DELIVERY_ONLY ? "Delivery" : "Pickup",
   DELIVERY: "Delivery"
 };
 
@@ -352,6 +359,14 @@ export function resolveDeliveryBookingMethods(
   return_method: FulfillmentMethod;
   use_same_location_for_return: boolean;
 } {
+  if (DELIVERY_ONLY) {
+    return {
+      outbound_method: "DELIVERY",
+      return_method: "DELIVERY",
+      use_same_location_for_return: true
+    };
+  }
+
   const outbound_method: FulfillmentMethod = modeAllowsMethod(effective.outbound_mode, "DELIVERY")
     ? "DELIVERY"
     : "PICKUP";
@@ -386,6 +401,10 @@ export function fulfillmentFeesForBookingMethods(
 }
 
 export function narrowingOptionsForMode(mode: FulfillmentMode) {
+  if (DELIVERY_ONLY) {
+    return ["DELIVERY"] as FulfillmentMode[];
+  }
+
   if (mode === "PICKUP") {
     return ["PICKUP"] as FulfillmentMode[];
   }
@@ -394,6 +413,18 @@ export function narrowingOptionsForMode(mode: FulfillmentMode) {
   }
 
   return ["BOTH", "PICKUP", "DELIVERY"] as FulfillmentMode[];
+}
+
+export function supportsDeliveryBooking(
+  effective: Pick<EffectiveCostumeFulfillment, "outbound_mode" | "return_mode">
+) {
+  if (DELIVERY_ONLY) {
+    return true;
+  }
+  return (
+    modeAllowsMethod(effective.outbound_mode, "DELIVERY") &&
+    modeAllowsMethod(effective.return_mode, "DELIVERY")
+  );
 }
 
 export function inferFulfillmentWindowSlot(

@@ -6,14 +6,18 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CalendarIcon as CalendarDays,
-  IdCardIcon as CreditCard,
-  UploadIcon as Upload
+  IdCardIcon as CreditCard
 } from "@radix-ui/react-icons";
 
 import { ActiveReservationCard } from "@/components/reservations/ActiveReservationCard";
 import { CartWorkflowActs } from "@/components/reservations/CartWorkflowActs";
 import { CollectionToolbar } from "@/components/reservations/CollectionToolbar";
 import { ReservationsHero } from "@/components/reservations/ReservationsHero";
+import {
+  ReservationsPageSkeleton,
+  resolveReservationsSkeletonVariant,
+  type ReservationsSkeletonVariant
+} from "@/components/reservations/ReservationsPageSkeleton";
 import { ReservationsSidebar } from "@/components/reservations/ReservationsSidebar";
 import { SavedCartItem } from "@/components/reservations/SavedCartItem";
 import type { ViewMode } from "@/components/marketplace/ResultsToolbar";
@@ -21,7 +25,6 @@ import { VendorCartSetupModal } from "@/components/VendorCartSetupModal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useCart } from "../../lib/CartContext";
@@ -50,6 +53,30 @@ import {
 import { cn } from "@/lib/utils";
 
 const actionLabelClass = "text-[10px] font-semibold uppercase tracking-widest";
+const LAYOUT_HINT_KEY = "reservations-layout-hint";
+
+function readLayoutHint(): ReservationsSkeletonVariant {
+  if (typeof window === "undefined") return "active";
+  try {
+    const value = sessionStorage.getItem(LAYOUT_HINT_KEY);
+    if (value === "empty" || value === "cart" || value === "active" || value === "both") {
+      return value;
+    }
+    // Migrate older two-state hints.
+    if (value === "populated") return "active";
+    return "active";
+  } catch {
+    return "active";
+  }
+}
+
+function writeLayoutHint(variant: ReservationsSkeletonVariant) {
+  try {
+    sessionStorage.setItem(LAYOUT_HINT_KEY, variant);
+  } catch {
+    // Ignore storage failures (private mode, quota, etc.).
+  }
+}
 
 export default function ReservationsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -60,6 +87,8 @@ export default function ReservationsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [layoutHint, setLayoutHint] = useState<ReservationsSkeletonVariant>(() => readLayoutHint());
   const [adjustmentFiles, setAdjustmentFiles] = useState<Record<number, File | null>>({});
   const [uploadingAdjustmentId, setUploadingAdjustmentId] = useState<number | null>(null);
   const [handoffFiles, setHandoffFiles] = useState<Record<number, File | null>>({});
@@ -221,12 +250,20 @@ export default function ReservationsPage() {
   );
 
   useEffect(() => {
+    if (!hasLoadedOnce) return;
+    const nextHint = resolveReservationsSkeletonVariant(reservations);
+    writeLayoutHint(nextHint);
+    setLayoutHint(nextHint);
+  }, [hasLoadedOnce, reservations]);
+
+  useEffect(() => {
     if (isAuthLoading) return;
     if (!user) {
       setReservations([]);
       setPayments([]);
       setSavedLocations([]);
       setIsLoading(false);
+      setHasLoadedOnce(false);
       return;
     }
     if (user.role === "ADMIN") {
@@ -243,10 +280,12 @@ export default function ReservationsPage() {
         setReservations(nextReservations);
         setPayments(nextPayments);
         setSavedLocations(nextLocations);
+        setHasLoadedOnce(true);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
           toast.error(error instanceof ApiError ? error.message : "Failed to load reservations");
+          setHasLoadedOnce(true);
         }
       })
       .finally(() => {
@@ -344,6 +383,10 @@ export default function ReservationsPage() {
     }
   }
 
+  if (isAuthLoading || (user && user.role !== "ADMIN" && isLoading && !hasLoadedOnce)) {
+    return <ReservationsPageSkeleton variant={layoutHint} />;
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen reservations-shell">
@@ -406,7 +449,7 @@ export default function ReservationsPage() {
 
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
           <div className="flex flex-col gap-12 lg:col-span-7 xl:col-span-8">
-          {!isLoading && cartVendorGroups.length > 0 ? (
+          {cartVendorGroups.length > 0 ? (
             <section className="space-y-6 animate-fade-up">
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -595,21 +638,7 @@ export default function ReservationsPage() {
             </section>
           ) : null}
 
-          {isLoading ? (
-            <div className="flex flex-col gap-5">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="panel-card flex gap-6 p-6">
-                  <Skeleton className="aspect-[4/5] w-36 shrink-0 rounded-lg" />
-                  <div className="flex-1 space-y-3">
-                    <Skeleton className="h-5 w-1/3" />
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-3 w-1/4" />
-                    <Skeleton className="mt-4 h-2 w-full rounded-full" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : activeReservations.length > 0 || cartVendorGroups.length > 0 ? (
+          {activeReservations.length > 0 || cartVendorGroups.length > 0 ? (
             activeReservations.length > 0 ? (
             <section className="space-y-6 animate-fade-up-delay-1">
               <div className="space-y-2">

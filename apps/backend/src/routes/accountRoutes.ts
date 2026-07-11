@@ -12,6 +12,7 @@ router.post("/avatar", upload.single("avatar"), (req, res) => accountController.
 router.put("/password", (req, res) => accountController.changePassword(req, res));
 router.get("/notification-preferences", (req, res) => accountController.getNotificationPreferences(req, res));
 router.put("/notification-preferences", (req, res) => accountController.updateNotificationPreferences(req, res));
+router.get("/platform-settings", (req, res) => accountController.getPlatformSettings(req, res));
 
 router.get("/locations", (req, res) => fulfillmentController.listSavedLocations(req, res));
 router.post("/locations", (req, res) => fulfillmentController.createSavedLocation(req, res));

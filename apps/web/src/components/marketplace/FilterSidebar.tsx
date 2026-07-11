@@ -1,6 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { categoryFilters } from "./constants";
 import { RangeSlider } from "./RangeSlider";
@@ -23,6 +24,7 @@ interface FilterSidebarProps {
   };
   priceBounds: { min: number; max: number };
   onChange: (next: Partial<MarketplaceFilters>) => void;
+  loading?: boolean;
   className?: string;
 }
 
@@ -68,11 +70,27 @@ function CheckboxOption({
   );
 }
 
+function FacetSectionSkeleton({ title, rows = 3 }: { title: string; rows?: number }) {
+  return (
+    <FilterSection title={title}>
+      <div className="space-y-0.5">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+            <Skeleton className="size-4 shrink-0 rounded" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        ))}
+      </div>
+    </FilterSection>
+  );
+}
+
 export function FilterSidebar({
   filters,
   facets,
   priceBounds,
   onChange,
+  loading = false,
   className,
 }: FilterSidebarProps) {
   const priceMin = filters.priceMin ?? priceBounds.min;
@@ -105,52 +123,62 @@ export function FilterSidebar({
           </div>
         </FilterSection>
 
-        {facets.sizes.length > 0 && (
-          <FilterSection title="Size">
-            <div className="space-y-0.5">
-              {facets.sizes.map((size) => (
-                <CheckboxOption
-                  key={size}
-                  id={`filter-size-${size}`}
-                  label={size}
-                  checked={filters.size === size}
-                  onChange={(checked) => onChange({ size: checked ? size : undefined })}
-                />
-              ))}
-            </div>
-          </FilterSection>
-        )}
+        {loading ? (
+          <>
+            <FacetSectionSkeleton title="Size" rows={3} />
+            <FacetSectionSkeleton title="Gender" rows={3} />
+            <FacetSectionSkeleton title="Theme" rows={5} />
+          </>
+        ) : (
+          <>
+            {facets.sizes.length > 0 && (
+              <FilterSection title="Size">
+                <div className="space-y-0.5">
+                  {facets.sizes.map((size) => (
+                    <CheckboxOption
+                      key={size}
+                      id={`filter-size-${size}`}
+                      label={size}
+                      checked={filters.size === size}
+                      onChange={(checked) => onChange({ size: checked ? size : undefined })}
+                    />
+                  ))}
+                </div>
+              </FilterSection>
+            )}
 
-        {facets.genders.length > 0 && (
-          <FilterSection title="Gender">
-            <div className="space-y-0.5">
-              {facets.genders.map((gender) => (
-                <CheckboxOption
-                  key={gender}
-                  id={`filter-gender-${gender}`}
-                  label={gender}
-                  checked={filters.gender === gender}
-                  onChange={(checked) => onChange({ gender: checked ? gender : undefined })}
-                />
-              ))}
-            </div>
-          </FilterSection>
-        )}
+            {facets.genders.length > 0 && (
+              <FilterSection title="Gender">
+                <div className="space-y-0.5">
+                  {facets.genders.map((gender) => (
+                    <CheckboxOption
+                      key={gender}
+                      id={`filter-gender-${gender}`}
+                      label={gender}
+                      checked={filters.gender === gender}
+                      onChange={(checked) => onChange({ gender: checked ? gender : undefined })}
+                    />
+                  ))}
+                </div>
+              </FilterSection>
+            )}
 
-        {facets.themes.length > 0 && (
-          <FilterSection title="Theme">
-            <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
-              {facets.themes.map((theme) => (
-                <CheckboxOption
-                  key={theme}
-                  id={`filter-theme-${theme}`}
-                  label={theme}
-                  checked={filters.theme === theme}
-                  onChange={(checked) => onChange({ theme: checked ? theme : undefined })}
-                />
-              ))}
-            </div>
-          </FilterSection>
+            {facets.themes.length > 0 && (
+              <FilterSection title="Theme">
+                <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
+                  {facets.themes.map((theme) => (
+                    <CheckboxOption
+                      key={theme}
+                      id={`filter-theme-${theme}`}
+                      label={theme}
+                      checked={filters.theme === theme}
+                      onChange={(checked) => onChange({ theme: checked ? theme : undefined })}
+                    />
+                  ))}
+                </div>
+              </FilterSection>
+            )}
+          </>
         )}
 
         <FilterSection title="Price range">
