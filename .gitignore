@@ -2,7 +2,6 @@
 node_modules/
 npm-debug.log
 yarn-error.log
-package-lock.json
 yarn.lock
 
 # Environment variables
@@ -61,3 +60,5 @@ public/uploads/
 
 # turbo
 .turbo
+# Nested app locks break monorepo installs; keep a single root lockfile
+apps/*/package-lock.json
