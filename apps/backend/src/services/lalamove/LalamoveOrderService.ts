@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import { VendorFulfillmentSettings } from "../../models/VendorFulfillmentSettings";
 import { ReservationFulfillment } from "../../models/ReservationFulfillment";
 import { DeliveryOrder } from "../../models/DeliveryOrder";
@@ -111,6 +112,17 @@ export class LalamoveOrderService {
     serviceType: string,
     checkoutFeeEstimate: number
   ): Promise<BookedDeliveryResult> {
+    const existing = await DeliveryOrder.findOne({
+      where: {
+        reservation_id: reservationId,
+        leg,
+        status: { [Op.notIn]: ["CANCELED", "CANCELLED", "FAILED", "EXPIRED"] }
+      }
+    });
+    if (existing) {
+      throw new Error(`A ${leg.toLowerCase()} delivery order already exists for this reservation`);
+    }
+
     const quotePayload = buildQuotationPayload(from, to, serviceType);
     if (!quotePayload) {
       throw new Error(`Cannot book Lalamove ${leg}: missing coordinates on one or both locations`);

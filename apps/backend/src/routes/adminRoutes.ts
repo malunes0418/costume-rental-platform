@@ -26,6 +26,9 @@ router.get("/vendors", authMiddleware, adminMiddleware, (req, res) => controller
 router.get("/vendors/pending", authMiddleware, adminMiddleware, (req, res) =>
   controller.listPendingVendors(req, res)
 );
+router.get("/vendors/:userId/id-document", authMiddleware, adminMiddleware, (req, res) =>
+  controller.getVendorIdDocument(req, res)
+);
 router.post("/vendors/:userId/approve", authMiddleware, adminMiddleware, (req, res) =>
   controller.approveVendor(req, res)
 );

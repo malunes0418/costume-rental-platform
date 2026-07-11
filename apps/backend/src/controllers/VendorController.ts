@@ -5,6 +5,7 @@ import { NotificationService } from "../services/NotificationService";
 import { ApiResponse } from "../dto";
 import type { ReviewPaymentRequest } from "../dto";
 import { VendorApplyRequest, MessageCreateRequest, VendorPaymentMethodInput } from "../dto/vendor.dto";
+import { uploadPublicPath } from "../middleware/uploadMiddleware";
 
 const vendorService = new VendorService();
 const paymentService = new PaymentService(new NotificationService());
@@ -13,7 +14,7 @@ export class VendorController {
   async apply(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const idDocumentUrl = req.file ? `/uploads/${req.file.filename}` : "";
+      const idDocumentUrl = req.file ? uploadPublicPath(req.file) : "";
       if (!idDocumentUrl) throw new Error("ID Document is required");
 
       const result = await vendorService.apply(userId, req.body as VendorApplyRequest, idDocumentUrl);
@@ -251,7 +252,7 @@ export class VendorController {
   async createPaymentMethod(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const qrImageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      const qrImageUrl = req.file ? uploadPublicPath(req.file) : undefined;
       const result = await vendorService.createPaymentMethod(
         userId,
         req.body as VendorPaymentMethodInput,
@@ -266,7 +267,7 @@ export class VendorController {
   async updatePaymentMethod(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const qrImageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      const qrImageUrl = req.file ? uploadPublicPath(req.file) : undefined;
       const result = await vendorService.updatePaymentMethod(
         userId,
         Number(req.params.id),

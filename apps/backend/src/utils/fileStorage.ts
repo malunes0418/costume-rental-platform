@@ -8,7 +8,18 @@ export function ensureUploadDir() {
   }
 }
 
-export function getProofFilePath(filename: string) {
+/** Resolve a stored `/uploads/...` URL or relative path to an absolute file path under FILE_UPLOAD_DIR. */
+export function resolveUploadAbsolutePath(storedPath: string) {
   ensureUploadDir();
-  return path.join(env.fileUploadDir, filename);
+  const relative = storedPath.replace(/^\/?uploads\//, "").replace(/^\/+/, "");
+  const absolute = path.resolve(env.fileUploadDir, relative);
+  const root = path.resolve(env.fileUploadDir);
+  if (!absolute.startsWith(root + path.sep) && absolute !== root) {
+    throw new Error("Invalid upload path");
+  }
+  return absolute;
+}
+
+export function getProofFilePath(filename: string) {
+  return resolveUploadAbsolutePath(filename);
 }

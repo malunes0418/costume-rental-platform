@@ -1,36 +1,66 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import { env } from "./config/env";
 import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
+import { csrfOriginMiddleware } from "./middleware/csrfOriginMiddleware";
+import { authRateLimiter, webhookRateLimiter } from "./middleware/rateLimitMiddleware";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenApiDocument } from "./config/openapi";
 import { Payment } from "./models/Payment";
+import { VendorProfile } from "./models/VendorProfile";
 import { HandoffService } from "./services/HandoffService";
 
 const handoffService = new HandoffService();
 
 export const app = express();
 
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false
+  })
+);
+
 app.use(cors({
   origin: env.frontendBaseUrl,
   credentials: true
 }));
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.use(cookieParser());
+app.use(csrfOriginMiddleware);
 
 app.use("/uploads", async (req, res, next) => {
   try {
     const relativePath = req.path.replace(/^\/+/, "");
-    const proof = await Payment.findOne({ where: { proof_url: `/uploads/${relativePath}` } });
+    const normalized = relativePath.replace(/\\/g, "/");
+
+    // Never serve ID documents or payment/handoff proofs from the public static mount.
+    if (
+      normalized.startsWith("ids/") ||
+      normalized.startsWith("proofs/") ||
+      normalized.includes("/ids/") ||
+      normalized.includes("/proofs/")
+    ) {
+      return res.status(404).end();
+    }
+
+    const proof = await Payment.findOne({ where: { proof_url: `/uploads/${normalized}` } });
     if (proof) {
       return res.status(404).end();
     }
-    const isHandoffProof = await handoffService.isProtectedUploadPath(relativePath);
+
+    const idDoc = await VendorProfile.findOne({ where: { id_document_url: `/uploads/${normalized}` } });
+    if (idDoc) {
+      return res.status(404).end();
+    }
+
+    const isHandoffProof = await handoffService.isProtectedUploadPath(normalized);
     if (isHandoffProof) {
       return res.status(404).end();
     }
@@ -41,18 +71,18 @@ app.use("/uploads", async (req, res, next) => {
 });
 app.use("/uploads", express.static(env.fileUploadDir));
 
-// Swagger UI configuration
-const openApiDocument = generateOpenApiDocument();
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+if (process.env.NODE_ENV !== "production") {
+  const openApiDocument = generateOpenApiDocument();
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+}
 
 app.head("/health", (_req, res) => {
   res.sendStatus(204);
 });
 
-app.use("/api/auth", routes.auth);
+app.use("/api/auth", authRateLimiter, routes.auth);
 app.use("/api/health", routes.health);
-// Webhooks are unauthenticated; token in URL path is the shared secret
-app.use("/api/webhooks", routes.webhooks);
+app.use("/api/webhooks", webhookRateLimiter, routes.webhooks);
 
 // Public browse routes (Airbnb-like guest experience).
 app.use("/api/costumes", routes.costumes);

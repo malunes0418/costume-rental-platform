@@ -19,6 +19,8 @@ import type {
   AdminModerationQueueQuery,
   AdminPayoutListQuery
 } from "../dto/admin.dto";
+import { resolveUploadAbsolutePath } from "../utils/fileStorage";
+import { VendorProfile } from "../models/VendorProfile";
 
 const adminService = new AdminService();
 
@@ -169,6 +171,18 @@ export class AdminController {
     }
   }
 
+  async getVendorIdDocument(req: Request, res: Response) {
+    try {
+      const profile = await VendorProfile.findOne({ where: { user_id: Number(req.params.userId) } });
+      if (!profile?.id_document_url) {
+        throw new Error("ID document not found");
+      }
+      res.sendFile(resolveUploadAbsolutePath(profile.id_document_url));
+    } catch (e: unknown) {
+      ApiResponse.failFromError(res, e, 404);
+    }
+  }
+
   async listPendingVendors(req: Request, res: Response) {
     try {
       const users = await adminService.listPendingVendors();
@@ -178,7 +192,9 @@ export class AdminController {
         business_name: u.VendorProfile?.business_name,
         store_name: u.VendorProfile?.business_name,
         bio: u.VendorProfile?.bio,
-        id_document_url: u.VendorProfile?.id_document_url,
+        id_document_url: u.VendorProfile?.id_document_url
+          ? `/api/admin/vendors/${u.id}/id-document`
+          : null,
         review_note: u.VendorProfile?.review_note,
         reviewed_at: u.VendorProfile?.reviewed_at,
         status: u.vendor_status,
@@ -203,7 +219,9 @@ export class AdminController {
         business_name: p.business_name,
         store_name: p.business_name,
         bio: p.bio,
-        id_document_url: p.id_document_url,
+        id_document_url: p.id_document_url
+          ? `/api/admin/vendors/${p.user_id}/id-document`
+          : null,
         review_note: p.review_note,
         reviewed_at: p.reviewed_at,
         status: p.User?.vendor_status || "NONE",

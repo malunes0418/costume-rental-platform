@@ -1,13 +1,15 @@
 import type { ReviewPaymentRequest, UploadPaymentProofRequest } from "../dto";
 import type { PaymentAttributes } from "../models/Payment";
 import { Op } from "sequelize";
-import { deriveVendorReservationStatus } from "../domain/reservationLifecycle";
+import { sequelize } from "../config/db";
+import { deriveVendorReservationStatus, assertReservationTransition } from "../domain/reservationLifecycle";
 import { Payment } from "../models/Payment";
 import { Reservation } from "../models/Reservation";
 import { ReservationAdjustment } from "../models/ReservationAdjustment";
 import { ReservationItem } from "../models/ReservationItem";
 import { Costume } from "../models/Costume";
 import { NotificationService } from "./NotificationService";
+import { uploadPublicPath } from "../middleware/uploadMiddleware";
 
 export class PaymentService {
   constructor(private notificationService: NotificationService) {}
@@ -87,7 +89,7 @@ export class PaymentService {
     if (!file) {
       throw new Error("Proof file is required");
     }
-    const proofUrl = `/uploads/${file.filename}`;
+    const proofUrl = uploadPublicPath(file);
     const adjustmentId = body.reservationAdjustmentId ? Number(body.reservationAdjustmentId) : null;
     if (adjustmentId) {
       if (!Number.isFinite(adjustmentId)) {
@@ -290,80 +292,72 @@ export class PaymentService {
       throw new Error("Invalid payment review request");
     }
     const ok = status === "APPROVED";
-    const payment = await Payment.findByPk(id);
-    if (!payment) {
-      throw new Error("Payment not found");
-    }
-    if (payment.status !== "PENDING") {
-      throw new Error("Payment has already been reviewed");
-    }
-    if (!payment.proof_url) {
-      throw new Error("Payment receipt is missing");
-    }
-    
-    const reservationIds = payment.reservation_ids || [];
-    if (!reservationIds.length) {
-      throw new Error("No reservations found for this payment");
-    }
 
-    const reservations = await Reservation.findAll({
-      where: { id: reservationIds },
-      include: [
-        {
-          model: ReservationItem,
-          as: "items",
-          required: true,
-          include: [
-            {
-              model: Costume,
-              attributes: ["id", "owner_id"],
-              required: true
-            }
-          ]
-        }
-      ]
-    });
-    if (reservations.length !== reservationIds.length) {
-      throw new Error("One or more reservations not found");
-    }
-    const ownsEveryReservation = reservations.every((reservation) => {
-      const items = ((reservation as any).items || []) as Array<ReservationItem & { Costume?: Costume }>;
-      return items.length > 0 && items.every((item) => Number(item.Costume?.owner_id) === Number(vendorId));
-    });
-    if (!ownsEveryReservation) {
-      throw new Error("Payment not found or unauthorized");
-    }
+    return sequelize.transaction(async (transaction) => {
+      const payment = await Payment.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+      if (!payment) {
+        throw new Error("Payment not found");
+      }
+      if (payment.status !== "PENDING") {
+        throw new Error("Payment has already been reviewed");
+      }
+      if (!payment.proof_url) {
+        throw new Error("Payment receipt is missing");
+      }
 
-    const adjustment =
-      payment.reservation_adjustment_id != null
-        ? await ReservationAdjustment.findByPk(Number(payment.reservation_adjustment_id))
-        : null;
+      const reservationIds = payment.reservation_ids || [];
+      if (!reservationIds.length) {
+        throw new Error("No reservations found for this payment");
+      }
 
-    payment.status = ok ? "APPROVED" : "REJECTED";
-    payment.notes = notes || "";
-    await payment.save();
+      const reservations = await Reservation.findAll({
+        where: { id: reservationIds },
+        include: [
+          {
+            model: ReservationItem,
+            as: "items",
+            required: true,
+            include: [
+              {
+                model: Costume,
+                attributes: ["id", "owner_id"],
+                required: true
+              }
+            ]
+          }
+        ],
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (reservations.length !== reservationIds.length) {
+        throw new Error("One or more reservations not found");
+      }
+      const ownsEveryReservation = reservations.every((reservation) => {
+        const items = ((reservation as any).items || []) as Array<ReservationItem & { Costume?: Costume }>;
+        return items.length > 0 && items.every((item) => Number(item.Costume?.owner_id) === Number(vendorId));
+      });
+      if (!ownsEveryReservation) {
+        throw new Error("Payment not found or unauthorized");
+      }
 
-    if (ok) {
-      for (const res of reservations) {
-        if (payment.payment_purpose === "INITIAL_RESERVATION" && res.status === "PENDING_PAYMENT") {
-          res.status = "PENDING_VENDOR_REVIEW";
-          await this.notificationService.create(
-            res.user_id,
-            "PAYMENT_APPROVED",
-            "Payment approved",
-            `The vendor verified your initial payment for reservation #${res.id}. Your booking is now awaiting vendor review.`
-          );
-        } else if (payment.payment_purpose === "RESERVATION_ADJUSTMENT" && res.status === "AWAITING_SURCHARGE_PAYMENT") {
-          res.status = "CONFIRMED";
-          await this.notificationService.create(
-            res.user_id,
-            "SURCHARGE_PAYMENT_APPROVED",
-            "Supplemental payment approved",
-            `The vendor verified your supplemental payment for reservation #${res.id}. The reservation is now confirmed.`
-          );
-        }
-        res.vendor_status = deriveVendorReservationStatus(res.status, res.vendor_status);
-        await res.save();
+      const adjustment =
+        payment.reservation_adjustment_id != null
+          ? await ReservationAdjustment.findByPk(Number(payment.reservation_adjustment_id), {
+              transaction,
+              lock: transaction.LOCK.UPDATE
+            })
+          : null;
+
+      if (!ok) {
+        payment.status = "REJECTED";
+        payment.notes = notes || "";
+        await payment.save({ transaction });
+        const message =
+          payment.payment_purpose === "RESERVATION_ADJUSTMENT"
+            ? "Your supplemental payment proof was rejected. Please upload a new receipt to continue this reservation."
+            : "Your payment proof was rejected. Please upload a new receipt to continue your reservation.";
+        await this.notificationService.create(payment.user_id, "PAYMENT_STATUS", "Payment reviewed", message);
+        return { payment: this.presentPayment(payment), reservations };
       }
 
       if (payment.payment_purpose === "RESERVATION_ADJUSTMENT") {
@@ -373,26 +367,69 @@ export class PaymentService {
         if (adjustment.status !== "PENDING") {
           throw new Error("Reservation adjustment has already been settled");
         }
-        adjustment.status = "PAID";
-        await adjustment.save();
       }
-    } else {
-      const message =
-        payment.payment_purpose === "RESERVATION_ADJUSTMENT"
-          ? "Your supplemental payment proof was rejected. Please upload a new receipt to continue this reservation."
-          : "Your payment proof was rejected. Please upload a new receipt to continue your reservation.";
-      await this.notificationService.create(payment.user_id, "PAYMENT_STATUS", "Payment reviewed", message);
-      return { payment: this.presentPayment(payment), reservations };
-    }
 
-    await this.notificationService.create(
-      payment.user_id,
-      "PAYMENT_STATUS",
-      "Payment reviewed",
-      payment.payment_purpose === "RESERVATION_ADJUSTMENT"
-        ? "The vendor verified your supplemental payment."
-        : "The vendor verified your payment."
-    );
-    return { payment: this.presentPayment(payment), reservations };
+      for (const res of reservations) {
+        if (payment.payment_purpose === "INITIAL_RESERVATION") {
+          if (res.status !== "PENDING_PAYMENT") {
+            throw new Error(
+              `Reservation #${res.id} is ${res.status} and cannot accept an initial payment approval`
+            );
+          }
+          assertReservationTransition(res.status, "PENDING_VENDOR_REVIEW", "Reservation");
+          res.status = "PENDING_VENDOR_REVIEW";
+        } else if (payment.payment_purpose === "RESERVATION_ADJUSTMENT") {
+          if (res.status !== "AWAITING_SURCHARGE_PAYMENT") {
+            throw new Error(
+              `Reservation #${res.id} is ${res.status} and cannot accept a surcharge payment approval`
+            );
+          }
+          assertReservationTransition(res.status, "CONFIRMED", "Reservation");
+          res.status = "CONFIRMED";
+        } else {
+          throw new Error("Unsupported payment purpose");
+        }
+        res.vendor_status = deriveVendorReservationStatus(res.status, res.vendor_status);
+        await res.save({ transaction });
+      }
+
+      payment.status = "APPROVED";
+      payment.notes = notes || "";
+      await payment.save({ transaction });
+
+      if (payment.payment_purpose === "RESERVATION_ADJUSTMENT" && adjustment) {
+        adjustment.status = "PAID";
+        await adjustment.save({ transaction });
+      }
+
+      for (const res of reservations) {
+        if (payment.payment_purpose === "INITIAL_RESERVATION") {
+          await this.notificationService.create(
+            res.user_id,
+            "PAYMENT_APPROVED",
+            "Payment approved",
+            `The vendor verified your initial payment for reservation #${res.id}. Your booking is now awaiting vendor review.`
+          );
+        } else {
+          await this.notificationService.create(
+            res.user_id,
+            "SURCHARGE_PAYMENT_APPROVED",
+            "Supplemental payment approved",
+            `The vendor verified your supplemental payment for reservation #${res.id}. The reservation is now confirmed.`
+          );
+        }
+      }
+
+      await this.notificationService.create(
+        payment.user_id,
+        "PAYMENT_STATUS",
+        "Payment reviewed",
+        payment.payment_purpose === "RESERVATION_ADJUSTMENT"
+          ? "The vendor verified your supplemental payment."
+          : "The vendor verified your payment."
+      );
+
+      return { payment: this.presentPayment(payment), reservations };
+    });
   }
 }

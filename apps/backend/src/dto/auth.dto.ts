@@ -20,7 +20,8 @@ export type AuthUser = UserSummary;
 
 export interface AuthTokenResponse {
   user: AuthUser;
-  token: string;
+  /** Omitted for browser cookie sessions; Bearer clients may still receive it from internal helpers. */
+  token?: string;
 }
 
 /** `GET /auth/me` — shape attached by JWT middleware. */

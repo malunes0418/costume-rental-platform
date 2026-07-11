@@ -23,7 +23,7 @@ export class ReviewService {
   async listCostumeReviews(params: Request["params"]) {
     return Review.findAll({
       where: { costume_id: Number(params.costumeId) },
-      include: [User],
+      include: [{ model: User, attributes: ["id", "name", "avatar_url"] }],
       order: [["created_at", "DESC"]]
     });
   }

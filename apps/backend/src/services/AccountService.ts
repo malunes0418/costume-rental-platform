@@ -9,6 +9,7 @@ import type {
 } from "../dto/account.dto";
 import { User } from "../models/User";
 import { UserNotificationPreferences } from "../models/UserNotificationPreferences";
+import { assertPasswordPolicy } from "../utils/passwordPolicy";
 
 const DEFAULT_NOTIFICATION_PREFS = {
   reservations_email: true,
@@ -57,7 +58,7 @@ export class AccountService {
   }
 
   async updateProfile(userId: number, payload: UpdateProfileRequest): Promise<UpdateProfileResponse> {
-    const user = await User.findByPk(userId);
+    const user = await User.scope("withPassword").findByPk(userId);
     if (!user) {
       throw new Error("User not found");
     }
@@ -79,14 +80,17 @@ export class AccountService {
       }
 
       if (email !== user.email) {
-        if (user.password_hash) {
-          if (!payload.current_password) {
-            throw new Error("Current password is required to change email");
-          }
-          const match = await bcrypt.compare(payload.current_password, user.password_hash);
-          if (!match) {
-            throw new Error("Current password is incorrect");
-          }
+        if (!user.password_hash) {
+          throw new Error(
+            "OAuth accounts cannot change email here. Link a password first or contact support."
+          );
+        }
+        if (!payload.current_password) {
+          throw new Error("Current password is required to change email");
+        }
+        const match = await bcrypt.compare(payload.current_password, user.password_hash);
+        if (!match) {
+          throw new Error("Current password is incorrect");
         }
 
         const existing = await User.findOne({ where: { email } });
@@ -106,15 +110,13 @@ export class AccountService {
   }
 
   async changePassword(userId: number, payload: ChangePasswordRequest): Promise<{ success: true }> {
-    const user = await User.findByPk(userId);
+    const user = await User.scope("withPassword").findByPk(userId);
     if (!user) {
       throw new Error("User not found");
     }
 
     const newPassword = payload.new_password?.trim();
-    if (!newPassword || newPassword.length < 8) {
-      throw new Error("New password must be at least 8 characters");
-    }
+    assertPasswordPolicy(newPassword || "", "New password");
 
     if (user.password_hash) {
       if (!payload.current_password) {

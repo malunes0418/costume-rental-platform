@@ -94,7 +94,8 @@ export function getAllowedReservationTransitions(status: ReservationStatus) {
 }
 
 export function canTransitionReservationStatus(current: ReservationStatus, next: ReservationStatus) {
-  if (current === next) return true;
+  // Same-status is not a transition — callers must treat re-entry as idempotent no-ops themselves.
+  if (current === next) return false;
   return getAllowedReservationTransitions(current).includes(next);
 }
 

@@ -31,6 +31,7 @@ import {
   type FulfillmentWindowSlot,
   type SavedLocation,
 } from "@/lib/fulfillment";
+import { sanitizeInternalNext } from "@/lib/authRedirects";
 import { cn } from "@/lib/utils";
 
 const WINDOW_OPTIONS: FulfillmentWindowSlot[] = ["MORNING", "AFTERNOON", "EVENING"];
@@ -148,6 +149,8 @@ function WindowPicker({ label, description, value, onChange, accent }: WindowPic
 
 export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelProps) {
   const router = useRouter();
+  const safeNextUrl = sanitizeInternalNext(nextUrl, "");
+  const continueUrl = safeNextUrl || null;
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [preferences, setPreferences] = useState<FulfillmentPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -200,7 +203,7 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
   );
 
   const profileComplete = hasCompleteDeliveryProfile(preferences, savedLocations);
-  const needsProfileForBooking = Boolean(nextUrl && !profileComplete);
+  const needsProfileForBooking = Boolean(continueUrl && !profileComplete);
 
   function resetForm() {
     setDefaultLocationId(savedLocationId);
@@ -224,8 +227,8 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
       setPreferences(saved);
       toast.success("Delivery preferences saved.");
 
-      if (nextUrl && hasCompleteDeliveryProfile(saved, savedLocations)) {
-        router.push(nextUrl);
+      if (continueUrl && hasCompleteDeliveryProfile(saved, savedLocations)) {
+        router.push(continueUrl);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save preferences.");
@@ -433,7 +436,7 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
                       <Loader2 className="size-3.5 animate-spin" />
                       Saving…
                     </>
-                  ) : nextUrl && !profileComplete ? (
+                  ) : continueUrl && !profileComplete ? (
                     <>
                       Save & continue
                       <ArrowRight className="size-3.5" />
@@ -448,10 +451,10 @@ export function DeliveryPreferencesPanel({ nextUrl }: DeliveryPreferencesPanelPr
         </div>
       </div>
 
-      {nextUrl && profileComplete && !isDirty ? (
+      {continueUrl && profileComplete && !isDirty ? (
         <div className="mt-6 text-center">
           <Link
-            href={nextUrl}
+            href={continueUrl}
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium transition-all hover:bg-muted hover:scale-[1.02]"
           >
             Continue booking

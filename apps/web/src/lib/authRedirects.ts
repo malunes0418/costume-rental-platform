@@ -21,6 +21,24 @@ export function getDefaultPostLoginPath(user: RedirectUser | null | undefined) {
   return "/";
 }
 
+export function sanitizeInternalNext(next: string | null | undefined, fallback = "/") {
+  if (!next) {
+    return fallback;
+  }
+
+  const trimmedNext = next.trim();
+  if (!trimmedNext.startsWith("/") || trimmedNext.startsWith("//")) {
+    return fallback;
+  }
+
+  const pathname = trimmedNext.split(/[?#]/, 1)[0] || "/";
+  if (isBlockedPostLoginPath(pathname)) {
+    return fallback;
+  }
+
+  return trimmedNext;
+}
+
 export function resolvePostLoginPath(user: RedirectUser | null | undefined, next: string | null | undefined) {
   const defaultPath = getDefaultPostLoginPath(user);
 
@@ -28,19 +46,5 @@ export function resolvePostLoginPath(user: RedirectUser | null | undefined, next
     return defaultPath;
   }
 
-  if (!next) {
-    return defaultPath;
-  }
-
-  const trimmedNext = next.trim();
-  if (!trimmedNext.startsWith("/") || trimmedNext.startsWith("//")) {
-    return defaultPath;
-  }
-
-  const pathname = trimmedNext.split(/[?#]/, 1)[0] || "/";
-  if (isBlockedPostLoginPath(pathname)) {
-    return defaultPath;
-  }
-
-  return trimmedNext;
+  return sanitizeInternalNext(next, defaultPath);
 }

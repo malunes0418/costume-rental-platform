@@ -12,17 +12,16 @@ export class SubscriptionService {
     });
   }
 
-  async createSubscription(userId: number, planName: string, days: number = 30) {
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + days);
+  async createSubscription(userId: number, planName: string, _days: number = 30) {
+    const allowedPlans = new Set(["BASIC", "PRO", "ENTERPRISE"]);
+    const normalized = String(planName || "").trim().toUpperCase();
+    if (!allowedPlans.has(normalized)) {
+      throw new Error("Invalid subscription plan");
+    }
 
-    return Subscription.create({
-      user_id: userId,
-      plan_name: planName,
-      status: "ACTIVE",
-      start_date: startDate,
-      end_date: endDate
-    });
+    // Billing is not wired yet — refuse free self-activation.
+    throw new Error(
+      "Paid subscription checkout is not available yet. Contact support to activate a plan."
+    );
   }
 }

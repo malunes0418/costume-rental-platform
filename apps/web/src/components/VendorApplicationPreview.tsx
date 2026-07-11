@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { resolveApiAsset } from "@/lib/assets";
 import { type VendorProfileData, type VendorStatus } from "@/lib/vendor";
 
 function formatDate(value?: string | null) {
@@ -89,16 +88,10 @@ export function VendorApplicationPreview({
       <div className="rounded-xl border border-border bg-card p-5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Identity document</p>
         {profile.id_document_url ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <a
-              href={resolveApiAsset(profile.id_document_url)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-[10px] font-semibold uppercase tracking-widest text-foreground transition-colors hover:bg-muted"
-            >
-              Open document
-            </a>
-            <p className="text-xs text-muted-foreground">Submitted for manual review.</p>
+          <div className="mt-3">
+            <p className="text-sm text-muted-foreground">
+              Identity document is on file and visible only to platform admins during review.
+            </p>
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">No document is available on file.</p>

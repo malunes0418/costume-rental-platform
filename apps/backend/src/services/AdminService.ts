@@ -124,7 +124,7 @@ export class AdminService {
         { model: ReservationItem, as: "items", include: [Costume] },
         { association: "fulfillment" },
         { association: "adjustments" },
-        User
+        { model: User, attributes: ["id", "email", "name", "avatar_url", "role", "vendor_status"] }
       ],
       order: [["created_at", "DESC"]]
     });
@@ -276,14 +276,23 @@ export class AdminService {
   }
 
   async listUsers() {
-    return User.findAll();
+    return User.findAll({
+      attributes: ["id", "email", "name", "avatar_url", "role", "vendor_status", "created_at", "updated_at"]
+    });
   }
 
   async updateUserRole(userId: number, role: string, actorId: number, reason?: string) {
+    if (role !== "USER" && role !== "ADMIN") {
+      throw new Error("Role must be USER or ADMIN");
+    }
+    if (Number(userId) === Number(actorId) && role !== "ADMIN") {
+      throw new Error("Admins cannot demote themselves");
+    }
+
     const user = await User.findByPk(userId);
     if (!user) throw new Error("User not found");
     const before = { role: user.role };
-    user.role = role as typeof user.role;
+    user.role = role;
     await user.save();
 
     await adminAuditService.record({

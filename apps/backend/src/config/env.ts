@@ -30,7 +30,13 @@ export const env = {
   dbName: required("DB_NAME"),
   dbPassword: optional("DB_PASSWORD"),
   dbCaCertPath: optional("DB_CA_CERT_PATH"),
-  jwtSecret: required("JWT_SECRET"),
+  jwtSecret: (() => {
+    const secret = required("JWT_SECRET");
+    if (process.env.NODE_ENV === "production" && secret.length < 32) {
+      throw new Error("JWT_SECRET must be at least 32 characters in production");
+    }
+    return secret;
+  })(),
   oauthGoogleClientId: required("OAUTH_GOOGLE_CLIENT_ID"),
   oauthGoogleClientSecret: required("OAUTH_GOOGLE_CLIENT_SECRET"),
   oauthGoogleCallbackUrl: required("OAUTH_GOOGLE_CALLBACK_URL"),

@@ -2,14 +2,22 @@ import { Router } from "express";
 import { VendorController } from "../controllers/VendorController";
 import { FulfillmentController } from "../controllers/FulfillmentController";
 import { authMiddleware } from "../middleware/authMiddleware";
-import { upload } from "../middleware/uploadMiddleware";
+import { upload, setUploadKind } from "../middleware/uploadMiddleware";
 import { ensureApprovedVendor, ensureVendorApplicant } from "../middleware/vendorAccessMiddleware";
+import { uploadRateLimiter } from "../middleware/rateLimitMiddleware";
 
 const router = Router();
 const vendorController = new VendorController();
 const fulfillmentController = new FulfillmentController();
 
-router.post("/apply", authMiddleware, upload.single("id_document"), (req, res) => vendorController.apply(req, res));
+router.post(
+  "/apply",
+  authMiddleware,
+  uploadRateLimiter,
+  setUploadKind("id_document"),
+  upload.single("id_document"),
+  (req, res) => vendorController.apply(req, res)
+);
 router.get("/me", authMiddleware, (req, res) => vendorController.getProfile(req, res));
 router.get("/:vendorId/payment-methods", authMiddleware, (req, res) =>
   vendorController.getPublicPaymentMethods(req, res)
@@ -43,11 +51,19 @@ router.post("/reservations/:id/surcharge", ensureApprovedVendor, (req, res) => v
 router.get("/reservations/:id/dispatch-quote", ensureApprovedVendor, (req, res) =>
   vendorController.quoteDispatch(req, res)
 );
-router.post("/reservations/:id/dispatch", ensureApprovedVendor, upload.single("proof"), (req, res) =>
-  vendorController.dispatchReservation(req, res)
+router.post(
+  "/reservations/:id/dispatch",
+  ensureApprovedVendor,
+  setUploadKind("proof"),
+  upload.single("proof"),
+  (req, res) => vendorController.dispatchReservation(req, res)
 );
-router.post("/reservations/:id/confirm-return", ensureApprovedVendor, upload.single("proof"), (req, res) =>
-  vendorController.confirmVendorReturn(req, res)
+router.post(
+  "/reservations/:id/confirm-return",
+  ensureApprovedVendor,
+  setUploadKind("proof"),
+  upload.single("proof"),
+  (req, res) => vendorController.confirmVendorReturn(req, res)
 );
 router.post("/reservations/:id/complete", ensureApprovedVendor, (req, res) => vendorController.completeReservation(req, res));
 router.post("/reservations/:id/adjustments/:adjustmentId/waive", ensureApprovedVendor, (req, res) =>

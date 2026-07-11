@@ -35,6 +35,13 @@ logs/
 tmp/
 temp/
 *.tmp
+.codex-temp/
+.impeccable-live/
+.impeccable-live.json
+*.tsbuildinfo
+
+# Accidental build dumps
+**/build_output*.txt
 
 # Database
 *.db

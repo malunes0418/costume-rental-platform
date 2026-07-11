@@ -43,4 +43,10 @@ describe("reservationLifecycle", () => {
     expect(isPreWithRenterStatus("DELIVERY_SCHEDULED")).toBe(true);
     expect(isPreWithRenterStatus("WITH_RENTER")).toBe(false);
   });
+
+  it("rejects same-status transitions to keep handoff actions idempotent", () => {
+    expect(canTransitionReservationStatus("CONFIRMED", "CONFIRMED")).toBe(false);
+    expect(canTransitionReservationStatus("DELIVERY_SCHEDULED", "DELIVERY_SCHEDULED")).toBe(false);
+    expect(canTransitionReservationStatus("WITH_RENTER", "WITH_RENTER")).toBe(false);
+  });
 });

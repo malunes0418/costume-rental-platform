@@ -1,9 +1,8 @@
 import { Request, Response } from "express";
-import path from "path";
 import { PaymentService } from "../services/PaymentService";
 import { NotificationService } from "../services/NotificationService";
-import { env } from "../config/env";
 import { ApiResponse, MyPaymentsResponse, UploadPaymentProofRequest, UploadPaymentProofResponse } from "../dto";
+import { resolveUploadAbsolutePath } from "../utils/fileStorage";
 
 const notificationService = new NotificationService();
 const paymentService = new PaymentService(notificationService);
@@ -31,7 +30,7 @@ export class PaymentController {
   async proof(req: Request, res: Response) {
     try {
       const proofPath = await paymentService.getProofFileForViewer(req.user!.id, Number(req.params.id));
-      res.sendFile(path.basename(proofPath), { root: env.fileUploadDir });
+      res.sendFile(resolveUploadAbsolutePath(proofPath));
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e, 404);
     }

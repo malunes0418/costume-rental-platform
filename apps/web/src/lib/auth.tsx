@@ -23,7 +23,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-type AuthTokenResponse = { user: AuthUser; token: string };
+type AuthTokenResponse = { user: AuthUser; token?: string };
 type LoginRequest = { email: string; password: string };
 type RegisterRequest = { email: string; password: string; name?: string };
 

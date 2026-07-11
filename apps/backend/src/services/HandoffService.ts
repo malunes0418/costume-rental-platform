@@ -19,18 +19,21 @@ import { User } from "../models/User";
 import { NotificationService } from "./NotificationService";
 import { assertNoBlockingPaymentForRenterCancel } from "./reservationPaymentGuards";
 import { LalamoveOrderService, type BookedDeliveryResult } from "./lalamove/LalamoveOrderService";
+import { PayoutService } from "./PayoutService";
+import { uploadPublicPath } from "../middleware/uploadMiddleware";
 import type { LocationSnapshot } from "../domain/fulfillment";
 
 export class HandoffService {
   private notificationService = new NotificationService();
   private lalamoveOrderService = new LalamoveOrderService();
+  private payoutService = new PayoutService();
 
   private formatLifecycleLabel(status: ReservationStatus) {
     return status.toLowerCase().split("_").join(" ");
   }
 
   private proofStoragePath(file: Express.Multer.File) {
-    return `/uploads/${file.filename}`;
+    return uploadPublicPath(file);
   }
 
   private async findReservationForRenter(reservationId: number, userId: number) {
@@ -282,6 +285,8 @@ export class HandoffService {
     reservation.status = "COMPLETED";
     reservation.vendor_status = deriveVendorReservationStatus(reservation.status, reservation.vendor_status);
     await reservation.save();
+
+    await this.payoutService.syncEligibleEntries();
 
     await this.notificationService.create(
       reservation.user_id,

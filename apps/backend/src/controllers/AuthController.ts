@@ -17,9 +17,16 @@ const COOKIE_NAME = "crp.token";
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+  // Prefer Lax to reduce CSRF; cross-site SPA deployments can set AUTH_COOKIE_SAMESITE=none
+  sameSite: (process.env.AUTH_COOKIE_SAMESITE === "none"
+    ? "none"
+    : "lax") as "none" | "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000
 };
+
+function cookieOnlyAuthResponse(user: AuthTokenResponse["user"]): AuthTokenResponse {
+  return { user };
+}
 
 export class AuthController {
   getOAuthIntent(req: Request) {
@@ -38,7 +45,7 @@ export class AuthController {
     try {
       const result = await authService.register(req.body as RegisterRequest);
       res.cookie(COOKIE_NAME, result.token, COOKIE_OPTS);
-      ApiResponse.ok(res, result as AuthTokenResponse);
+      ApiResponse.ok(res, cookieOnlyAuthResponse(result.user));
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }
@@ -48,7 +55,7 @@ export class AuthController {
     try {
       const result = await authService.login(req.body as LoginRequest);
       res.cookie(COOKIE_NAME, result.token, COOKIE_OPTS);
-      ApiResponse.ok(res, result as AuthTokenResponse);
+      ApiResponse.ok(res, cookieOnlyAuthResponse(result.user));
     } catch (e: unknown) {
       ApiResponse.failFromError(res, e);
     }

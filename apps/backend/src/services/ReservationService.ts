@@ -1,5 +1,6 @@
 import type { Request } from "express";
 import { Op } from "sequelize";
+import { sequelize } from "../config/db";
 import type {
   AddToCartRequest,
   AddCostumeToCartRequest,
@@ -22,6 +23,7 @@ import { CostumeImage } from "../models/CostumeImage";
 import { NotificationService } from "./NotificationService";
 import { countDaysInclusive } from "../utils/dateUtils";
 import { calculateReservationPrice } from "../utils/pricing";
+import { assertValidRentalRange } from "../utils/rentalDates";
 import { FulfillmentService } from "./FulfillmentService";
 import { HandoffService } from "./HandoffService";
 import { presentFulfillmentHandoffProofs } from "../domain/handoffProofs";
@@ -121,20 +123,27 @@ export class ReservationService {
   }
 
   async validateAvailability(costumeId: number, startDate: Date, endDate: Date, quantity: number) {
-    const costume = await Costume.findByPk(costumeId);
-    this.assertBookableCostume(costume);
-    const existingReservations = await this.getAvailability(costumeId, startDate, endDate);
-    let reservedQuantity = 0;
-    for (const res of existingReservations) {
-      const items = (res as any).items as ReservationItem[];
-      for (const item of items) {
-        reservedQuantity += item.quantity;
+    assertValidRentalRange(startDate, endDate);
+
+    await sequelize.transaction(async (transaction) => {
+      const costume = await Costume.findByPk(costumeId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      this.assertBookableCostume(costume);
+      const existingReservations = await this.getAvailability(costumeId, startDate, endDate);
+      let reservedQuantity = 0;
+      for (const res of existingReservations) {
+        const items = (res as any).items as ReservationItem[];
+        for (const item of items) {
+          reservedQuantity += item.quantity;
+        }
       }
-    }
-    const available = costume.stock - reservedQuantity;
-    if (available < quantity) {
-      throw new Error("Insufficient availability for selected dates");
-    }
+      const available = costume!.stock - reservedQuantity;
+      if (available < quantity) {
+        throw new Error("Insufficient availability for selected dates");
+      }
+    });
   }
 
   private costumePricingConfig(costume: Costume) {
@@ -179,6 +188,7 @@ export class ReservationService {
   ) {
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
+    assertValidRentalRange(start, end);
     await this.validateAvailability(costume.id, start, end, item.quantity);
     const days = countDaysInclusive(start, end);
     const pricing = calculateReservationPrice(this.costumePricingConfig(costume), days, item.quantity);

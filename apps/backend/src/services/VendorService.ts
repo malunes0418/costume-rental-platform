@@ -276,9 +276,16 @@ export class VendorService {
     const profile = await VendorProfile.findOne({ where: { user_id: userId } });
     const hasPaymentMethod = await this.vendorHasActivePaymentMethod(userId);
     const capabilities = this.buildCapabilities(user.vendor_status as VendorStatus, hasPaymentMethod);
+    const safeProfile = profile
+      ? {
+          ...profile.toJSON(),
+          // Never expose raw ID document storage paths to the browser.
+          id_document_url: profile.id_document_url ? "on_file" : null
+        }
+      : null;
 
     return {
-      profile,
+      profile: safeProfile as any,
       status: user.vendor_status,
       vendorStatus: user.vendor_status,
       ...capabilities
@@ -364,6 +371,11 @@ export class VendorService {
     if (!costume) throw new Error("Costume not found or unauthorized");
     if (costume.status === "HIDDEN" || costume.status === "FLAGGED") {
       throw new Error("Moderated listings cannot be published by vendors");
+    }
+
+    const hasPaymentMethod = await this.vendorHasActivePaymentMethod(vendorId);
+    if (!hasPaymentMethod) {
+      throw new Error("Add an active payment method before publishing listings");
     }
 
     costume.status = "ACTIVE";
@@ -466,6 +478,12 @@ export class VendorService {
 
     assertReservationTransition(reservation.status, status, "Reservation");
     await assertInitialPaymentApprovedForVendorReview(reservation);
+
+    if (status === "CONFIRMED" && reservation.status === "AWAITING_SURCHARGE_PAYMENT") {
+      throw new Error(
+        "Cannot confirm while a surcharge is pending. Waive the surcharge or wait for the renter to pay it."
+      );
+    }
 
     reservation.status = status;
     reservation.vendor_status = deriveVendorReservationStatus(status, reservation.vendor_status);

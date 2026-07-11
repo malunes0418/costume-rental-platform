@@ -11,6 +11,7 @@ import type {
 } from "../dto/account.dto";
 import { AccountService } from "../services/AccountService";
 import { platformSettingsService } from "../services/PlatformSettingsService";
+import { uploadPublicPath } from "../middleware/uploadMiddleware";
 
 const accountService = new AccountService();
 
@@ -30,7 +31,7 @@ export class AccountController {
         throw new Error("Avatar file is required");
       }
 
-      const avatarUrl = `/uploads/${req.file.filename}`;
+      const avatarUrl = uploadPublicPath(req.file);
       const result = await accountService.updateAvatar(req.user!.id, avatarUrl);
       ApiResponse.ok(res, result as UpdateAvatarResponse);
     } catch (e: unknown) {
