@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WishlistButton } from "./WishlistButton";
 import { cn } from "@/lib/utils";
+import { displayCategory } from "@/components/marketplace/constants";
 
 export type { Costume };
 
@@ -36,7 +37,8 @@ export function CostumeCard({
   const { user } = useAuth();
   const img = primaryImage(costume);
   const pricingSummary = getCostumePricingSummary(costume);
-  const meta = [costume.category, costume.size, costume.theme].filter(Boolean);
+  const shownCategory = displayCategory(costume);
+  const meta = [shownCategory, costume.size, costume.theme].filter(Boolean);
   const initialSaved = savedIds ? savedIds.has(costume.id) : false;
   const isOwnCostume = !!user && costume.owner_id === user.id;
 
@@ -65,9 +67,9 @@ export function CostumeCard({
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              {costume.category && (
+              {shownCategory && (
                 <Badge variant="coralSoft" className="rounded-md text-[10px] font-medium">
-                  {costume.category}
+                  {shownCategory}
                 </Badge>
               )}
               {isOwnCostume && (
@@ -141,7 +143,7 @@ export function CostumeCard({
           )}
         </Link>
 
-        {costume.category && (
+        {shownCategory && (
           <Badge
             variant="coralSoft"
             className={cn(
@@ -151,7 +153,7 @@ export function CostumeCard({
                 : "left-3 top-3 text-[10px]"
             )}
           >
-            {costume.category}
+            {shownCategory}
           </Badge>
         )}
 

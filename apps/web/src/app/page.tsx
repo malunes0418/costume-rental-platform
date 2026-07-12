@@ -17,9 +17,9 @@ import {
   ExclamationTriangleIcon as AlertCircle,
   MagnifyingGlassIcon as Search,
 } from "@radix-ui/react-icons";
-import { HeroSplash } from "@/components/brand/HeroSplash";
 import { cn } from "@/lib/utils";
 import { FilterSidebar, type MarketplaceFilters } from "@/components/marketplace/FilterSidebar";
+import { MobileFilters } from "@/components/marketplace/MobileFilters";
 import { FilterChips } from "@/components/marketplace/FilterChips";
 import { ResultsToolbar, type ViewMode } from "@/components/marketplace/ResultsToolbar";
 import { MarketplaceHero } from "@/components/marketplace/MarketplaceHero";
@@ -171,24 +171,12 @@ function MarketplacePageInner() {
   const canPrev = page > 1;
   const canNext = page * PAGE_SIZE < total;
 
-  const showHero = useMemo(
-    () =>
-      !q &&
-      !category &&
-      !size &&
-      !gender &&
-      !theme &&
-      !sort &&
-      view === "grid" &&
-      page === 1 &&
-      priceMin === undefined &&
-      priceMax === undefined,
-    [q, category, size, gender, theme, sort, view, page, priceMin, priceMax]
-  );
-
-  const scrollToMarketplace = useCallback(() => {
-    document.getElementById("marketplace")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  const hasActiveBrowse =
+    Boolean(q || category || size || gender || theme || sort) ||
+    view !== "grid" ||
+    page !== 1 ||
+    priceMin !== undefined ||
+    priceMax !== undefined;
 
   function handleFilterChange(next: Partial<MarketplaceFilters>) {
     const updates: Record<string, string | null> = {};
@@ -223,13 +211,21 @@ function MarketplacePageInner() {
     router.replace("/");
   }
 
+  function handleClearFacets() {
+    updateParams({
+      size: null,
+      gender: null,
+      theme: null,
+      priceMin: null,
+      priceMax: null,
+    });
+  }
+
   if (user?.role === "ADMIN") return null;
 
   return (
     <div className="marketplace-shell flex flex-1 flex-col">
-      {showHero ? (
-        <HeroSplash onBrowse={scrollToMarketplace} />
-      ) : (
+      {hasActiveBrowse ? (
         <MarketplaceHero
           variant="browse"
           total={total}
@@ -237,21 +233,12 @@ function MarketplacePageInner() {
           query={q}
           category={category}
         />
-      )}
+      ) : null}
 
       <div
         id="marketplace"
         className="marketplace-content scroll-mt-[calc(var(--navbar-height)+1rem)]"
       >
-        {showHero && (
-          <MarketplaceHero
-            variant="section"
-            total={total}
-            filteredCount={filteredItems.length}
-            query={q}
-            category={category}
-          />
-        )}
         {isApprovedVendor && user && (
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
             <div className="marketplace-segment" role="group" aria-label="Catalog scope">
@@ -289,16 +276,27 @@ function MarketplacePageInner() {
           />
 
           <div className="min-w-0 flex-1 space-y-4">
-            <ResultsToolbar
-              count={filteredItems.length}
-              total={total}
-              sort={sort || "_newest"}
-              view={view}
-              onSortChange={(val) =>
-                updateParams({ sort: val === "_newest" ? null : val })
-              }
-              onViewChange={(v) => updateParams({ view: v === "grid" ? null : v })}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+              <MobileFilters
+                filters={filters}
+                facets={facets}
+                priceBounds={priceBounds}
+                onChange={handleFilterChange}
+                onClearFacets={handleClearFacets}
+                loading={isLoading}
+              />
+              <ResultsToolbar
+                count={filteredItems.length}
+                total={total}
+                sort={sort || "_newest"}
+                view={view}
+                onSortChange={(val) =>
+                  updateParams({ sort: val === "_newest" ? null : val })
+                }
+                onViewChange={(v) => updateParams({ view: v === "grid" ? null : v })}
+                className="min-w-0 flex-1"
+              />
+            </div>
 
             <FilterChips
               filters={filters}

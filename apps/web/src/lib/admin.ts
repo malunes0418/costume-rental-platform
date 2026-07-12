@@ -43,6 +43,7 @@ export type AdminInventoryItem = {
   name: string;
   description?: string | null;
   category?: string | null;
+  category_label?: string | null;
   size?: string | null;
   gender?: string | null;
   theme?: string | null;

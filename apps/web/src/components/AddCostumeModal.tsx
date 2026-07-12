@@ -14,6 +14,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  OTHER_CATEGORY,
+  PLATFORM_CATEGORIES,
+} from "@/components/marketplace/constants";
 import { createVendorCostume } from "@/lib/vendor";
 import type { PricingMode } from "@/lib/pricing";
 import type { CostumeFulfillmentOverrideInput, VendorFulfillmentSettings } from "@/lib/fulfillment";
@@ -63,6 +74,7 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
   const [deposit, setDeposit] = useState("");
   const [size, setSize] = useState("");
   const [category, setCategory] = useState("");
+  const [categoryLabel, setCategoryLabel] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [outboundOverride, setOutboundOverride] = useState<OverrideChoice>("INHERIT");
   const [returnOverride, setReturnOverride] = useState<OverrideChoice>("INHERIT");
@@ -100,6 +112,11 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
     e.preventDefault();
     if (!user) return;
 
+    if (!category) {
+      toast.error("Please select a category.");
+      return;
+    }
+
     if (images.length === 0) {
       toast.error("Please add at least one image.");
       return;
@@ -119,6 +136,8 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
         deposit_amount: parseFloat(deposit) || 0,
         size,
         category,
+        category_label:
+          category === OTHER_CATEGORY ? categoryLabel.trim() || null : null,
         images,
         fulfillment_override: buildOverridePayload(vendorSettings, outboundOverride, returnOverride)
       });
@@ -146,6 +165,7 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
     setDeposit("");
     setSize("");
     setCategory("");
+    setCategoryLabel("");
     setImages([]);
     setOutboundOverride("INHERIT");
     setReturnOverride("INHERIT");
@@ -192,14 +212,44 @@ export function AddCostumeModal({ onSuccess, disabled, vendorSettings }: AddCost
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                placeholder="e.g. Historical, Fantasy"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
+              <Label htmlFor="category">
+                Category <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={category || undefined}
+                onValueChange={(value) => {
+                  setCategory(value);
+                  if (value !== OTHER_CATEGORY) setCategoryLabel("");
+                }}
+              >
+                <SelectTrigger id="category" className="h-11 w-full rounded-sm">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATFORM_CATEGORIES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {category === OTHER_CATEGORY ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="category-label">Custom label</Label>
+                <Input
+                  id="category-label"
+                  placeholder="Optional display label (e.g. Cosplay mashup)"
+                  value={categoryLabel}
+                  onChange={(e) => setCategoryLabel(e.target.value)}
+                  maxLength={100}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown to shoppers; browse filtering still uses Other.
+                </p>
+              </div>
+            ) : null}
 
             <div className="space-y-3 md:col-span-2">
               <Label>Pricing Mode <span className="text-destructive">*</span></Label>

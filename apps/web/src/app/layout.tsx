@@ -6,7 +6,6 @@ import { ConditionalNavbar } from "../components/ConditionalNavbar";
 import { ThemeProvider } from "../components/theme-provider";
 import { CartProvider } from "../lib/CartContext";
 import { AuthProvider } from "../lib/auth";
-import { LandingShellProvider } from "../lib/landing-shell";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -65,10 +64,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <LandingShellProvider>
-              <CartProvider>
-                <ConditionalNavbar />
-                <div className="flex flex-1 flex-col">{children}</div>
+            <CartProvider>
+              <ConditionalNavbar />
+              <div className="flex flex-1 flex-col">{children}</div>
               <Toaster position="top-right" />
               <div
                 aria-hidden="true"
@@ -84,8 +82,7 @@ export default function RootLayout({
                   backgroundSize: "128px",
                 }}
               />
-              </CartProvider>
-            </LandingShellProvider>
+            </CartProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

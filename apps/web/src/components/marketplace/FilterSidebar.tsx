@@ -3,7 +3,6 @@
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { categoryFilters } from "./constants";
 import { RangeSlider } from "./RangeSlider";
 
 export interface MarketplaceFilters {
@@ -15,16 +14,19 @@ export interface MarketplaceFilters {
   priceMax?: number;
 }
 
-interface FilterSidebarProps {
+export type MarketplaceFacets = {
+  sizes: string[];
+  genders: string[];
+  themes: string[];
+};
+
+interface FilterFieldsProps {
   filters: MarketplaceFilters;
-  facets: {
-    sizes: string[];
-    genders: string[];
-    themes: string[];
-  };
+  facets: MarketplaceFacets;
   priceBounds: { min: number; max: number };
   onChange: (next: Partial<MarketplaceFilters>) => void;
   loading?: boolean;
+  idPrefix?: string;
   className?: string;
 }
 
@@ -85,6 +87,135 @@ function FacetSectionSkeleton({ title, rows = 3 }: { title: string; rows?: numbe
   );
 }
 
+/** Facet filters only — category lives in the top nav. */
+export function MarketplaceFilterFields({
+  filters,
+  facets,
+  priceBounds,
+  onChange,
+  loading = false,
+  idPrefix = "filter",
+  className,
+}: FilterFieldsProps) {
+  const priceMin = filters.priceMin ?? priceBounds.min;
+  const priceMax = filters.priceMax ?? priceBounds.max;
+
+  return (
+    <div className={cn("space-y-5", className)}>
+      {loading ? (
+        <>
+          <FacetSectionSkeleton title="Size" rows={3} />
+          <FacetSectionSkeleton title="Gender" rows={3} />
+          <FacetSectionSkeleton title="Theme" rows={5} />
+        </>
+      ) : (
+        <>
+          {facets.sizes.length > 0 && (
+            <FilterSection title="Size">
+              <div className="space-y-0.5">
+                {facets.sizes.map((size) => (
+                  <CheckboxOption
+                    key={size}
+                    id={`${idPrefix}-size-${size}`}
+                    label={size}
+                    checked={filters.size === size}
+                    onChange={(checked) => onChange({ size: checked ? size : undefined })}
+                  />
+                ))}
+              </div>
+            </FilterSection>
+          )}
+
+          {facets.genders.length > 0 && (
+            <FilterSection title="Gender">
+              <div className="space-y-0.5">
+                {facets.genders.map((gender) => (
+                  <CheckboxOption
+                    key={gender}
+                    id={`${idPrefix}-gender-${gender}`}
+                    label={gender}
+                    checked={filters.gender === gender}
+                    onChange={(checked) => onChange({ gender: checked ? gender : undefined })}
+                  />
+                ))}
+              </div>
+            </FilterSection>
+          )}
+
+          {facets.themes.length > 0 && (
+            <FilterSection title="Theme">
+              <div className="max-h-40 space-y-0.5 overflow-y-auto pr-1">
+                {facets.themes.map((theme) => (
+                  <CheckboxOption
+                    key={theme}
+                    id={`${idPrefix}-theme-${theme}`}
+                    label={theme}
+                    checked={filters.theme === theme}
+                    onChange={(checked) => onChange({ theme: checked ? theme : undefined })}
+                  />
+                ))}
+              </div>
+            </FilterSection>
+          )}
+        </>
+      )}
+
+      <FilterSection title="Price range">
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={priceBounds.min}
+            max={priceMax}
+            value={priceMin}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (!Number.isFinite(val)) return;
+              onChange({ priceMin: Math.min(Math.max(val, priceBounds.min), priceMax) });
+            }}
+            className="h-9 rounded-lg text-sm"
+            aria-label="Minimum price"
+          />
+          <span className="text-muted-foreground">–</span>
+          <Input
+            type="number"
+            min={priceMin}
+            max={priceBounds.max}
+            value={priceMax}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (!Number.isFinite(val)) return;
+              onChange({ priceMax: Math.max(Math.min(val, priceBounds.max), priceMin) });
+            }}
+            className="h-9 rounded-lg text-sm"
+            aria-label="Maximum price"
+          />
+        </div>
+        <div className="mt-4 px-1">
+          <RangeSlider
+            min={priceBounds.min}
+            max={priceBounds.max}
+            valueMin={priceMin}
+            valueMax={priceMax}
+            onChange={(lo, hi) => onChange({ priceMin: lo, priceMax: hi })}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          ₱{priceMin.toLocaleString()} – ₱{priceMax.toLocaleString()}
+        </p>
+      </FilterSection>
+    </div>
+  );
+}
+
+interface FilterSidebarProps {
+  filters: MarketplaceFilters;
+  facets: MarketplaceFacets;
+  priceBounds: { min: number; max: number };
+  onChange: (next: Partial<MarketplaceFilters>) => void;
+  loading?: boolean;
+  className?: string;
+}
+
 export function FilterSidebar({
   filters,
   facets,
@@ -93,9 +224,6 @@ export function FilterSidebar({
   loading = false,
   className,
 }: FilterSidebarProps) {
-  const priceMin = filters.priceMin ?? priceBounds.min;
-  const priceMax = filters.priceMax ?? priceBounds.max;
-
   return (
     <aside
       className={cn(
@@ -108,123 +236,29 @@ export function FilterSidebar({
         <h2 className="font-display text-lg font-semibold text-foreground">Filters</h2>
       </div>
 
-      <div className="space-y-5">
-        <FilterSection title="Category">
-          <div className="space-y-0.5">
-            {categoryFilters.filter((c) => c.value).map(({ value, label }) => (
-              <CheckboxOption
-                key={value}
-                id={`filter-category-${value}`}
-                label={label}
-                checked={filters.category === value}
-                onChange={(checked) => onChange({ category: checked ? value : undefined })}
-              />
-            ))}
-          </div>
-        </FilterSection>
-
-        {loading ? (
-          <>
-            <FacetSectionSkeleton title="Size" rows={3} />
-            <FacetSectionSkeleton title="Gender" rows={3} />
-            <FacetSectionSkeleton title="Theme" rows={5} />
-          </>
-        ) : (
-          <>
-            {facets.sizes.length > 0 && (
-              <FilterSection title="Size">
-                <div className="space-y-0.5">
-                  {facets.sizes.map((size) => (
-                    <CheckboxOption
-                      key={size}
-                      id={`filter-size-${size}`}
-                      label={size}
-                      checked={filters.size === size}
-                      onChange={(checked) => onChange({ size: checked ? size : undefined })}
-                    />
-                  ))}
-                </div>
-              </FilterSection>
-            )}
-
-            {facets.genders.length > 0 && (
-              <FilterSection title="Gender">
-                <div className="space-y-0.5">
-                  {facets.genders.map((gender) => (
-                    <CheckboxOption
-                      key={gender}
-                      id={`filter-gender-${gender}`}
-                      label={gender}
-                      checked={filters.gender === gender}
-                      onChange={(checked) => onChange({ gender: checked ? gender : undefined })}
-                    />
-                  ))}
-                </div>
-              </FilterSection>
-            )}
-
-            {facets.themes.length > 0 && (
-              <FilterSection title="Theme">
-                <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
-                  {facets.themes.map((theme) => (
-                    <CheckboxOption
-                      key={theme}
-                      id={`filter-theme-${theme}`}
-                      label={theme}
-                      checked={filters.theme === theme}
-                      onChange={(checked) => onChange({ theme: checked ? theme : undefined })}
-                    />
-                  ))}
-                </div>
-              </FilterSection>
-            )}
-          </>
-        )}
-
-        <FilterSection title="Price range">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={priceBounds.min}
-              max={priceMax}
-              value={priceMin}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                if (!Number.isFinite(val)) return;
-                onChange({ priceMin: Math.min(Math.max(val, priceBounds.min), priceMax) });
-              }}
-              className="h-9 rounded-lg text-sm"
-              aria-label="Minimum price"
-            />
-            <span className="text-muted-foreground">–</span>
-            <Input
-              type="number"
-              min={priceMin}
-              max={priceBounds.max}
-              value={priceMax}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                if (!Number.isFinite(val)) return;
-                onChange({ priceMax: Math.max(Math.min(val, priceBounds.max), priceMin) });
-              }}
-              className="h-9 rounded-lg text-sm"
-              aria-label="Maximum price"
-            />
-          </div>
-          <div className="mt-4 px-1">
-            <RangeSlider
-              min={priceBounds.min}
-              max={priceBounds.max}
-              valueMin={priceMin}
-              valueMax={priceMax}
-              onChange={(lo, hi) => onChange({ priceMin: lo, priceMax: hi })}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            ₱{priceMin.toLocaleString()} – ₱{priceMax.toLocaleString()}
-          </p>
-        </FilterSection>
-      </div>
+      <MarketplaceFilterFields
+        filters={filters}
+        facets={facets}
+        priceBounds={priceBounds}
+        onChange={onChange}
+        loading={loading}
+        idPrefix="sidebar-filter"
+      />
     </aside>
   );
+}
+
+export function countActiveFacets(
+  filters: MarketplaceFilters,
+  priceBounds: { min: number; max: number }
+): number {
+  let count = 0;
+  if (filters.size) count += 1;
+  if (filters.gender) count += 1;
+  if (filters.theme) count += 1;
+  const hasPrice =
+    (filters.priceMin !== undefined && filters.priceMin > priceBounds.min) ||
+    (filters.priceMax !== undefined && filters.priceMax < priceBounds.max);
+  if (hasPrice) count += 1;
+  return count;
 }

@@ -1,11 +1,8 @@
 import { cn } from "@/lib/utils";
+import { CostumeCardSkeleton } from "@/components/CostumeCard";
 
 interface MarketplaceLoadingStageProps {
   className?: string;
-}
-
-function HeroLoadingLine({ className }: { className?: string }) {
-  return <div className={cn("hero-loading-line rounded-md", className)} aria-hidden="true" />;
 }
 
 export function MarketplaceLoadingStage({ className }: MarketplaceLoadingStageProps) {
@@ -17,31 +14,28 @@ export function MarketplaceLoadingStage({ className }: MarketplaceLoadingStagePr
       aria-busy="true"
       aria-label="Loading marketplace"
     >
-      <section
-        aria-hidden="true"
-        className="hero-splash relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden"
-      >
-        <div className="hero-marquee pointer-events-none absolute inset-x-0 top-0 z-20 overflow-hidden border-b border-primary/15 bg-primary/[0.06] py-2.5">
-          <div className="mx-auto h-3 w-40 max-w-[70%] rounded-full hero-loading-line opacity-80" />
+      <div className="marketplace-content flex flex-1 gap-6 lg:gap-8">
+        <div
+          className="hidden w-56 shrink-0 self-start rounded-2xl border border-border bg-card p-5 lg:block lg:w-60"
+          aria-hidden="true"
+        >
+          <div className="mb-5 h-6 w-20 rounded-md bg-muted" />
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-4 w-full rounded-md bg-muted" />
+            ))}
+          </div>
         </div>
 
-        <div className="hero-curtain hero-curtain-left hero-curtain-heavy" />
-        <div className="hero-curtain hero-curtain-right hero-curtain-heavy" />
-        <div className="hero-spotlight" />
-        <div className="hero-spotlight-sweep" />
-
-        <div className="relative z-10 flex w-full max-w-4xl flex-col items-center px-6 pt-20 text-center md:px-10">
-          <HeroLoadingLine className="h-3 w-52 sm:w-64" />
-          <HeroLoadingLine className="mt-6 h-[clamp(2.75rem,11vw,5.5rem)] w-56 sm:w-72" />
-          <HeroLoadingLine className="mt-2 h-[clamp(3rem,12vw,6.5rem)] w-64 sm:w-80" />
-          <HeroLoadingLine className="mt-6 h-4 w-full max-w-md" />
-          <HeroLoadingLine className="mt-2 h-4 w-48 max-w-[80%]" />
-          <HeroLoadingLine className="mt-10 h-14 w-48 rounded-2xl" />
+        <div className="min-w-0 flex-1 space-y-4">
+          <div className="h-12 rounded-xl border border-border bg-card" aria-hidden="true" />
+          <div className="marketplace-card-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 md:gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <CostumeCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
-
-        <div className="hero-stage-line" />
-        <div className="hero-stage-glow" />
-      </section>
+      </div>
 
       <p className="sr-only">Loading marketplace</p>
     </div>

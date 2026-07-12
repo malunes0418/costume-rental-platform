@@ -1,6 +1,10 @@
 import type { Request } from "express";
 import { Op, literal } from "sequelize";
 import type { CostumeListQuery } from "../dto";
+import {
+  KNOWN_BROWSE_CATEGORIES,
+  OTHER_CATEGORY
+} from "../constants/costumeCategories";
 import { Costume } from "../models/Costume";
 import { CostumeImage } from "../models/CostumeImage";
 import { Review } from "../models/Review";
@@ -37,7 +41,15 @@ export class CostumeService {
     if (query.q) {
       where.name = { [Op.like]: `%${query.q}%` };
     }
-    if (query.category) where.category = query.category;
+    if (query.category === OTHER_CATEGORY) {
+      where[Op.or] = [
+        { category: OTHER_CATEGORY },
+        { category: { [Op.notIn]: [...KNOWN_BROWSE_CATEGORIES] } },
+        { category: { [Op.is]: null } }
+      ];
+    } else if (query.category) {
+      where.category = query.category;
+    }
     if (query.size) where.size = query.size;
     if (query.gender) where.gender = query.gender;
     if (query.theme) where.theme = query.theme;

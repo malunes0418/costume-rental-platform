@@ -32,6 +32,11 @@ import {
 import { FulfillmentService } from "./FulfillmentService";
 import { HandoffService } from "./HandoffService";
 import { assertInitialPaymentApprovedForVendorReview } from "./reservationPaymentGuards";
+import {
+  isPlatformCategory,
+  OTHER_CATEGORY,
+  PLATFORM_CATEGORIES
+} from "../constants/costumeCategories";
 
 type VendorStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 type BlockingReason =
@@ -166,7 +171,58 @@ export class VendorService {
     return { reservation, ownsItem, isRenter };
   }
 
-  private sanitizeCostumeUpdateInput(data: Record<string, unknown>): Partial<CostumeCreationAttributes> {
+  private normalizeCategoryLabel(value: unknown): string | null {
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value !== "string") {
+      throw new Error("category_label must be a string");
+    }
+    const trimmed = value.trim();
+    return trimmed ? trimmed.slice(0, 100) : null;
+  }
+
+  private applyCategoryFields(
+    data: Record<string, unknown>,
+    sanitized: Partial<CostumeCreationAttributes>,
+    options: { requireCategory: boolean; currentCategory?: string | null }
+  ) {
+    const hasCategory = Object.prototype.hasOwnProperty.call(data, "category");
+    const hasCategoryLabel = Object.prototype.hasOwnProperty.call(data, "category_label");
+
+    if (hasCategory) {
+      if (typeof data.category !== "string" || !data.category.trim()) {
+        throw new Error("Category is required");
+      }
+      const category = data.category.trim();
+      if (!isPlatformCategory(category)) {
+        throw new Error(
+          `Invalid category "${category}". Must be one of: ${PLATFORM_CATEGORIES.join(", ")}`
+        );
+      }
+      sanitized.category = category;
+    } else if (options.requireCategory) {
+      throw new Error("Category is required");
+    }
+
+    const effectiveCategory = sanitized.category ?? options.currentCategory ?? null;
+
+    if (effectiveCategory === OTHER_CATEGORY) {
+      if (hasCategoryLabel) {
+        sanitized.category_label = this.normalizeCategoryLabel(data.category_label);
+      } else if (options.requireCategory) {
+        sanitized.category_label = null;
+      }
+    } else if (hasCategory || (hasCategoryLabel && effectiveCategory)) {
+      // Non-Other platform categories never keep a custom label.
+      sanitized.category_label = null;
+    } else if (hasCategoryLabel && !effectiveCategory) {
+      throw new Error("category_label can only be set when category is Other");
+    }
+  }
+
+  private sanitizeCostumeUpdateInput(
+    data: Record<string, unknown>,
+    options: { requireCategory?: boolean; currentCategory?: string | null } = {}
+  ): Partial<CostumeCreationAttributes> {
     const sanitized: Partial<CostumeCreationAttributes> = {};
     const nullableNumber = (value: unknown) => {
       if (value === undefined) return undefined;
@@ -176,7 +232,6 @@ export class VendorService {
 
     if (typeof data.name === "string") sanitized.name = data.name;
     if (typeof data.description === "string") sanitized.description = data.description;
-    if (typeof data.category === "string") sanitized.category = data.category;
     if (typeof data.size === "string") sanitized.size = data.size;
     if (typeof data.gender === "string") sanitized.gender = data.gender;
     if (typeof data.theme === "string") sanitized.theme = data.theme;
@@ -192,6 +247,11 @@ export class VendorService {
     }
     if (data.deposit_amount !== undefined) sanitized.deposit_amount = Number(data.deposit_amount);
     if (data.stock !== undefined) sanitized.stock = Number(data.stock);
+
+    this.applyCategoryFields(data, sanitized, {
+      requireCategory: options.requireCategory === true,
+      currentCategory: options.currentCategory
+    });
 
     return sanitized;
   }
@@ -221,7 +281,7 @@ export class VendorService {
   }
 
   private sanitizeCostumeCreateInput(data: Record<string, unknown>): CostumeCreationAttributes {
-    const sanitized = this.sanitizeCostumeUpdateInput(data);
+    const sanitized = this.sanitizeCostumeUpdateInput(data, { requireCategory: true });
     if (!sanitized.name) {
       throw new Error("Costume name is required");
     }
@@ -333,7 +393,9 @@ export class VendorService {
     const costume = await Costume.findOne({ where: { id: costumeId, owner_id: vendorId } });
     if (!costume) throw new Error("Costume not found or unauthorized");
 
-    const sanitized = this.sanitizeCostumeUpdateInput(updateData);
+    const sanitized = this.sanitizeCostumeUpdateInput(updateData, {
+      currentCategory: costume.category
+    });
     const normalizedPricing = this.normalizePricingFields(sanitized, {
       pricing_mode: costume.pricing_mode,
       base_price_per_day: costume.base_price_per_day,

@@ -57,6 +57,7 @@ export type VendorCostume = {
   name: string;
   description?: string | null;
   category?: string | null;
+  category_label?: string | null;
   size?: string | null;
   gender?: string | null;
   theme?: string | null;
@@ -86,6 +87,7 @@ export type VendorCostumePayload = {
   name: string;
   description?: string;
   category?: string;
+  category_label?: string | null;
   size?: string;
   gender?: string;
   theme?: string;

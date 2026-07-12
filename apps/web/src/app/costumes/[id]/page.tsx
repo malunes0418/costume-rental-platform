@@ -40,6 +40,10 @@ import {
   type Review
 } from "../../../lib/costumes";
 import { getCostumePricingSummary } from "../../../lib/pricing";
+import {
+  browseCategoryParam,
+  displayCategory,
+} from "@/components/marketplace/constants";
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   maximumFractionDigits: 0
@@ -189,13 +193,14 @@ export default function CostumeDetailPage() {
   }, [user, id]);
 
   useEffect(() => {
-    if (!data?.costume.category) {
+    const filterCategory = browseCategoryParam(data?.costume.category);
+    if (!filterCategory) {
       setRelatedItems([]);
       return;
     }
 
     let cancelled = false;
-    listCostumes({ category: data.costume.category, pageSize: 8 })
+    listCostumes({ category: filterCategory, pageSize: 8 })
       .then((response) => {
         if (cancelled) return;
         setRelatedItems(response.data.filter((costume) => costume.id !== id).slice(0, 4));
@@ -338,8 +343,11 @@ export default function CostumeDetailPage() {
       ? `${fmtMoney(Number(data.costume.package_unused_day_discount))} off per unused day and ${fmtMoney(Number(data.costume.package_extra_day_charge))} per extra day`
       : null;
 
+  const shownCategory = displayCategory(data.costume);
+  const browseCategory = browseCategoryParam(data.costume.category);
+
   const detailPills = [
-    data.costume.category,
+    shownCategory,
     data.costume.theme,
     data.costume.size ? `Size ${data.costume.size}` : null
   ].filter(Boolean) as string[];
@@ -347,7 +355,7 @@ export default function CostumeDetailPage() {
   const callSheetDetails = [
     {
       label: "Category",
-      value: data.costume.category || "Not specified",
+      value: shownCategory || "Not specified",
       icon: costumeCallSheetIcons.category,
       tone: "coral" as const
     },
@@ -371,9 +379,9 @@ export default function CostumeDetailPage() {
     }
   ];
 
-  const metaLine = [data.costume.category, data.costume.size, data.costume.theme].filter(Boolean).join(" · ");
-  const categoryHref = data.costume.category
-    ? `/?category=${encodeURIComponent(data.costume.category)}`
+  const metaLine = [shownCategory, data.costume.size, data.costume.theme].filter(Boolean).join(" · ");
+  const categoryHref = browseCategory
+    ? `/?category=${encodeURIComponent(browseCategory)}`
     : "/";
 
   const pricingNote =
@@ -396,14 +404,14 @@ export default function CostumeDetailPage() {
                 Marketplace
               </Link>
             </li>
-            {data.costume.category ? (
+            {shownCategory ? (
               <>
                 <li aria-hidden="true">
                   <ChevronRightIcon className="size-3" />
                 </li>
                 <li>
                   <Link href={categoryHref} className="transition-colors hover:text-primary">
-                    {data.costume.category}
+                    {shownCategory}
                   </Link>
                 </li>
               </>
@@ -423,7 +431,7 @@ export default function CostumeDetailPage() {
               images={galleryImages}
               selectedIndex={selectedImageIndex}
               onSelect={setSelectedImageIndex}
-              category={data.costume.category}
+              category={shownCategory}
               costumeId={id}
               ownerId={data.costume.owner_id}
               isWishlisted={isWishlisted}
@@ -503,12 +511,12 @@ export default function CostumeDetailPage() {
                 headingId="costume-related"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  {data.costume.category ? (
+                  {shownCategory ? (
                     <Link
                       href={categoryHref}
                       className="text-xs font-semibold uppercase tracking-wider text-primary transition-colors hover:text-primary/80"
                     >
-                      More in {data.costume.category}
+                      More in {shownCategory}
                     </Link>
                   ) : (
                     <span />

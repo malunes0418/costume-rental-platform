@@ -94,6 +94,17 @@ registry.registerPath({
           schema: z.object({
             name: z.string(),
             description: z.string().optional(),
+            category: z.enum([
+              "Superheroes",
+              "Horror & Halloween",
+              "Historical & Fantasy",
+              "Anime & Gaming",
+              "Movies & TV",
+              "Theatrical",
+              "Sci-Fi",
+              "Other"
+            ]),
+            category_label: z.string().max(100).nullable().optional(),
             pricing_mode: z.enum(["PER_DAY", "PACKAGE"]).optional(),
             base_price_per_day: z.number().nullable().optional(),
             package_price: z.number().nullable().optional(),
@@ -119,7 +130,41 @@ registry.registerPath({
   tags: ['Vendor'],
   summary: 'Update costume',
   security: [{ bearerAuth: [] }],
-  request: { params: z.object({ id: z.string() }) },
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            name: z.string().optional(),
+            description: z.string().optional(),
+            category: z.enum([
+              "Superheroes",
+              "Horror & Halloween",
+              "Historical & Fantasy",
+              "Anime & Gaming",
+              "Movies & TV",
+              "Theatrical",
+              "Sci-Fi",
+              "Other"
+            ]).optional(),
+            category_label: z.string().max(100).nullable().optional(),
+            pricing_mode: z.enum(["PER_DAY", "PACKAGE"]).optional(),
+            base_price_per_day: z.number().nullable().optional(),
+            package_price: z.number().nullable().optional(),
+            package_included_days: z.number().nullable().optional(),
+            package_unused_day_discount: z.number().nullable().optional(),
+            package_extra_day_charge: z.number().nullable().optional(),
+            images: z.array(z.string()).optional(),
+            fulfillment_override: z.object({
+              outbound_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"]),
+              return_mode: z.enum(["PICKUP", "DELIVERY", "BOTH"])
+            }).nullable().optional()
+          }),
+        },
+      },
+    },
+  },
   responses: { 200: { description: 'Costume updated' } },
 });
 

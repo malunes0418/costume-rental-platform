@@ -7,6 +7,7 @@ export interface CostumeAttributes {
   name: string;
   description?: string | null;
   category?: string | null;
+  category_label?: string | null;
   size?: string | null;
   gender?: string | null;
   theme?: string | null;
@@ -46,6 +47,7 @@ export class Costume extends Model<CostumeAttributes, CostumeCreationAttributes>
   public name!: string;
   public description!: string | null;
   public category!: string | null;
+  public category_label!: string | null;
   public size!: string | null;
   public gender!: string | null;
   public theme!: string | null;
@@ -70,6 +72,7 @@ Costume.init(
     name: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     category: { type: DataTypes.STRING(100), allowNull: true },
+    category_label: { type: DataTypes.STRING(100), allowNull: true },
     size: { type: DataTypes.STRING(50), allowNull: true },
     gender: { type: DataTypes.STRING(50), allowNull: true },
     theme: { type: DataTypes.STRING(100), allowNull: true },

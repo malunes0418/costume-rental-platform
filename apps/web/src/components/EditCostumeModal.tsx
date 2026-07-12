@@ -13,6 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  OTHER_CATEGORY,
+  PLATFORM_CATEGORIES,
+  isPlatformCategory,
+} from "@/components/marketplace/constants";
 import { updateVendorCostume } from "@/lib/vendor";
 import type { PricingMode } from "@/lib/pricing";
 import type { CostumeFulfillmentOverrideInput, VendorFulfillmentSettings } from "@/lib/fulfillment";
@@ -61,6 +73,7 @@ export function EditCostumeModal({ costume, onClose, onSuccess, vendorSettings }
   const [deposit, setDeposit] = useState("");
   const [size, setSize] = useState("");
   const [category, setCategory] = useState("");
+  const [categoryLabel, setCategoryLabel] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [outboundOverride, setOutboundOverride] = useState<OverrideChoice>("INHERIT");
   const [returnOverride, setReturnOverride] = useState<OverrideChoice>("INHERIT");
@@ -77,7 +90,14 @@ export function EditCostumeModal({ costume, onClose, onSuccess, vendorSettings }
       setExtraDayCharge(costume.package_extra_day_charge?.toString() || "");
       setDeposit(costume.deposit_amount?.toString() || "");
       setSize(costume.size || "");
-      setCategory(costume.category || "");
+      const storedCategory = costume.category || "";
+      if (storedCategory && !isPlatformCategory(storedCategory)) {
+        setCategory(OTHER_CATEGORY);
+        setCategoryLabel(costume.category_label || storedCategory);
+      } else {
+        setCategory(storedCategory);
+        setCategoryLabel(costume.category_label || "");
+      }
       setOutboundOverride(costume.fulfillmentOverride?.outbound_mode || "INHERIT");
       setReturnOverride(costume.fulfillmentOverride?.return_mode || "INHERIT");
 
@@ -123,6 +143,11 @@ export function EditCostumeModal({ costume, onClose, onSuccess, vendorSettings }
     e.preventDefault();
     if (!user || !costume) return;
 
+    if (!category) {
+      toast.error("Please select a category.");
+      return;
+    }
+
     if (images.length === 0) {
       toast.error("Please add at least one image.");
       return;
@@ -142,6 +167,8 @@ export function EditCostumeModal({ costume, onClose, onSuccess, vendorSettings }
         deposit_amount: parseFloat(deposit) || 0,
         size,
         category,
+        category_label:
+          category === OTHER_CATEGORY ? categoryLabel.trim() || null : null,
         images,
         fulfillment_override: buildOverridePayload(vendorSettings, outboundOverride, returnOverride)
       });
@@ -187,14 +214,44 @@ export function EditCostumeModal({ costume, onClose, onSuccess, vendorSettings }
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-category">Category</Label>
-              <Input
-                id="edit-category"
-                placeholder="e.g. Historical, Fantasy"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
+              <Label htmlFor="edit-category">
+                Category <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={category || undefined}
+                onValueChange={(value) => {
+                  setCategory(value);
+                  if (value !== OTHER_CATEGORY) setCategoryLabel("");
+                }}
+              >
+                <SelectTrigger id="edit-category" className="h-11 w-full rounded-sm">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATFORM_CATEGORIES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {category === OTHER_CATEGORY ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="edit-category-label">Custom label</Label>
+                <Input
+                  id="edit-category-label"
+                  placeholder="Optional display label (e.g. Cosplay mashup)"
+                  value={categoryLabel}
+                  onChange={(e) => setCategoryLabel(e.target.value)}
+                  maxLength={100}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown to shoppers; browse filtering still uses Other.
+                </p>
+              </div>
+            ) : null}
 
             <div className="space-y-3 md:col-span-2">
               <Label>Pricing Mode <span className="text-destructive">*</span></Label>
