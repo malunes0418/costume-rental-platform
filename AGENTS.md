@@ -55,3 +55,13 @@ For comprehensive documentation, refer to:
 - **Frontend:** Next.js App Router, Tailwind CSS, functional components with Hooks.
 - **Backend:** Express, clean architecture (Routes -> Controllers -> Services), Sequelize ORM.
 - **Auth:** JWT and Google OAuth 2.0 via Passport.js.
+
+## Cursor Cloud specific instructions
+
+Services (start everything from the repo root with `npm run dev`, which runs turbo): the **backend** (Express/TS) serves on `http://localhost:4000` (Swagger at `/api-docs`) and the **web** app (Next.js) serves on `http://localhost:3000`. `packages/*` is declared in workspaces but is empty; only `apps/backend` and `apps/web` exist. There is no mobile/Expo app despite mentions in some docs.
+
+- **Database is MySQL and must be running before the backend starts.** On boot `apps/backend/src/server.ts` calls `sequelize.authenticate()` and auto-applies pending migrations via Umzug, so the backend will refuse to listen if MySQL is unreachable. MySQL is installed via apt (not Docker); start it with `sudo service mysql start` (there is no systemd; `service` works). The DB is `costume_rental` and the `root` user uses `mysql_native_password` with an empty password over TCP, matching `apps/backend/.env`.
+- **Env files are required and gitignored** (so they persist in the VM snapshot, not in git): `apps/backend/.env` (copied from `apps/backend/.env.sample`) and `apps/web/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:4000`). The backend throws at startup if any required var is missing; the sample's placeholder OAuth/EMAIL values are enough to boot (email/password login works without real Google/SMTP creds).
+- **Migrations/seed:** migrations run automatically on backend startup, or manually with `npm --workspace backend run migrate`. Load demo data (no API keys needed — uses the committed `seed_scripts/seed.sql`) with `npm --workspace backend run seed:import`, then verify with `npm --workspace backend run seed:verify`. Seed logins: `admin@admin.com` / `admin` (ADMIN), and `customer1@example.com` / `vendor1@example.com` / `password123`.
+- **Tests:** `npm --workspace backend run test` (Vitest, unit tests only — no DB or running server required). The web app has no test runner.
+- **Lint:** `npm run lint` (turbo) only runs the web app's ESLint (backend has no `lint` script). It currently fails on pre-existing ESLint errors in `apps/web`; this is existing code, not an environment problem.
