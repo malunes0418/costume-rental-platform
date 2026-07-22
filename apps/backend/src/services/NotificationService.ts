@@ -4,6 +4,15 @@ import { User } from "../models/User";
 import { mailer } from "../config/mailer";
 
 export class NotificationService {
+  /** Best-effort email — never fail the in-app notification path (e.g. webhooks). */
+  private async sendEmail(to: string, subject: string, text: string): Promise<void> {
+    try {
+      await mailer.sendMail({ to, subject, text });
+    } catch (err) {
+      console.error("[NotificationService] Email send failed:", err);
+    }
+  }
+
   async create(userId: number, type: string, title: string, message: string) {
     const notification = await Notification.create({
       user_id: userId,
@@ -13,11 +22,7 @@ export class NotificationService {
     });
     const user = await User.findByPk(userId);
     if (user && user.email) {
-      await mailer.sendMail({
-        to: user.email,
-        subject: title,
-        text: message
-      });
+      await this.sendEmail(user.email, title, message);
     }
     return notification;
   }
@@ -34,11 +39,7 @@ export class NotificationService {
       });
       notifications.push(n);
       if (admin.email) {
-        await mailer.sendMail({
-          to: admin.email,
-          subject: title,
-          text: message
-        });
+        await this.sendEmail(admin.email, title, message);
       }
     }
     return notifications;
