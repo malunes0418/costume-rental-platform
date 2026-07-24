@@ -7,48 +7,35 @@
 - **Undo migrations:** `npm run migrate:undo` or `npm run migrate:undo:all`
 - **Build production apps:** `npm run build`
 
-## 🧠 Engineering Team Skills
+## 🧠 Project Agent Skills
 
-This repository uses a comprehensive suite of Engineering Team Skills to support development. These skills provide specialized tools, reference guides, and automation scripts for 18 different engineering roles tailored to our tech stack (Next.js, Node.js, Express, Sequelize, React Native, etc.).
+Project skills live in `.cursor/skills/` so Cursor Cloud Agents (and local Cursor) can discover them. Each skill is a folder with a `SKILL.md`.
 
-The skills are stored locally in `.skills/engineering-team/`.
+### Included packs
 
-### Installation
+- **Superpowers:** `using-superpowers`, `brainstorming`, `systematic-debugging`, `writing-plans`, `executing-plans`, `test-driven-development`, and related workflow skills
+- **Engineering team:** role skills for architect/frontend/backend/fullstack/QA/devops/security/cloud/data/ML, plus `code-reviewer`, `tdd-guide`, `tech-stack-evaluator`, `a11y-audit`, etc.
+- **Impeccable:** frontend design craft (`impeccable`) for distinctive UI work
 
-If you need to install or update these skills globally for your AI agent (like Claude Code, Cursor, etc.), run:
-
-```bash
-# Install all engineering skills
-npx ai-agent-skills install alirezarezvani/claude-skills/engineering-team
-
-# Install to Claude Code specifically
-npx ai-agent-skills install alirezarezvani/claude-skills/engineering-team --agent claude
-```
-
-### Overview of Available Skills
+### Overview of engineering skills
 
 - **Core Engineering:** `senior-architect`, `senior-frontend`, `senior-backend`, `senior-fullstack`, `senior-qa`, `senior-devops`, `senior-secops`, `code-reviewer`, `senior-security`
 - **Cloud & Enterprise:** `aws-solution-architect`, `ms365-tenant-manager`, `azure-cloud-architect`, `gcp-cloud-architect`
 - **AI/ML/Data:** `senior-data-scientist`, `senior-data-engineer`, `senior-ml-engineer`, `senior-prompt-engineer`, `senior-computer-vision`
 - **Security:** `adversarial-reviewer`, `threat-detection`, `incident-response`, `cloud-security`, `red-team`, `ai-security`
-- **Other specialized skills:** `epic-design`, `a11y-audit`, `tdd-guide`, `tech-stack-evaluator`
+- **Other specialized skills:** `epic-design`, `a11y-audit`, `tdd-guide`, `tech-stack-evaluator`, `impeccable`
 
-### How to Use the Local Skills
+### How to use
 
 Each skill typically contains:
-1. `SKILL.md` - Main documentation and usage instructions.
-2. `references/` - Detailed reference guides and best practices.
-3. `scripts/` - Python automation scripts (e.g., project scaffolding, analysis).
+1. `SKILL.md` — main instructions (auto-discovered by Cursor)
+2. `references/` or `reference/` — detailed guides
+3. `scripts/` — optional automation helpers
 
-To run an automation script, use Python. For example, to run the code quality analyzer:
+Example:
 ```bash
-python .skills/engineering-team/senior-fullstack/scripts/code_quality_analyzer.py ./
+python .cursor/skills/senior-fullstack/scripts/code_quality_analyzer.py ./
 ```
-
-For comprehensive documentation, refer to:
-- `.skills/engineering-team/README.md`
-- `.skills/engineering-team/START_HERE.md`
-- `.skills/engineering-team/CLAUDE.md`
 
 ## 📏 General Project Guidelines
 - **TypeScript:** Use strict mode and provide explicit types for DTOs and models.
